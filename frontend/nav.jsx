@@ -16,7 +16,7 @@
   // App version shown in the sidebar footer (below Log Out).
   // APP_BUILD is bumped automatically by ./push.sh on each push to GitHub —
   // do NOT edit it by hand (the marker line below is matched by sed).
-  const APP_BUILD = 2; // build:auto
+  const APP_BUILD = 3; // build:auto
   const APP_VERSION = 'v1.0.' + APP_BUILD;
 
   // ── Persistent grid/list "View" selection, shared across the whole app ──────
@@ -181,7 +181,7 @@
           </div>
           <div className="sidebar-section bottom">
             {NAV_BOTTOM.map(n => <SbItem key={n.id} item={n} />)}
-            <div className="sidebar-version" id="sidebar-version" title={'Hyper Ledger ' + APP_VERSION}>Hyper Ledger {APP_VERSION}</div>
+            <div className="sidebar-version" id="sidebar-version" title={'Hyper Ledger ' + APP_VERSION}><span className="sidebar-version-name">Hyper Ledger </span>{APP_VERSION}</div>
           </div>
         </div>
       </nav>

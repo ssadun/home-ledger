@@ -5,7 +5,7 @@
  *   - other GET (same/cross-origin static) → stale-while-revalidate
  * Bump CACHE_VERSION whenever the precache list or strategy changes.
  */
-const CACHE_VERSION = 'hl-v1';
+const CACHE_VERSION = 'hl-v1.0.3'; // build:auto — bumped by ./push.sh on each push
 const PRECACHE = [
   '/Login.html',
   '/Dashboard.html',
