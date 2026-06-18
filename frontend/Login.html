@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hyper Ledger — Sign In</title>
+<link rel="icon" href="assets/icon.svg" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0d0f14" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Hyper Ledger" />
+<script src="assets/pwa.js" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="auth.js"></script>
+<link rel="stylesheet" href="styles/login.css" />
+</head>
+<body>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+
+  <div class="login-page">
+    <div class="login-card">
+
+      <!-- Logo -->
+      <div class="login-logo">
+        <div class="login-ico" id="app-logo">
+          <i data-lucide="pyramid" style="width:52px;height:52px;stroke:var(--accent);stroke-width:1.5;fill:none;"></i>
+        </div>
+        <div class="login-name">Hyper <span>Ledger</span></div>
+        <div class="login-sub">Personal Finance</div>
+      
+      </div>
+
+      <div class="login-divider"></div>
+
+      <!-- Form -->
+      <form id="loginForm" novalidate>
+        <div class="login-field">
+          <label>Email</label>
+          <div class="login-input-wrap">
+            <span class="login-input-ico">
+              <i data-lucide="mail" style="width:15px;height:15px;"></i>
+            </span>
+            <input id="username" type="email" placeholder="Enter email address"
+              autocomplete="email" required />
+          </div>
+        </div>
+
+        <div class="login-field">
+          <label>Password</label>
+          <div class="login-input-wrap">
+            <span class="login-input-ico">
+              <i data-lucide="lock" style="width:15px;height:15px;"></i>
+            </span>
+            <input id="password" type="password" placeholder="Enter password"
+              autocomplete="current-password" required />
+          </div>
+        </div>
+
+        <div class="login-row">
+          <label class="login-check">
+            <input type="checkbox" checked id="remember" />
+            Remember me
+          </label>
+        </div>
+
+        <button type="submit" class="login-submit" id="submitBtn">
+          <i data-lucide="log-in" style="width:16px;height:16px;"></i>
+          Sign In
+        </button>
+        <div id="loginError" style="display:none"></div>
+      </form>
+
+
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // If already logged in, skip to Dashboard
+    if (window.HL_AUTH && window.HL_AUTH.getToken()) {
+      window.location.href = 'Dashboard.html';
+    }
+
+    const form  = document.getElementById('loginForm');
+    const btn   = document.getElementById('submitBtn');
+    const errEl = document.getElementById('loginError');
+    const userEl = document.getElementById('username');
+    const passEl = document.getElementById('password');
+
+    function showError(msg) {
+      errEl.innerHTML = '<i data-lucide="alert-triangle" style="width:13px;height:13px;flex-shrink:0"></i>' + msg;
+      errEl.className = 'login-error';
+      errEl.style.display = 'flex';
+      lucide.createIcons();
+      void errEl.offsetWidth;
+      errEl.style.animation = 'none';
+      requestAnimationFrame(() => { errEl.style.animation = ''; });
+    }
+
+    function clearError() { errEl.style.display = 'none'; }
+
+    function resetBtn() {
+      btn.classList.remove('loading');
+      btn.innerHTML = '<i data-lucide="log-in" style="width:16px;height:16px;"></i> Sign In';
+      lucide.createIcons();
+    }
+
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      clearError();
+
+      const user = userEl.value.trim();
+      const pass = passEl.value;
+
+      if (!user) { showError('Please enter your username.'); userEl.focus(); return; }
+      if (!pass) { showError('Please enter your password.'); passEl.focus(); return; }
+
+      btn.classList.add('loading');
+      btn.innerHTML = '<span class="spin"><i data-lucide="loader-2" style="width:16px;height:16px;"></i></span> Signing In…';
+      lucide.createIcons();
+
+      const result = await window.HL_AUTH.login(user, pass);
+      if (result.ok) {
+        window.location.href = 'Dashboard.html';
+      } else {
+        resetBtn();
+        showError(result.error || 'Sign in failed. Please try again.');
+      }
+    });
+
+    userEl.addEventListener('input', clearError);
+    passEl.addEventListener('input', clearError);
+  </script>
+</body>
+</html>

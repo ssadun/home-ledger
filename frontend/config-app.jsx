@@ -1,0 +1,1084 @@
+// config-app.jsx — Hyper Ledger Configuration Screen
+(function () {
+  const Icon = window.Icon;
+
+  // ── DateInput — flatpickr wrapper, dark theme, .date-input-wrap shell ────
+  // Project rule: every date field renders through this (never a raw
+  // <input type="date">) so the calendar styling + .date-input-wrap markup
+  // stay consistent across pages. Reuses window.DateInput when controls.jsx
+  // is present, otherwise this self-contained copy keeps config pages light.
+
+  // Swaps flatpickr's year spinner for a dropdown (month dropdown is built-in).
+  // Idempotent + shared via window so it's defined once across script bundles.
+  if (!window.HL_enhanceFpYear) {
+    window.HL_enhanceFpYear = function (fp) {
+      const head = fp.calendarContainer &&
+        fp.calendarContainer.querySelector('.flatpickr-current-month');
+      const numWrap = head && head.querySelector('.numInputWrapper');
+      if (!numWrap || numWrap.dataset.hlYear) return;
+      const today = new Date();
+      const minYear = fp.config.minDate ? fp.config.minDate.getFullYear() : today.getFullYear() - 80;
+      let maxYear = fp.config.maxDate ? fp.config.maxDate.getFullYear() : today.getFullYear() + 10;
+      if (maxYear < minYear) maxYear = minYear;
+      const sel = document.createElement('select');
+      sel.className = 'flatpickr-yearDropdown-years';
+      sel.setAttribute('aria-label', 'Year');
+      for (let y = maxYear; y >= minYear; y--) {
+        const o = document.createElement('option');
+        o.value = String(y);
+        o.textContent = String(y);
+        sel.appendChild(o);
+      }
+      sel.value = String(fp.currentYear);
+      sel.addEventListener('change', (e) => fp.changeYear(parseInt(e.target.value, 10)));
+      numWrap.dataset.hlYear = '1';
+      numWrap.style.display = 'none';
+      numWrap.parentNode.insertBefore(sel, numWrap.nextSibling);
+      fp._hlYearSelect = sel;
+    };
+  }
+
+  function DateInput({ value, onChange, min, max, className, placeholder, dataTable, dataCol }) {
+    const inputRef = React.useRef(null);
+    const wrapRef  = React.useRef(null);
+    const fpRef    = React.useRef(null);
+
+    function syncWidth(fp) {
+      if (!wrapRef.current || !fp.calendarContainer) return;
+      const w = wrapRef.current.getBoundingClientRect().width;
+      if (w > 0) fp.calendarContainer.style.width = w + 'px';
+    }
+
+    React.useEffect(() => {
+      if (!inputRef.current || typeof flatpickr === 'undefined') return;
+      fpRef.current = flatpickr(inputRef.current, {
+        dateFormat:    'Y-m-d',
+        defaultDate:   value || null,
+        minDate:       min   || null,
+        maxDate:       max   || null,
+        disableMobile: true,
+        monthSelectorType: 'dropdown',
+        onReady: (_, __, fp) => { syncWidth(fp); window.HL_enhanceFpYear(fp); },
+        onOpen:  (_, __, fp) => syncWidth(fp),
+        onYearChange: (_, __, fp) => { if (fp._hlYearSelect) fp._hlYearSelect.value = String(fp.currentYear); },
+        onChange: (_, dateStr) => onChange({ target: { value: dateStr } }),
+      });
+      return () => { if (fpRef.current) { fpRef.current.destroy(); fpRef.current = null; } };
+    }, []); // eslint-disable-line
+
+    React.useEffect(() => {
+      if (!fpRef.current) return;
+      const cur = fpRef.current.selectedDates[0]
+        ? fpRef.current.formatDate(fpRef.current.selectedDates[0], 'Y-m-d') : '';
+      if (value !== cur) fpRef.current.setDate(value || null, false);
+    }, [value]);
+
+    React.useEffect(() => { if (fpRef.current) fpRef.current.set('minDate', min || null); }, [min]);
+    React.useEffect(() => { if (fpRef.current) fpRef.current.set('maxDate', max || null); }, [max]);
+
+    return (
+      <div ref={wrapRef} className="date-input-wrap">
+        <input
+          ref={inputRef}
+          type="text"
+          className={className || 'field-input'}
+          placeholder={placeholder || 'YYYY-MM-DD'}
+          data-table={dataTable}
+          data-col={dataCol}
+          readOnly
+        />
+        <span className="date-input-icon"><Icon name="calendar" size={14} /></span>
+      </div>
+    );
+  }
+
+  const TWEAK_DEFAULTS = { accent: '#4f8ef7' };
+
+  const { Sidebar, NAV_CFG_SUB } = window.HL_NAV;
+  const CFG_SECTION = window.CONFIG_SECTION || null;
+  const SYM = (window.LEDGER_FMT && window.LEDGER_FMT.SYM) || { TRY: '₺', USD: '$', EUR: '€' };
+
+  // ── Rate source (TCMB = Central Bank of Turkey official bulletin, vs. a manual / market rate) ──
+  const SOURCE_OPTIONS = [
+    { value: 'TCMB',   label: 'TCMB — Central Bank Of Turkey' },
+    { value: 'Market', label: 'Market — Manual / Market Rate' },
+  ];
+  // Latest official TCMB Döviz Satış (sell) bulletin we can "retrieve". 1 unit → TRY.
+  const TCMB_BULLETIN = '2026/108 (15.06.2026)';
+  const TCMB_RATES = {
+    USD: 46.2765, EUR: 53.7123, GBP: 62.8410, CHF: 57.4820,
+    JPY: 0.3192,  CAD: 33.8910, AUD: 30.1240, SAR: 12.3380,
+  };
+  const todayYMD = () => {
+    const t = (window.LEDGER && window.LEDGER.TODAY) || new Date();
+    const p = n => String(n).padStart(2, '0');
+    return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
+  };
+
+  // Source pill — gold landmark for TCMB, sky trend glyph for a market/manual rate.
+  function SourceBadge({ source }) {
+    if (!source) return <span style={{ color: 'var(--muted)' }}>—</span>;
+    const tcmb = source === 'TCMB';
+    return (
+      <span className={'cfg-src-badge ' + (tcmb ? 'src-tcmb' : 'src-market')}>
+        <Icon name={tcmb ? 'landmark' : 'trending-up'} size={11} />{source}
+      </span>
+    );
+  }
+
+  // ── Color palette ────────────────────────────────────────────────────────
+  const COLOR_OPTIONS = [
+    { var: 'var(--accent)',   hex: '#4f8ef7', label: 'Blue' },
+    { var: 'var(--green)',    hex: '#22c55e', label: 'Green' },
+    { var: 'var(--emerald)',  hex: '#34d399', label: 'Emerald' },
+    { var: 'var(--mint)',     hex: '#4ade80', label: 'Mint' },
+    { var: 'var(--lime)',     hex: '#bef264', label: 'Lime' },
+    { var: 'var(--yellow)',   hex: '#eab308', label: 'Yellow' },
+    { var: 'var(--orange)',   hex: '#f97316', label: 'Orange' },
+    { var: 'var(--coral)',    hex: '#fb7185', label: 'Coral' },
+    { var: 'var(--red)',      hex: '#ef4444', label: 'Red' },
+    { var: 'var(--pink)',     hex: '#ec4899', label: 'Pink' },
+    { var: 'var(--rose)',     hex: '#f472b6', label: 'Rose' },
+    { var: 'var(--fuchsia)',  hex: '#d946ef', label: 'Fuchsia' },
+    { var: 'var(--lavender)', hex: '#8b5cf6', label: 'Lavender' },
+    { var: 'var(--sky)',      hex: '#38bdf8', label: 'Sky' },
+    { var: 'var(--steel)',    hex: '#94a3b8', label: 'Steel' },
+    { var: 'var(--gold)',     hex: '#fbbf24', label: 'Gold' },
+  ];
+
+  // ── Sample currency rate history ────────────────────────────────────────
+  const CURRENCY_SAMPLE_HISTORY = {
+    USD: [
+      { date: '2026-06-14', toTRY: 46.1020, toUSD: 1.00, source: 'Market', note: 'Manual entry (market close)' },
+      { date: '2026-06-06', toTRY: 39.20,   toUSD: 1.00, source: 'TCMB',   note: 'TCMB 2026/101' },
+      { date: '2026-05-01', toTRY: 38.50,   toUSD: 1.00, source: 'TCMB',   note: 'TCMB 2026/82' },
+      { date: '2026-04-01', toTRY: 37.80,   toUSD: 1.00, source: 'TCMB',   note: 'TCMB 2026/63' },
+      { date: '2026-03-01', toTRY: 36.90,   toUSD: 1.00, source: 'TCMB',   note: 'TCMB 2026/41' },
+    ],
+    EUR: [
+      { date: '2026-06-15', toTRY: 53.7123, toUSD: 1.16, source: 'TCMB',   note: 'TCMB 2026/108 (Döviz Satış)' },
+      { date: '2026-06-06', toTRY: 42.60,   toUSD: 1.09, source: 'TCMB',   note: 'TCMB 2026/101' },
+      { date: '2026-05-01', toTRY: 41.80,   toUSD: 1.09, source: 'TCMB',   note: 'TCMB 2026/82' },
+      { date: '2026-04-01', toTRY: 40.95,   toUSD: 1.08, source: 'TCMB',   note: 'TCMB 2026/63' },
+    ],
+  };
+
+  // ── Currency history modal ───────────────────────────────────────────────
+  function CurrencyHistoryModal({ currency, onSave, onClose }) {
+    const { grp } = window.LEDGER_FMT || { grp: (v) => v };
+    const [date, setDate] = React.useState(todayYMD());
+    const [toTRY, setToTRY] = React.useState('');
+    const [toUSD, setToUSD] = React.useState('');
+    const [source, setSource] = React.useState('TCMB');
+    const [note, setNote] = React.useState('');
+    const [err, setErr] = React.useState('');
+
+    const sorted = [...(currency.history || [])].sort((a, b) => b.date.localeCompare(a.date));
+
+    function submit(e) {
+      e.preventDefault();
+      if (!date) { setErr('Date is required.'); return; }
+      if (!toTRY || isNaN(parseFloat(toTRY))) { setErr('TRY rate is required.'); return; }
+      setErr('');
+      const entry = { date, toTRY: parseFloat(toTRY), toUSD: toUSD ? parseFloat(toUSD) : currency.toUSD, source, note };
+      const newHistory = [...(currency.history || []).filter(h => h.date !== date), entry]
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const latest = newHistory[0];
+      onSave({ ...currency, history: newHistory, toTRY: latest.toTRY, toUSD: latest.toUSD, asOf: latest.date, source: latest.source });
+      setToTRY(''); setToUSD(''); setNote(''); setSource('TCMB'); setDate(new Date().toISOString().slice(0, 10));
+    }
+
+    return (
+      <div className="backdrop" onMouseDown={e => { if (e.target.classList.contains('backdrop')) onClose(); }}>
+        <div className="modal cfg-modal cfg-hist-modal">
+          <div className="modal-head">
+            <span className="modal-title">
+              <Icon name="clock" size={15} color="var(--gold)" />
+              Exchange Rate History — {currency.code}
+            </span>
+            <button className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
+          </div>
+          <div className="cfg-hist-body">
+            {/* Add new rate form */}
+            <form onSubmit={submit} className="cfg-hist-form">
+              <span className="cfg-hist-form-title"><Icon name="plus-circle" size={13} />Add New Rate</span>
+              <div className="cfg-hist-fields">
+                <div className="form-field">
+                  <span className="field-label">Currency Code</span>
+                  <input className="field-input" type="text" value={currency.code} readOnly
+                    data-table="currency_rates" data-col="currency_code" />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Date</span>
+                  <input className="field-input" type="text" value={date} readOnly
+                    title="New rates are always recorded with today's date"
+                    data-table="currency_rates" data-col="date" />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Rate → TRY *</span>
+                  <input className="field-input" type="text" inputMode="decimal" placeholder="e.g. 39.50"
+                    value={toTRY} onChange={e => setToTRY(e.target.value)}
+                    data-table="currency_rates" data-col="rate_try" />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Rate → USD</span>
+                  <input className="field-input" type="text" inputMode="decimal" placeholder="e.g. 1.09"
+                    value={toUSD} onChange={e => setToUSD(e.target.value)}
+                    data-table="currency_rates" data-col="rate_usd" />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Source</span>
+                  <select className="field-input" value={source} onChange={e => setSource(e.target.value)}
+                    data-table="currency_rates" data-col="source">
+                    <option value="TCMB">TCMB</option>
+                    <option value="Market">Market</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Note</span>
+                  <input className="field-input" type="text" placeholder="Optional note"
+                    value={note} onChange={e => setNote(e.target.value)}
+                    data-table="currency_rates" data-col="note" />
+                </div>
+              </div>
+              {err && <span className="cfg-hist-err"><Icon name="alert-triangle" size={12} />{err}</span>}
+              <div className="cfg-hist-form-foot">
+                <button type="submit" className="amb ok"><Icon name="plus" size={14} />Add Rate</button>
+              </div>
+            </form>
+            {/* History table */}
+            <div className="cfg-hist-table-wrap">
+              <span className="cfg-hist-section-title"><Icon name="history" size={13} />Rate History</span>
+              {sorted.length === 0 ? (
+                <div className="cfg-empty" style={{ padding: '20px 0' }}>
+                  <Icon name="inbox" size={24} color="var(--muted)" />
+                  <span>No history yet.</span>
+                </div>
+              ) : (
+                <table className="ledger-table cfg-table cfg-hist-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Rate → TRY</th>
+                      <th>Rate → USD</th>
+                      <th>Source</th>
+                      <th>Note</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map((h, i) => (
+                      <tr key={h.date} className={'cfg-row' + (i === 0 ? ' cfg-hist-current' : '')}>
+                        <td data-label="Date">{h.date}</td>
+                        <td data-label="Rate → TRY"><b>{h.toTRY}</b></td>
+                        <td data-label="Rate → USD">{h.toUSD ?? '—'}</td>
+                        <td data-label="Source"><SourceBadge source={h.source} /></td>
+                        <td data-label="Note" style={{ color: 'var(--muted)' }}>{h.note || '—'}</td>
+                        <td>
+                          {i === 0 && <span className="cfg-badge cfg-badge-income" style={{ fontSize: '10px' }}>Current</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+          <div className="modal-foot">
+            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Retrieve from TCMB modal ───────────────────────────────────────────────
+  //    Simulates pulling the latest official TCMB bulletin, previews the diff vs.
+  //    the stored rates, and on Apply stamps each currency source=TCMB + today's date
+  //    and appends a history entry.
+  function TcmbRetrieveModal({ currencies, onApply, onClose }) {
+    const today = todayYMD();
+    const rows = (currencies || [])
+      .filter(c => c.code !== 'TRY')
+      .map(c => {
+        const off = TCMB_RATES[c.code];
+        const available = off != null;
+        const newTRY = available ? off : c.toTRY;
+        const delta = available ? +(newTRY - (c.toTRY || 0)).toFixed(4) : 0;
+        return { code: c.code, sym: SYM[c.code] || c.code, available, curTRY: c.toTRY, newTRY, delta, src: c.source };
+      });
+    const matched = rows.filter(r => r.available);
+    const changed = matched.filter(r => Math.abs(r.delta) > 0.00005).length;
+
+    function apply() {
+      const updated = (currencies || []).map(c => {
+        if (c.code === 'TRY') return c;
+        const off = TCMB_RATES[c.code];
+        if (off == null) return c; // not on this bulletin — leave untouched
+        const newUSD = +(off / TCMB_RATES.USD).toFixed(4);
+        const entry = { date: today, toTRY: off, toUSD: newUSD, source: 'TCMB', note: 'TCMB bulletin ' + TCMB_BULLETIN };
+        const newHistory = [...(c.history || []).filter(h => h.date !== today), entry]
+          .sort((a, b) => b.date.localeCompare(a.date));
+        return { ...c, toTRY: off, toUSD: newUSD, asOf: today, source: 'TCMB', history: newHistory };
+      });
+      onApply(updated);
+    }
+
+    return (
+      <div className="backdrop" onMouseDown={e => { if (e.target.classList.contains('backdrop')) onClose(); }}>
+        <div className="modal cfg-modal cfg-tcmb-modal">
+          <div className="modal-head">
+            <span className="modal-title">
+              <Icon name="refresh-cw" size={15} color="var(--gold)" />
+              Retrieve From TCMB
+            </span>
+            <button className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
+          </div>
+          <div className="cfg-tcmb-body">
+            <div className="cfg-tcmb-banner">
+              <Icon name="landmark" size={15} />
+              <div className="cfg-tcmb-banner-txt">
+                <span className="cfg-tcmb-banner-title">TCMB Döviz Satış · Bulletin {TCMB_BULLETIN}</span>
+                <span className="cfg-tcmb-banner-sub">{matched.length} currencies matched · {changed} will change · effective {today}</span>
+              </div>
+            </div>
+            <table className="ledger-table cfg-table cfg-hist-table cfg-tcmb-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th className="num">Current → TRY</th>
+                  <th className="num">TCMB → TRY</th>
+                  <th className="num">Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (
+                  <tr key={r.code} className="cfg-row">
+                    <td data-label="Code"><span className="cur-sym" style={{ fontSize: '14px', marginRight: '6px' }}>{r.sym}</span>{r.code}</td>
+                    <td data-label="Current → TRY" className="num">₺{String(r.curTRY)}</td>
+                    <td data-label="TCMB → TRY" className="num">{r.available ? '₺' + String(r.newTRY) : <span style={{ color: 'var(--muted)' }}>Not on bulletin</span>}</td>
+                    <td data-label="Change" className="num">
+                      {!r.available ? <span style={{ color: 'var(--muted)' }}>—</span>
+                        : Math.abs(r.delta) < 0.00005 ? <span className="cfg-tcmb-delta flat">No change</span>
+                        : <span className={'cfg-tcmb-delta ' + (r.delta > 0 ? 'up' : 'down')}>{r.delta > 0 ? '↑ +' : '↓ '}{String(Math.abs(r.delta))}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <span className="cfg-tcmb-foot-note"><Icon name="info" size={12} />Applying overwrites the current rate, marks the source as TCMB, and records a history entry dated {today}.</span>
+          </div>
+          <div className="modal-foot">
+            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button className="amb ok" onClick={apply} disabled={matched.length === 0}><Icon name="file-input" size={14} />Apply Rates</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Initial data loader ──────────────────────────────────────────────────
+  function getInitialData(sectionId) {
+    const L = window.LEDGER || {};
+    const A = window.ACCOUNTS_DATA || {};
+    switch (sectionId) {
+      case 'categories': {
+        const cats = L.CATS || {};
+        return Object.entries(cats).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon, color: v.color, kind: v.kind }));
+      }
+      case 'members':
+        return (L.PAYERS || []).map((name, i) => ({
+          id: 'p-' + i, name,
+          username: name.toLowerCase(),
+          password: 'pass1234',
+          role: i === 0 ? 'admin' : 'user',
+          active: true,
+        }));
+      case 'currencies': {
+        const fx = L.FX || {};
+        return Object.entries(fx).map(([code, v]) => {
+          const hist = CURRENCY_SAMPLE_HISTORY[code] ||
+            [{ date: todayYMD(), toTRY: v.toTRY, toUSD: v.toUSD, source: 'TCMB', note: 'Initial rate' }];
+          const latest = [...hist].sort((a, b) => b.date.localeCompare(a.date))[0];
+          const isBase = code === 'TRY';
+          return {
+            id: code, code,
+            toTRY: isBase ? 1 : latest.toTRY,
+            toUSD: isBase ? v.toUSD : (latest.toUSD ?? v.toUSD),
+            asOf:   isBase ? null : latest.date,
+            source: isBase ? null : latest.source,
+            history: hist,
+          };
+        });
+      }
+      case 'cc-types': {
+        const cc = A.CC_TYPES || {};
+        return Object.entries(cc).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon }));
+      }
+      case 'debit-types': {
+        const dc = A.DEBIT_TYPES || {};
+        return Object.entries(dc).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon }));
+      }
+      case 'account-types': {
+        const at = A.ACCOUNT_TYPES || {};
+        return Object.entries(at).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon, color: v.color }));
+      }
+      default: return [];
+    }
+  }
+
+  // ── Sections definition ──────────────────────────────────────────────────
+  const SECTIONS = [
+    {
+      id: 'members', label: 'Members', icon: 'users', color: 'var(--green)', addLabel: 'Add Member',
+      desc: 'Users and their access roles',
+      columns: [
+        { key: 'name', label: 'Name' },
+        { key: 'username', label: 'Username' },
+        { key: 'password', label: 'Password', render: v => <span className="cfg-pw-mask">••••••••</span> },
+        { key: 'role', label: 'Role', render: v => <span className={'cfg-badge cfg-badge-' + (v || 'user')}>{v === 'admin' ? 'Admin' : 'User'}</span> },
+        { key: 'active', label: 'Status', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Active' : 'Inactive'}</span>; } },
+      ],
+      fields: [
+        { key: 'name',     label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Alex' },
+        { key: 'username', label: 'Username',  type: 'text', required: true, placeholder: 'e.g. alex', hint: 'Login identifier, no spaces' },
+        { key: 'password', label: 'Password',  type: 'password', requiredOnCreate: true, placeholder: 'Enter password', editHint: 'Leave blank to keep the current password' },
+        { key: 'role',     label: 'Role',       type: 'select', required: true, options: [{ value: 'admin', label: 'Admin — Full access including Configuration' }, { value: 'user', label: 'User — Standard access, no Configuration' }] },
+        { key: 'active',   label: 'Status',     type: 'checkbox', default: true, checkboxLabel: 'Active — Can Log In', checkboxIcon: 'log-in', hint: 'Inactive members are kept on file but cannot sign in' },
+      ],
+    },
+    {
+      id: 'categories', label: 'Transaction Categories', icon: 'tag', color: 'var(--lavender)', addLabel: 'Add Category',
+      desc: 'Classify income and expenses',
+      columns: [
+        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'label', label: 'Label' },
+        { key: 'kind',  label: 'Kind',  render: v => <span className={'cfg-badge cfg-badge-' + v}>{v}</span> },
+        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
+      ],
+      fields: [
+        { key: 'label', label: 'Label',  type: 'text',   required: true, placeholder: 'e.g. Dining' },
+        { key: 'key',   label: 'Key',    type: 'text',   required: true, placeholder: 'e.g. dining', hint: 'Lowercase identifier, no spaces' },
+        { key: 'icon',  label: 'Icon',   type: 'icon',   placeholder: 'Lucide icon name, e.g. utensils' },
+        { key: 'color', label: 'Color',  type: 'color' },
+        { key: 'kind',  label: 'Kind',   type: 'select', options: [{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }] },
+      ],
+    },
+    {
+      id: 'currencies', label: 'Currencies', icon: 'circle-dollar-sign', color: 'var(--gold)', addLabel: 'Add Currency',
+      extraRowAction: (item, { onHistory }) => (
+        <button className="cfg-act-btn history" title="Rate History" onClick={() => onHistory(item)}>
+          <Icon name="clock" size={13} />History
+        </button>
+      ),
+      desc: 'Currencies and FX rates vs TRY',
+      columns: [
+        { key: 'asOf',  label: 'Date', render: v => v ? <span style={{whiteSpace:'nowrap'}}>{v}</span> : <span style={{color:'var(--muted)'}}>—</span> },
+        { key: 'source', label: 'Source', render: v => <SourceBadge source={v} /> },
+        { key: 'toTRY', label: 'Rate → TRY', render: v => v === 1 ? <span style={{color:'var(--muted)'}}>Base</span> : <span>₺{String(v)}</span> },
+        { key: 'toUSD', label: 'Rate → USD', render: v => v === 1 ? <span style={{color:'var(--muted)'}}>Base</span> : <span>${Number(v).toFixed(4)}</span> },
+        { key: 'code',  label: 'Code', render: v => <span className="amount-cell" style={{justifyContent:'flex-start'}}><span className={'cur-sym cur-' + v} style={{fontSize:'15px'}}>{SYM[v] || v}</span></span> },
+      ],
+      fields: [
+        { key: 'code',  label: 'Currency Code', type: 'text',   required: true, placeholder: 'e.g. GBP', hint: '3-letter ISO code' },
+        { key: 'asOf',  label: 'Date',          type: 'date',   lockToday: true, hint: 'Defaults to today — change if backdating a rate' },
+        { key: 'toTRY', label: 'Rate → TRY',    type: 'number', placeholder: 'e.g. 50.40', hint: '1 unit of this currency = ? TRY' },
+        { key: 'toUSD', label: 'Rate → USD',    type: 'number', placeholder: 'e.g. 1.28',  hint: '1 unit of this currency = ? USD' },
+        { key: 'source',label: 'Source',         type: 'select', options: SOURCE_OPTIONS, hint: 'Where this rate came from' },
+      ],
+    },
+    {
+      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: 'var(--orange)', addLabel: 'Add Credit Card Type',
+      desc: 'Card networks for credit cards',
+      columns: [
+        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'label', label: 'Label' },
+      ],
+      fields: [
+        { key: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. Amex' },
+        { key: 'key',   label: 'Key',   type: 'text', required: true, placeholder: 'e.g. amex', hint: 'Lowercase identifier' },
+        { key: 'icon',  label: 'Icon',  type: 'icon', placeholder: 'e.g. credit-card' },
+      ],
+    },
+    {
+      id: 'debit-types', label: 'Debit Card Types', icon: 'wallet-cards', color: 'var(--sky)', addLabel: 'Add Debit Card Type',
+      desc: 'Card networks for debit cards',
+      columns: [
+        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'label', label: 'Label' },
+      ],
+      fields: [
+        { key: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. Visa Debit' },
+        { key: 'key',   label: 'Key',   type: 'text', required: true, placeholder: 'e.g. visa-debit', hint: 'Lowercase identifier' },
+        { key: 'icon',  label: 'Icon',  type: 'icon', placeholder: 'e.g. wallet-cards' },
+      ],
+    },
+    {
+      id: 'account-types', label: 'Account Types', icon: 'landmark', color: 'var(--accent)', addLabel: 'Add Account Type',
+      desc: 'Financial account types',
+      columns: [
+        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'label', label: 'Label' },
+        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
+      ],
+      fields: [
+        { key: 'label', label: 'Label', type: 'text',  required: true, placeholder: 'e.g. Savings Account' },
+        { key: 'key',   label: 'Key',   type: 'text',  required: true, placeholder: 'e.g. savings', hint: 'Lowercase identifier' },
+        { key: 'icon',  label: 'Icon',  type: 'icon',  placeholder: 'e.g. landmark' },
+        { key: 'color', label: 'Color', type: 'color' },
+      ],
+    },
+  ];
+
+  // ── Sidebar ──────────────────────────────────────────────────────────────
+  // Sidebar is provided by the shared single-source module (nav.jsx → window.HL_NAV).
+
+  // ── Item Modal ───────────────────────────────────────────────────────────
+  function ItemModal({ section, item, onSave, onDelete, onHistory, onClose }) {
+    const editing = !!item;
+    const blank = {};
+    section.fields.forEach(f => { blank[f.key] = f.type === 'checkbox' ? (f.default ?? false) : ''; });
+    const initial = editing ? { ...item } : blank;
+    // Date fields flagged lockToday default to today's date for new entries, but stay editable.
+    if (!editing) section.fields.forEach(fd => { if (fd.lockToday) initial[fd.key] = todayYMD(); });
+    const [f, setF] = React.useState(initial);
+    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+    function submit(e) {
+      e.preventDefault();
+      for (const fd of section.fields.filter(x => x.required || (x.requiredOnCreate && !editing))) {
+        if (!f[fd.key] || !String(f[fd.key]).trim()) return;
+      }
+      const newId = editing ? item.id : (f.key || f.code || f.name || String(Date.now()));
+      onSave({ ...f, id: newId });
+    }
+
+    return (
+      <div className="backdrop" onMouseDown={e => { if (e.target.classList.contains('backdrop')) onClose(); }}>
+        <div className="modal cfg-modal">
+          <div className="modal-head">
+            <span className="modal-title">
+              <Icon name={section.icon} size={15} color={section.color} />
+              {editing ? 'Edit' : 'Add'} — {section.label}
+            </span>
+            <button className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
+          </div>
+          <form onSubmit={submit}>
+            <div className="cfg-modal-body">
+              {section.fields.map(fd => (
+                fd.type === 'checkbox' ? (
+                  <div key={fd.key} className="form-field full">
+                    <label className="acct-check-label">
+                      <input type="checkbox"
+                        data-table="members" data-col={fd.key}
+                        checked={f[fd.key] !== false}
+                        onChange={e => set(fd.key, e.target.checked)} />
+                      {fd.checkboxIcon && <Icon name={fd.checkboxIcon} size={13} />}{fd.checkboxLabel || fd.label}
+                    </label>
+                    {fd.hint && <span className="field-hint">{fd.hint}</span>}
+                  </div>
+                ) : (
+                <div key={fd.key} className="form-field full">
+                  <span className="field-label">{fd.label}{(fd.required || (fd.requiredOnCreate && !editing)) ? ' *' : ''}</span>
+                  {(editing && fd.editHint ? fd.editHint : fd.hint) && <span className="field-hint">{editing && fd.editHint ? fd.editHint : fd.hint}</span>}
+                  {fd.type === 'select' ? (
+                    <select className="field-input" value={f[fd.key] || ''}
+                      data-table={section.id} data-col={fd.key}
+                      onChange={e => set(fd.key, e.target.value)}>
+                      <option value="">— Select —</option>
+                      {fd.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  ) : fd.type === 'color' ? (
+                    <div className="cfg-color-grid">
+                      {COLOR_OPTIONS.map(c => (
+                        <button key={c.var} type="button"
+                          className={'cfg-color-swatch' + (f[fd.key] === c.var ? ' selected' : '')}
+                          style={{ background: c.hex }} title={c.label}
+                          onClick={() => set(fd.key, c.var)} />
+                      ))}
+                    </div>
+                  ) : fd.type === 'icon' ? (
+                    <div className="cfg-icon-field">
+                      <input className="field-input" type="text"
+                        placeholder={fd.placeholder || 'Lucide icon name'}
+                        value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
+                      {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color="var(--accent)" /></span>}
+                    </div>
+                  ) : fd.type === 'date' ? (
+                    <DateInput
+                      dataTable={section.id} dataCol={fd.key}
+                      value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
+                  ) : fd.type === 'password' ? (
+                    <input className="field-input" type="password"
+                      placeholder={fd.placeholder || ''} value={f[fd.key] || ''}
+                      autoComplete="new-password"
+                      onChange={e => set(fd.key, e.target.value)} />
+                  ) : (
+                    <input className="field-input" type="text"
+                      inputMode={fd.type === 'number' ? 'decimal' : 'text'}
+                      data-table={section.id} data-col={fd.key}
+                      placeholder={fd.placeholder || ''} value={f[fd.key] || ''}
+                      onChange={e => set(fd.key, e.target.value)} />
+                  )}
+                </div>
+                )
+              ))}
+            </div>
+            <div className="modal-foot">
+              {editing && (
+                <div className="cfg-modal-foot-left">
+                  {section.extraRowAction && (
+                    <button type="button" className="amb history"
+                      onClick={() => { onClose(); onHistory && onHistory(item); }}>
+                      <Icon name="clock" size={14} />History
+                    </button>
+                  )}
+                  <button type="button" className="amb danger"
+                    onClick={() => onDelete(item)}>
+                    <Icon name="trash-2" size={14} />Delete
+                  </button>
+                </div>
+              )}
+              <button type="button" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+              <button type="submit" className="amb ok"><Icon name="check" size={14} />Save</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Filter bar (mirrors the Spending filter bar) — search + a Filters popover
+  //    that holds the per-section facet selects and the column tools (Fit / Reset Order). ──
+  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, onResetCols, onResetOrder, orderIsDefault }) {
+    const { FitColumnsButton, ResetOrderButton } = window;
+    const [open, setOpen] = React.useState(false);
+    const anchorRef = React.useRef(null);
+    React.useEffect(() => {
+      if (!open) return;
+      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('keydown', onKey);
+      return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+    }, [open]);
+
+    const facetLabel = (fc, v) => { const o = fc.options.find(o => o.value === v); return o ? o.label : v; };
+    const active = facetCols.filter(fc => facets[fc.key]).map(fc => ({
+      key: fc.key, label: fc.label, val: facetLabel(fc, facets[fc.key]), clear: () => setFacet(fc.key, 'all'),
+    }));
+    const clearAll = () => facetCols.forEach(fc => setFacet(fc.key, 'all'));
+    const hasColTools = onResetCols || onResetOrder;
+    const chev = (
+      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+    );
+
+    return (
+      <div className="filter-wrap cfg-filter-wrap">
+        <div className="filter-bar">
+          <div className="filter-field ff-search">
+            <span className="filter-label"><Icon name="search" size={11} />Search</span>
+            <div className="search-wrap">
+              <Icon name="search" size={13} />
+              <input className="search-input" placeholder="Search…" value={search}
+                data-table={table} data-cols={searchCols.join(',')}
+                onChange={(e) => setSearch(e.target.value)} />
+              {search && <button className="search-clear" onClick={() => setSearch('')} title="Clear search"><Icon name="x" size={13} /></button>}
+            </div>
+          </div>
+
+          <div className="filter-field ff-filters">
+            <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
+            <div className="filters-anchor" ref={anchorRef}>
+              <button className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+                <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
+                {active.length > 0 && <span className="filters-count">{active.length}</span>}
+                <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </button>
+              {open && (
+                <div className="filters-pop">
+                  <div className="filters-pop-head">
+                    <span>Filter By Column</span>
+                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                  </div>
+                  {facetCols.map(fc => (
+                    <div className="filter-field" key={fc.key}>
+                      <span className="filter-label">{fc.label}</span>
+                      <div className="select-wrap">
+                        <select className="sel" value={facets[fc.key] || 'all'}
+                          data-table={table} data-col={fc.key}
+                          onChange={(e) => setFacet(fc.key, e.target.value)}>
+                          <option value="all">All</option>
+                          {fc.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                        {chev}
+                      </div>
+                    </div>
+                  ))}
+                  {hasColTools && (
+                    <div className="fp-col-tools">
+                      {onResetCols && <FitColumnsButton onClick={onResetCols} />}
+                      {onResetOrder && <ResetOrderButton onClick={onResetOrder} disabled={orderIsDefault} />}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {active.length > 0 && (
+          <div className="active-chips">
+            <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
+            {active.map(a => (
+              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+                <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
+              </button>
+            ))}
+            <button className="chip chip-clear" onClick={clearAll}>Clear all</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Detail section table — sortable, resizable, drag-reorderable; rows open the editor ──
+  function CfgSectionTable({ section, items, onEdit }) {
+    const { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton, ExportData } = window;
+    // Map the section's columns to the resizable hook's descriptor shape.
+    const cols = React.useMemo(() => section.columns.map(c => ({
+      key: c.key, label: c.label, render: c.render, num: c.num,
+      size: c.size || 180, minSize: c.minSize || 90, maxSize: c.maxSize || 520,
+    })), [section]);
+    const rz = useResizableColumns({ columns: cols, storageKey: 'hl-cfg-' + section.id + '-colcfg' });
+
+    // ── Search + facet filters (mirrors the Spending filter bar) ──
+    // Facet selects are derived from the section's own `select` fields, so each
+    // section gets a sensible "Filter By Column" set (e.g. Members → Role).
+    const facetCols = React.useMemo(() => section.columns.map(c => {
+      const fld = (section.fields || []).find(f => f.key === c.key && f.type === 'select' && Array.isArray(f.options));
+      if (!fld) return null;
+      return {
+        key: c.key, label: c.label,
+        options: fld.options.map(o => ({ value: o.value, label: (String(o.label).split('—')[0] || o.value).trim() })),
+      };
+    }).filter(Boolean), [section]);
+    // Columns worth searching (skip masked / non-text render columns).
+    const searchCols = React.useMemo(
+      () => section.columns.map(c => c.key).filter(k => !['password', 'icon', 'color'].includes(k)),
+      [section]);
+    // CSV export columns: section's own columns minus sensitive/non-text ones.
+    const exportCols = React.useMemo(
+      () => section.columns.filter(c => c.key !== 'password').map(c => ({ key: c.key, label: c.label })),
+      [section]);
+    const [search, setSearch] = React.useState('');
+    const [facets, setFacets] = React.useState({});
+    const setFacet = (k, v) => setFacets(p => { const n = { ...p }; if (!v || v === 'all') delete n[k]; else n[k] = v; return n; });
+    const filteredItems = React.useMemo(() => {
+      const q = search.trim().toLowerCase();
+      return items.filter(it => {
+        for (const k in facets) { if (String(it[k]) !== facets[k]) return false; }
+        if (q) {
+          const hay = searchCols.map(k => String(it[k] ?? '')).join(' ').toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }, [items, facets, search, searchCols]);
+
+    // ── Sorting — click a header to sort by that column (raw value, natural order) ──
+    const [sort, setSort] = React.useState({ col: null, dir: 'asc' });
+    function toggleSort(col) {
+      if (rz.isResizing || rz.wasResizingRef.current) return;   // never sort from a resize/reorder gesture
+      setSort(s => s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' });
+    }
+    const sortedItems = React.useMemo(() => {
+      if (!sort.col) return filteredItems;
+      const arr = filteredItems.slice();
+      arr.sort((a, b) => {
+        const av = a[sort.col], bv = b[sort.col];
+        let r;
+        if (typeof av === 'number' && typeof bv === 'number') r = av - bv;
+        else r = String(av ?? '').localeCompare(String(bv ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+        return sort.dir === 'asc' ? r : -r;
+      });
+      return arr;
+    }, [filteredItems, sort]);
+
+    // On first mount the sidebar may not have applied its width offset yet, so the
+    // hook's initial auto-fit can measure a too-wide container. If the user has no
+    // saved widths for this section, re-fit once after layout settles.
+    React.useEffect(() => {
+      let saved = false;
+      try { saved = Object.keys(JSON.parse(localStorage.getItem('hl-cfg-' + section.id + '-colcfg') || '{}')).length > 0; } catch (e) {}
+      if (saved) return;
+      const id = requestAnimationFrame(() => requestAnimationFrame(() => rz.resetSizes()));
+      return () => cancelAnimationFrame(id);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return (
+      <React.Fragment>
+        <CfgFilterBar
+          table={section.id}
+          search={search} setSearch={setSearch}
+          facets={facets} setFacet={setFacet} facetCols={facetCols} searchCols={searchCols}
+          onResetCols={rz.resetSizes}
+          onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder} />
+        <div className="table-card">
+          <div className="table-scroll">
+            <table ref={rz.tableRef} className="ledger-table cfg-table resizable zebra" style={rz.colSizeVars}>
+              <colgroup>
+                {rz.orderedColumns.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
+              </colgroup>
+              <thead>
+                <tr>
+                  {rz.orderedColumns.map(c => (
+                    <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key ? 'sorted' : '')}
+                      title="Drag To Reorder · Click To Sort"
+                      {...rz.getReorderProps(c.key)}
+                      onClick={() => toggleSort(c.key)}>
+                      <span className="th-inner">
+                        <span className="th-label">{c.label}</span>
+                        <span className="sort-arrow">{sort.col === c.key ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}</span>
+                      </span>
+                      <ColResizer header={rz.headersById[c.key]} />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedItems.map(item => (
+                  <tr key={item.id} className="cfg-row" onClick={() => onEdit(item)}
+                    title={'Edit ' + (item.label || item.name || item.code || 'item')}>
+                    {rz.orderedColumns.map(c => (
+                      <td key={c.key} data-label={c.label} className={c.num ? 'num' : ''}>
+                        {c.render ? c.render(item[c.key]) : (item[c.key] ?? '—')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </React.Fragment>
+    );
+  }
+
+  // ── App ──────────────────────────────────────────────────────────────────
+  function App() {
+    const { useTweaks, TweaksPanel, TweakSection, TweakColor } = window;
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+    const [view, setView] = React.useState(CFG_SECTION); // reads from window.CONFIG_SECTION or null = home grid
+    const [sectionData, setSectionData] = React.useState(() => {
+      const d = {};
+      SECTIONS.forEach(s => { d[s.id] = getInitialData(s.id); });
+      return d;
+    });
+    const [modal, setModal] = React.useState(null);
+    const [confirmDel, setConfirmDel] = React.useState(null);
+    const [histCurrency, setHistCurrency] = React.useState(null);
+    const [tcmbOpen, setTcmbOpen] = React.useState(false);
+
+    // Categories are persisted to the backend; load them on mount (the other
+    // config sections still use their static seed for now).
+    React.useEffect(() => {
+      if (!window.HL_CATEGORIES_API) return;
+      let alive = true;
+      window.HL_CATEGORIES_API.list()
+        .then(cats => { if (alive) setSectionData(prev => ({ ...prev, categories: cats })); })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, []);
+
+    // Members are the backend Users table; load them on mount (only on the
+    // Members config page, which is the only one that includes members-data.js).
+    React.useEffect(() => {
+      if (!window.HL_MEMBERS_API) return;
+      let alive = true;
+      window.HL_MEMBERS_API.list()
+        .then(members => { if (alive) setSectionData(prev => ({ ...prev, members })); })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, []);
+
+    const section = view ? SECTIONS.find(s => s.id === view) : null;
+    const items = view ? (sectionData[view] || []) : [];
+
+    async function saveItem(item) {
+      // Categories persist to the DB; detect create vs update by existing id.
+      if (view === 'categories' && window.HL_CATEGORIES_API) {
+        try {
+          const exists = (sectionData.categories || []).some(x => x.id === item.id);
+          const saved = exists
+            ? await window.HL_CATEGORIES_API.update(item.id, item)
+            : await window.HL_CATEGORIES_API.create(item);
+          setSectionData(prev => {
+            const list = prev.categories || [];
+            const idx = list.findIndex(x => x.id === saved.id);
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            return { ...prev, categories: next };
+          });
+          setModal(null);
+        } catch (err) {
+          alert('Could not save category: ' + (err.message || err));
+        }
+        return;
+      }
+      // Members persist to the Users table; detect create vs update by existing id.
+      if (view === 'members' && window.HL_MEMBERS_API) {
+        try {
+          const exists = (sectionData.members || []).some(x => x.id === item.id);
+          const saved = exists
+            ? await window.HL_MEMBERS_API.update(item.id, item)
+            : await window.HL_MEMBERS_API.create(item);
+          setSectionData(prev => {
+            const list = prev.members || [];
+            const idx = list.findIndex(x => x.id === saved.id);
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            return { ...prev, members: next };
+          });
+          setModal(null);
+        } catch (err) {
+          alert('Could not save member: ' + (err.message || err));
+        }
+        return;
+      }
+      setSectionData(prev => {
+        const list = prev[view];
+        const idx = list.findIndex(x => x.id === item.id);
+        const next = idx >= 0 ? list.map((x, i) => i === idx ? item : x) : [...list, item];
+        return { ...prev, [view]: next };
+      });
+      setModal(null);
+    }
+
+    async function deleteItem(item) {
+      if (view === 'categories' && window.HL_CATEGORIES_API) {
+        try {
+          await window.HL_CATEGORIES_API.remove(item.id);
+          setSectionData(prev => ({ ...prev, categories: prev.categories.filter(x => x.id !== item.id) }));
+          setModal(null);
+          setConfirmDel(null);
+        } catch (err) {
+          alert('Could not delete category: ' + (err.message || err));
+        }
+        return;
+      }
+      if (view === 'members' && window.HL_MEMBERS_API) {
+        try {
+          await window.HL_MEMBERS_API.remove(item.id);
+          setSectionData(prev => ({ ...prev, members: prev.members.filter(x => x.id !== item.id) }));
+          setModal(null);
+          setConfirmDel(null);
+        } catch (err) {
+          alert('Could not delete member: ' + (err.message || err));
+        }
+        return;
+      }
+      setSectionData(prev => ({ ...prev, [view]: prev[view].filter(x => x.id !== item.id) }));
+      setModal(null);
+      setConfirmDel(null);
+    }
+
+    return (
+      <div className="app" style={{ '--accent': t.accent }}>
+        <Sidebar active={CFG_SECTION || 'configuration'} />
+        <div className="main">
+          {/* ── Detail: dedicated section page ── */}
+          {view && section && (
+            <React.Fragment>
+              <header className="page-head">
+                <div className="page-head-top">
+                  <div className="cfg-detail-head-left">
+                    <div className="page-title-wrap cfg-detail-title-wrap">
+                      <span className="cfg-title-icon" style={{ color: section.color }}><Icon name={section.icon} size={21} /></span>
+                      <div className="cfg-title-col">
+                        <h1 className="page-title">{section.label}</h1>
+                        {section.desc && <p className="page-subtitle">{section.desc}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="head-actions cfg-head-actions">
+                    {section.id === 'currencies' && (
+                      <button className="action-modal-btn tcmb cfg-tcmb-btn" onClick={() => setTcmbOpen(true)}>
+                        <Icon name="refresh-cw" size={14} />Retrieve From TCMB
+                      </button>
+                    )}
+                    <button className="action-modal-btn ok cfg-add-btn" onClick={() => setModal({ item: null })}>
+                      <Icon name="plus" size={14} />{section.addLabel || 'Add Item'}
+                    </button>
+                  </div>
+                </div>
+              </header>
+
+              <div className="cfg-detail">
+                {items.length === 0 ? (
+                  <div className="cfg-empty">
+                    <Icon name="inbox" size={32} color="var(--muted)" />
+                    <span>No items yet — click Add to create one.</span>
+                  </div>
+                ) : (
+                  <CfgSectionTable key={view} section={section} items={items}
+                    onEdit={(it) => setModal({ item: it })} />
+                )}
+              </div>
+            </React.Fragment>
+          )}
+
+          {tcmbOpen && (
+            <TcmbRetrieveModal
+              currencies={sectionData.currencies || []}
+              onApply={(updated) => { setSectionData(prev => ({ ...prev, currencies: updated })); setTcmbOpen(false); }}
+              onClose={() => setTcmbOpen(false)} />
+          )}
+
+          {histCurrency && (
+            <CurrencyHistoryModal
+              currency={histCurrency}
+              onSave={(updated) => {
+                setSectionData(prev => ({ ...prev, currencies: prev.currencies.map(c => c.id === updated.id ? updated : c) }));
+                setHistCurrency(updated);
+              }}
+              onClose={() => setHistCurrency(null)}
+            />
+          )}
+
+          {modal && section && (
+            <ItemModal section={section} item={modal.item}
+              onSave={saveItem} onDelete={(it) => { setModal(null); setConfirmDel(it); }} onHistory={setHistCurrency} onClose={() => setModal(null)} />
+          )}
+
+          {confirmDel && section && (
+            <div className="backdrop" onMouseDown={e => { if (e.target.classList.contains('backdrop')) setConfirmDel(null); }}>
+              <div className="modal cfg-confirm">
+                <div className="modal-head">
+                  <span className="modal-title"><Icon name="alert-triangle" size={15} color="var(--red)" />Delete Item</span>
+                  <button className="m-close" onClick={() => setConfirmDel(null)}><Icon name="x" size={16} /></button>
+                </div>
+                <div className="cfg-confirm-body">
+                  Delete <b>{confirmDel.label || confirmDel.name || confirmDel.code}</b> from {section.label}? This cannot be undone.
+                </div>
+                <div className="modal-foot">
+                  <button className="amb cancel" onClick={() => setConfirmDel(null)}><Icon name="x" size={14} />Cancel</button>
+                  <button className="amb danger" onClick={() => deleteItem(confirmDel)}><Icon name="trash-2" size={14} />Delete</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="Appearance" />
+          <TweakColor label="Accent" value={t.accent}
+            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+            onChange={v => setTweak('accent', v)} />
+        </TweaksPanel>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+})();

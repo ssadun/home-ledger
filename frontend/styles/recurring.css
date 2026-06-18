@@ -1,0 +1,210 @@
+/* ============================================================================
+   Hyper Ledger — Recurring Transactions page-specific styles
+   ============================================================================ */
+
+/* ── Recurring link badge in Transactions TxModal ── */
+.src-rec-link{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:var(--radius);background:rgba(217,70,239,.08);border:1px solid rgba(217,70,239,.30);color:var(--fuchsia);text-decoration:none;transition:var(--transition);cursor:pointer;font-size:12px;font-weight:600}
+.src-rec-link:hover{background:rgba(217,70,239,.16);border-color:var(--fuchsia)}
+.src-rec-name{color:var(--white);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src-rec-freq{color:var(--muted);font-size:11px;font-weight:500;text-transform:capitalize;white-space:nowrap}
+
+/* ── RecModal tab bar ── */
+.rec-modal-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 20px;background:var(--bg2)}
+.rec-modal-tab{display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:12px;font-weight:600;color:var(--slate);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:var(--transition);white-space:nowrap}
+.rec-modal-tab:hover{color:var(--text);background:var(--bg3)}
+.rec-modal-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.rec-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;border-radius:9px;background:rgba(79,142,247,.15);color:var(--accent);font-size:10px;font-weight:800}
+
+/* ── Linked Transactions list ── */
+.rec-linked-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:48px 20px;color:var(--muted)}
+.rec-linked-empty .et{font-size:13px;font-weight:600;color:var(--slate)}
+.rec-linked-empty .es{font-size:11px;color:var(--muted)}
+.rec-linked-list{display:flex;flex-direction:column;max-height:400px;overflow-y:auto}
+.rec-linked-header{padding:12px 20px;border-bottom:1px solid var(--border)}
+.rec-linked-count{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.5px;text-transform:uppercase}
+.rec-linked-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);text-decoration:none;color:inherit;transition:var(--transition);cursor:pointer}
+.rec-linked-row:last-child{border-bottom:none}
+.rec-linked-row:hover{background:var(--bg4)}
+.rl-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.rl-info{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rl-desc{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-date{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rl-date .dow{color:var(--muted);margin-left:3px}
+.rl-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.rl-right .rl-ext{color:var(--muted);margin-left:2px}
+.rec-linked-row:hover .rl-ext{color:var(--accent)}
+
+/* ── Status badges (plain: colorful icon + muted text, no fill/border) ── */
+.rec-status-badge{display:inline-flex;align-items:center;gap:5px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
+.rec-status-badge svg{flex-shrink:0}
+.rec-active,.rec-paused,.rec-ended{background:none;border:none;color:var(--muted)}
+.rec-active svg{color:var(--green)}
+.rec-paused svg{color:var(--yellow)}
+.rec-ended svg{color:var(--slate)}
+
+/* ── Frequency badge (plain) ── */
+.rec-freq-badge{display:inline-flex;align-items:center;gap:5px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
+.rec-freq-badge svg{color:var(--accent);flex-shrink:0}
+
+/* ── Weekend rule badge (plain) ── */
+.rec-wr-badge{display:inline-flex;align-items:center;gap:4px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
+.wr-defer,.wr-advance{background:none;border:none;color:var(--muted)}
+.wr-defer svg{color:var(--orange)}
+.wr-advance svg{color:var(--sky)}
+.rec-wr-none{color:var(--muted);font-size:11px;font-weight:500}
+
+/* ── Currency symbol inside amount ── */
+.cur-sym{font-weight:500;opacity:.7;margin-right:1px}
+
+/* ── Name cell (icon + name + desc) ── */
+.rec-name-cell{display:flex;align-items:center;gap:10px}
+.rec-name-text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rec-name-primary{color:var(--white);font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-name-desc{color:var(--muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+
+/* ── Table overrides ── */
+.rec-table td[data-label="Weekend"]{min-width:90px}
+.rec-table td[data-label="Frequency"]{min-width:130px}
+
+/* ── Segmented controls (3-way) ── */
+.seg.seg-3 button{flex:1}
+.seg button.on-active{background:rgba(34,197,94,.16);color:var(--green)}
+.seg button.on-paused{background:rgba(234,179,8,.16);color:var(--yellow)}
+.seg button.on-ended{background:rgba(84,91,122,.20);color:var(--slate)}
+.seg button.on-defer{background:rgba(249,115,22,.16);color:var(--orange)}
+.seg button.on-advance{background:rgba(56,189,248,.16);color:var(--sky)}
+.seg button.on-none{background:rgba(84,91,122,.16);color:var(--slate)}
+
+/* ── Modal width ── */
+.rec-modal{width:560px}
+
+/* ── History modal ── */
+.rec-history-modal{width:480px}
+.rec-history-list{padding:0;max-height:400px;overflow-y:auto}
+.rec-history-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border)}
+.rec-history-item:last-child{border-bottom:none}
+.rh-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.rh-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rh-paid{background:var(--green)}
+.rh-missed{background:var(--red)}
+.rh-date{font-size:12px;color:var(--text);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rh-date .dow{color:var(--muted);font-weight:400;margin-left:4px;font-size:10px}
+.rh-note{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--orange);white-space:nowrap}
+.rh-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+/* ═══════════════════════════════════════════════════
+   CARD VIEW
+   ═══════════════════════════════════════════════════ */
+.rec-cards-wrap{flex:1;overflow:auto;padding:0 16px 16px}
+.rec-grouped{display:flex;flex-direction:column;gap:20px}
+.rec-group-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:8px 0 4px}
+.rec-group-head svg{width:14px;height:14px;color:var(--slate)}
+.rec-group-count{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--bg4);color:var(--slate);font-size:10px;font-weight:800}
+.rec-group-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:8px}
+
+.rec-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;cursor:pointer;transition:var(--transition);display:flex;flex-direction:column;gap:10px}
+.rec-card:hover{background:var(--bg3);border-color:var(--border2)}
+.rc-top{display:flex;align-items:center;gap:10px}
+.rc-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rc-name{color:var(--white);font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-desc{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-amount{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.rc-bottom{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rc-due{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-history-btn{display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 7px;font-size:11px;font-weight:600;color:var(--slate);cursor:pointer;transition:var(--transition);margin-left:auto;white-space:nowrap}
+.rc-history-btn:hover{background:var(--bg4);color:var(--accent);border-color:var(--accent)}
+
+/* ═══════════════════════════════════════════════════
+   TIMELINE VIEW
+   ═══════════════════════════════════════════════════ */
+.rec-timeline-wrap{flex:1;overflow:auto;padding:0 20px 16px}
+.rec-timeline{display:flex;flex-direction:column;padding:8px 0}
+.rec-tl-item{display:flex;gap:14px;cursor:pointer;position:relative}
+.rec-tl-item:hover .tl-content{background:var(--bg3);border-color:var(--border2)}
+.tl-dot-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:20px;padding-top:16px}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:2px solid}
+.tl-dot-active{background:var(--green);border-color:var(--green)}
+.tl-dot-paused{background:var(--yellow);border-color:var(--yellow)}
+.tl-dot-ended{background:var(--muted);border-color:var(--muted)}
+.tl-line{flex:1;width:2px;background:var(--border);margin:4px 0}
+.rec-tl-item:last-child .tl-line{display:none}
+.tl-content{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 16px;flex:1;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;transition:var(--transition)}
+.tl-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tl-due{font-size:11px;color:var(--slate);font-weight:600;font-variant-numeric:tabular-nums}
+.tl-body{display:flex;align-items:center;gap:10px}
+.tl-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.tl-name{color:var(--white);font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-desc{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-amount{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.tl-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE — Mobile (500–660px)
+   ═══════════════════════════════════════════════════ */
+@media (max-width:660px){
+  .rec-group-cards{grid-template-columns:1fr}
+
+  /* Table card layout (same pattern as Transactions) */
+  .rec-table{display:block}
+  .rec-table thead{display:none}
+  .rec-table tbody{display:block}
+  .rec-table tbody tr.tx-row{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;
+       gap:2px 10px;align-items:center;
+       background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+       padding:9px 13px;margin:0 0 6px}
+  .rec-table tbody tr.tx-row:last-child{border-bottom:1px solid var(--border)}
+  .rec-table tbody tr:hover{background:var(--bg2)}
+  .rec-table.zebra tbody tr:nth-child(even){background:var(--bg2)}
+  .rec-table td,.rec-table td{display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;border:none}
+  .rec-table td.num{text-align:right}
+  .rec-table tbody tr.tx-row td::before{display:none}
+
+  /* Line 1: Name (left) — Amount (right) */
+  .rec-table td[data-label="Name"]{grid-column:1;grid-row:1;order:1;min-width:0;overflow:hidden}
+  .rec-name-primary{font-size:13px}
+  .rec-name-desc{display:none}
+  .rec-table td[data-label="Amount"]{grid-column:2;grid-row:1;order:2;justify-content:flex-end}
+
+  /* Line 2: Meta (left) — hidden others */
+  .rec-table td[data-label="Status"]{display:none !important}
+  .rec-table td[data-label="Frequency"]{display:none !important}
+  .rec-table td[data-label="Weekend"]{display:none !important}
+  .rec-table td[data-label="Payer"]{display:none !important}
+  .rec-table td[data-label="Next Due"]{display:none !important}
+  .rec-table td.td-meta-mobile{display:flex !important;grid-column:1 / -1;grid-row:2;order:3;
+       gap:5px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:nowrap;overflow:hidden}
+
+  /* empty state */
+  .rec-table tbody tr.empty-row{display:block;background:none;border:none;padding:0;margin:0}
+  .rec-table tr.empty-row td::before{display:none}
+  .rec-table tr.empty-row td{display:flex;justify-content:center;padding:60px 20px}
+
+  /* Card view responsive */
+  .rec-cards-wrap{padding:0 10px 16px}
+  .rec-group-cards{grid-template-columns:1fr}
+
+  /* Timeline responsive */
+  .rec-timeline-wrap{padding:0 10px 16px}
+  .tl-body{flex-wrap:wrap}
+  .tl-amount{width:100%;justify-content:flex-end;margin-top:4px}
+  .tl-meta{margin-top:2px}
+
+  /* Modal */
+  .rec-modal{max-height:92vh}
+  .rec-modal .form-grid{grid-template-columns:1fr}
+  .rec-history-modal{max-height:80vh}
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Transaction-table pages on phones (moved out of Recurring/Subscriptions/
+   Spending/Account Activity inline <style>). Shared across the four pages
+   that load this stylesheet: matches the page background to the pagination
+   bar and lets a hover light up the whole week-grouped card.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 660px) {
+  .main { background: var(--bg2); }
+  .ledger-table.week-cards.zebra tbody tr.tx-row:hover { background: var(--bg4); }
+  .ledger-table.week-cards.zebra tbody tr.tx-row.row-alt:hover { background: var(--bg4); }
+  .ledger-table.week-cards tbody tr.tx-row:hover td,
+  .ledger-table.week-cards.zebra tbody tr.tx-row:hover td { background: none; }
+}

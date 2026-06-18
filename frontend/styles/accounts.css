@@ -1,0 +1,183 @@
+/* ============================================================================
+   Hyper Ledger — Accounts page styles
+   ============================================================================ */
+
+/* ── Filter bar (accounts variant) ── */
+.acct-filter-bar{align-items:flex-end}
+.acct-filter-bar .ff-tabs{order:4}
+
+/* Desktop: hide mobile-only filters popover */
+.acct-ff-filters{display:none}
+
+/* ── Scrollable body ── */
+.acct-body{flex:1;min-height:0;overflow-y:auto;padding: 10px 7px 5px 5px;display:flex;flex-direction:column;gap:22px;background: var(--bg2)}
+
+/* ── Account groups ── */
+.acct-group{display:flex;flex-direction:column;gap:10px}
+.acct-group-head{display:flex;align-items:center;gap:10px;padding:0 2px}
+.acct-group-icon svg{width:15px;height:15px}
+.acct-group-label{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text)}
+.acct-group-count{font-size:10px;font-weight:700;padding:2px 7px;border-radius:var(--radius-pill);background:var(--bg4);color:var(--slate)}
+.acct-group-total{margin-left:auto;font-size:13px;font-weight:600;color:var(--slate);font-variant-numeric:tabular-nums}
+
+/* ── Card grid ── (scaffold in grid.css; here we only set the page's knobs) */
+.acct-grid{--card-min:310px;--card-gap:10px}
+
+/* ── Account card ── */
+.acct-card{display:flex;flex-direction:column;gap:11px;padding:13px 17px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);cursor:pointer;transition:background .15s,border-color .15s,transform .15s;text-align:left;font-family:var(--font-sans);color:var(--text);width:100%}
+.acct-card:hover{background:var(--bg4);border-color:var(--border2);transform:translateY(-1px)}
+/* Single horizontal line: icon | name+bank | primary · owner · amount */
+.acct-card-row{display:flex;align-items:center;gap:13px}
+.acct-type-ico{width:34px;height:34px;border-radius:var(--radius);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
+.acct-type-ico svg{width:16px;height:16px}
+.acct-card-meta{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.acct-card-name{font-size:13px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct-card-inst{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct-card-end{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:14px}
+
+/* ── Balance display ── */
+.bal-display{font-variant-numeric:tabular-nums;letter-spacing:-.2px;display:inline-flex;align-items:baseline;gap:1px}
+.bal-display.bal-lg{font-size:20px;font-weight:700}
+.bal-display:not(.bal-lg){font-size:14px;font-weight:600}
+.bal-positive .bal-num{color:var(--white)}
+.bal-positive .bal-sym,.bal-positive .bal-sign{color:var(--slate)}
+.bal-negative .bal-num{color:var(--red)}
+.bal-negative .bal-sym,.bal-negative .bal-sign{color:var(--red);opacity:.7}
+
+/* ── Primary tag ── */
+.acct-primary-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--red);flex-shrink:0}
+.acct-primary-tag svg{width:10px;height:10px}
+/* Primary, owner and balance share the right end of the single row */
+
+/* ── Credit utilization bar ── */
+.util-wrap{display:flex;flex-direction:column;gap:5px}
+.util-bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden}
+.util-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.util-label{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ── Credit card dates ── */
+.cc-dates-row{display:flex;gap:12px;padding-top:4px;border-top:1px solid var(--border)}
+.cc-date-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--slate)}
+.cc-date-item svg{width:11px;height:11px;color:var(--muted);flex-shrink:0}
+.cc-date-k{color:var(--muted);font-weight:600;letter-spacing:.3px}
+.cc-date-v{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+.cc-payment-date{color:var(--orange);font-weight:700}
+.cc-calc-dates{display:flex;flex-direction:column;gap:6px;padding:8px 0}
+.cc-calc-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+.cc-calc-row svg{width:12px;height:12px;color:var(--accent);flex-shrink:0}
+.cc-calc-k{color:var(--muted);font-weight:600}
+
+/* ── Account detail modal ── */
+.acct-detail-modal{width:540px}
+.detail-balance-hero{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);text-align:center}
+.detail-bal-label{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.detail-balance-hero .bal-lg{font-size:28px}
+
+/* ── Info grid ── */
+.detail-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.detail-info-item{display:flex;flex-direction:column;gap:4px;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)}
+.detail-info-k{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.detail-info-v{font-size:13px;font-weight:600;color:var(--text)}
+.detail-info-full{grid-column:1 / -1}
+.detail-iban{font-family:var(--font-mono, monospace);font-size:13px;letter-spacing:.8px;color:var(--accent)}
+
+/* ── Activity list ── */
+.detail-activity{display:flex;flex-direction:column;gap:8px}
+.detail-section-label{display:flex;align-items:center;gap:7px;font-size:var(--fs-label);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.detail-section-label svg{width:12px;height:12px}
+.detail-activity-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.detail-act-row{display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--bg3);border-bottom:1px solid var(--border);transition:background .1s}
+.detail-act-row:last-child{border-bottom:none}
+.detail-act-row:hover{background:var(--bg4)}
+.act-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0;width:72px}
+.act-desc{font-size:12px;color:var(--text);font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-amt{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;text-align:right}
+.act-amt.income{color:var(--green)}
+.act-amt.expense{color:var(--red)}
+
+/* ── Empty state ── */
+.acct-empty-state{display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px;color:var(--muted);text-align:center}
+.acct-empty-state svg{width:36px;height:36px;opacity:.4}
+.acct-empty-state .et{font-size:14px;font-weight:600;color:var(--slate)}
+.acct-empty-state .es{font-size:12px}
+
+/* ── Detail empty ── */
+.detail-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;color:var(--muted);text-align:center;font-size:12px}
+.detail-empty svg{opacity:.35}
+
+/* ── Card flash animation ── */
+.acct-flash{animation:acctFlash 1.4s ease}
+@keyframes acctFlash{0%{background:rgba(79,142,247,.18);border-color:var(--accent)}100%{background:var(--bg3);border-color:var(--border)}}
+
+/* ── Type segmented control ── */
+.acct-type-seg{flex-wrap:wrap}
+.acct-type-seg button{flex:1 1 auto;min-width:0;font-size:11px;padding:8px 6px;gap:5px}
+.acct-type-seg button.on-acct-type{font-weight:700}
+
+/* ── Checkbox label ── */
+.acct-check-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
+.acct-check-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
+.acct-check-label input[type="checkbox"]:checked{background:var(--accent);border-color:var(--accent)}
+.acct-check-label input[type="checkbox"]:checked::after{content:'✓';color:var(--white);font-size:12px;font-weight:700;line-height:1}
+.acct-check-label svg{color:var(--gold)}
+
+/* ── List vs grid is purely the column count (set on .acct-grid); the card
+   itself is always a single horizontal line, with the credit util bar / dates
+   stacking beneath. In the denser multi-column grid, tighten the amount and
+   gaps so the account name keeps more room before it ellipsizes. ── */
+.acct-grid:not(.acct-list) .acct-card-end{gap:11px}
+.acct-grid:not(.acct-list) .bal-display.bal-lg{font-size:16px}
+
+/* ============================================================================
+   RESPONSIVE — two views only: computer (>660px) & mobile (500–660px)
+   ============================================================================ */
+
+@media (max-width:660px){
+  html,body{overflow:auto;height:auto}
+
+  /* sidebar → bottom tab bar */
+  .sidebar{top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;
+           border-right:none;border-top:1px solid var(--border);z-index:200}
+  body.sidebar-expanded .sidebar{width:100%}
+  .sidebar-toggle,.sidebar-float-btn{display:none}
+  .sidebar-nav{flex-direction:row;flex:1;overflow:visible;padding:0}
+  .sidebar-section{display:contents}
+  .sidebar-section.bottom{margin-top:0;border-top:none;padding:0}
+  .sidebar-item,
+  body:not(.sidebar-expanded) .sidebar-item{flex-direction:column;gap:3px;width:auto;flex:1;
+           margin:0;padding:8px 4px;min-height:52px;justify-content:center;border-radius:0}
+  .sidebar-item-text,
+  body:not(.sidebar-expanded) .sidebar-item-text{display:block;font-size:9px;letter-spacing:.2px}
+  .sidebar-section.bottom .sidebar-item-text{display:block}
+
+  .main,body.sidebar-expanded .main{margin-left:0;height:auto;min-height:100vh;padding-bottom:66px}
+
+  .page-head{padding:12px}
+  .page-title{font-size:18px;letter-spacing:1px}
+  .page-sub{padding-left:0;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+
+  .summary-row,.acct-body{margin-left:12px;margin-right:12px}
+  .summary-row{display:grid;grid-template-columns:1fr 1fr}
+  .summary-value{font-size:16px}
+  .acct-body{padding:14px 0 22px}
+
+  /* filter bar: search + filters popover in one compact row */
+  .acct-filter-bar{flex-wrap:nowrap;gap:6px;align-items:center}
+  .acct-filter-bar .filter-label{display:none}
+  .acct-filter-bar .ff-tabs{display:none}
+  .acct-ff-inline{display:none !important}
+  .acct-ff-filters{display:block !important;flex:0 0 auto}
+  .acct-ff-filters .filters-btn{padding:7px 10px}
+  .acct-filter-bar .ff-search{flex:1 1 0;min-width:0;order:1}
+  .acct-filter-bar .ff-export{order:2}
+  .acct-ff-filters{order:3}
+  .search-wrap,.search-input{width:100%;min-width:0}
+
+  /* single-column handled by .card-grid in grid.css */
+  .acct-card-row{gap:11px}
+  .acct-card-end{gap:10px}
+
+  .acct-detail-modal{max-height:92vh}
+  .detail-info-grid{grid-template-columns:1fr}
+  .detail-balance-hero .bal-lg{font-size:24px}
+}

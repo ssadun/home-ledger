@@ -1,0 +1,30 @@
+# ── Live data (never commit — contains real accounts/financial data) ──
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+uploads/*
+!uploads/.gitkeep
+
+# ── Secrets / env ──
+.env
+.env.*
+*.local
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ── Node / frontend tooling ──
+node_modules/
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

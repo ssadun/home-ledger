@@ -1,0 +1,119 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Hyper Ledger — filters.css
+   Single home for the page-head TOOLBAR / FILTER layer (sits above tables,
+   also used on pages with no table e.g. Dashboard tab switcher):
+   • .filter-bar / .filter-field / .filter-label
+   • period month-stepper, grid/list view toggle, search input, .filter-spacer
+   • .filter-wrap + filters popover (.filters-btn / .filters-pop / .fp-*) + active chips
+   • Mobile (≤660px): one-row compact toolbar
+   Generic form controls (.select-wrap / .sel) and the .action-modal-btn button
+   tier stay in app.css — they're reused in modals, forms and pagination.
+   Load order: tokens.css → app.css → filters.css → tables.css → page-specific css.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Filter bar ── */
+.filter-bar{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.filter-field{display:flex;flex-direction:column;gap:5px}
+.filter-label{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
+.filter-label svg{width:11px;height:11px}
+
+/* month stepper */
+.month-step{display:inline-flex;align-items:stretch;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.month-step:focus-within,.month-step:hover{border-color:var(--border2)}
+.ms-btn{background:none;border:none;color:var(--muted);width:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:var(--transition)}
+.ms-btn:hover{background:var(--bg4);color:var(--accent)}
+.ms-btn svg{width:14px;height:14px}
+.ms-label{display:flex;align-items:center;gap:7px;padding:5px 13px;font-size:var(--fs-table);font-weight:600;color:var(--text);white-space:nowrap;border-left:1px solid var(--border);border-right:1px solid var(--border)}
+.ms-label svg{width:13px;height:13px;color:var(--text)}
+
+.filter-spacer{flex:1}
+
+/* ── View toggle (grid / list) ── */
+.view-toggle{display:inline-flex;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.vt-btn{background:none;border:none;color:var(--muted);width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:var(--transition)}
+.vt-btn svg{width:14px;height:14px}
+.vt-btn:hover{background:var(--bg4);color:var(--text)}
+.vt-btn.active{background:rgba(79,142,247,.14);color:var(--accent)}
+
+/* search input */
+.search-wrap{position:relative;display:flex;align-items:center}
+.search-wrap svg{position:absolute;left:10px;width:13px;height:13px;color:var(--muted);pointer-events:none}
+.search-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 11px 7px 30px;color:var(--text);font-family:var(--font-sans);font-size:var(--fs-table);outline:none;width:150px;transition:border-color .15s}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.search-input::placeholder{color:var(--muted)}
+.search-clear{position:absolute;right:8px;background:none;border:none;padding:2px;cursor:pointer;color:var(--muted);display:flex;align-items:center;border-radius:4px}
+.search-clear:hover{color:var(--text)}
+
+/* filters popover + active chips */
+.filter-wrap{}
+.filter-wrap .filter-bar{padding-bottom:0;align-items:flex-end;flex-wrap:nowrap}
+.ff-period{order:1}
+.ff-tabs{order:2}
+.ff-filters{order:5}
+.ff-search{order:3;margin-left:auto}
+.ff-add{order:6}
+/* Export Data field — sits between Search and Filters, shares .filters-btn styling */
+.ff-export{order:4}
+.ff-export .export-pop{width:252px}
+@media (max-width:660px){
+  .ff-export{flex:0 0 auto}
+  .ff-export .filters-text{display:none}
+  .ff-export .export-pop{width:252px;max-width:80vw}
+}
+.filters-anchor{position:relative}
+.filters-btn{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-table);font-weight:600;cursor:pointer;transition:var(--transition);white-space:nowrap}
+.filters-btn svg{width:14px;height:14px}
+.filters-btn .filters-caret{width:13px;height:13px;color:var(--muted);transition:transform .15s}
+.filters-btn.open .filters-caret{transform:rotate(180deg)}
+.filters-btn:hover{border-color:var(--border2);background:var(--bg4)}
+.filters-btn.has{border-color:rgba(79,142,247,.45);color:var(--accent)}
+.filters-btn.has svg{color:var(--accent)}
+.filters-count{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:#0d0f14;font-size:10px;font-weight:800}
+.filters-pop{position:absolute;top:calc(100% + 7px);right:0;z-index:120;width:248px;display:flex;flex-direction:column;gap:11px;padding:14px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:var(--shadow-dropdown);animation:modalIn .12s ease both}
+.filters-pop-head{display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-label);letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.fp-clear{display:inline-flex;align-items:center;gap:4px;background:none;border:none;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.2px;text-transform:none}
+.fp-clear svg{width:12px;height:12px}
+.fp-reset{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 10px;border-radius:var(--radius);background:none;border:1px solid var(--border2);color:var(--slate);font-size:11px;font-weight:600;cursor:pointer;transition:var(--transition);letter-spacing:.2px}
+.fp-reset:hover{border-color:rgba(79,142,247,.45);color:var(--accent);background:rgba(79,142,247,.10)}
+.fp-reset:disabled{opacity:.4;cursor:not-allowed;border-color:var(--border2);color:var(--slate);background:none}
+.fp-col-tools{display:flex;flex-direction:column;gap:7px;width:100%}
+@media (max-width:660px){.fp-reset,.fp-col-tools{display:none}}
+.fp-clear:hover{text-decoration:underline}
+.filters-pop .filter-field{width:100%}
+.filters-pop .select-wrap,.filters-pop .sel{width:100%}
+.active-chips{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:11px}
+.chips-lead{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-label);letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
+.chips-lead svg{width:12px;height:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:var(--radius-pill);border:1px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--text);font-size:11px;font-weight:500;cursor:pointer;transition:var(--transition)}
+.chip svg{width:11px;height:11px;color:var(--accent);opacity:.7}
+.chip:hover{background:rgba(79,142,247,.18);border-color:var(--accent)}
+.chip:hover svg{opacity:1}
+.chip .chip-k{color:var(--muted);font-weight:600}
+.chip .chip-v{color:var(--accent);font-weight:600}
+.chip-clear{border-color:var(--border2);background:none;color:var(--slate)}
+.chip-clear:hover{background:var(--bg4);color:var(--text);border-color:var(--border2)}
+
+/* ── Mobile (≤660px): all toolbar controls in one compact row ── */
+@media (max-width:660px){
+  .filter-wrap .filter-bar{flex-wrap:nowrap;align-items:center;gap:6px}
+  .filter-bar>.filter-field{flex:0 0 auto;min-width:0}
+  .filter-label{display:none}
+  .ff-period{order:1;flex:0 0 auto}
+  .ff-search{order:2;flex:1 1 0;min-width:0}
+  .ff-export{order:3;flex:0 0 auto}
+  .ff-filters{order:4;flex:0 0 auto}
+  .ff-add{order:5;flex:0 0 auto}
+  /* period stepper: compact — match search-input height */
+  .month-step{gap:2px;width:auto;height:32px}
+  .ms-btn{height:100%}
+  .ms-label{font-size:11px;padding:0 5px;white-space:nowrap;height:100%;box-sizing:border-box}
+  /* search fills remaining space */
+  .search-wrap,.search-input{width:205px}
+  /* filters button: icon + count only, no label text */
+  .filters-btn{padding:7px 10px;width:auto}
+  .filters-btn .filters-text{display:none}
+  /* add button: icon only */
+  .ff-add .filter-label{display:none}
+  .ff-add .action-modal-btn .btn-label{display:none}
+  .ff-add .action-modal-btn{width:auto;padding:7px 10px;justify-content:center}
+}

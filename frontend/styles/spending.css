@@ -1,0 +1,16 @@
+/* ============================================================================
+   Hyper Ledger — Spending page-specific styles
+   (moved out of the inline <style> block in Spending.html)
+   ============================================================================ */
+
+/* Zebra — boost contrast against the --bg2 table surface (non-grouped mode) */
+.ledger-table.zebra tbody tr:nth-child(even of .tx-row){ background: rgba(42,47,74,.32); }
+.ledger-table.zebra tbody tr.tx-row:hover{ background: var(--bg4); }
+
+/* Mobile: hover lights up the whole card, same as desktop rows */
+@media (max-width: 660px) {
+  .ledger-table tbody tr.tx-row:hover,
+  .ledger-table.zebra tbody tr.tx-row:hover { background: var(--bg4); }
+  .ledger-table.zebra tbody tr:nth-child(even of .tx-row):hover { background: var(--bg4); }
+  .ledger-table tbody tr.tx-row:hover .td-desc { color: var(--white); }
+}

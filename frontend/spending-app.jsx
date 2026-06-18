@@ -1,0 +1,341 @@
+// spending-app.jsx — Hyper Ledger Spending page.
+(function () {
+  const Icon = window.Icon;
+  const { CATS, TX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;
+  const { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, TxRow, ScanModal } = window;
+  const ExportData = window.ExportData;
+  const { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakToggle, TweakButton } = window;
+  const { useResizableColumns, ColResizer } = window;
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "accent": "#4f8ef7",
+    "density": "compact",
+    "showConverted": true,
+    "zebra": true,
+    "colorAmounts": true,
+    "groupByWeek": true
+  }/*EDITMODE-END*/;
+
+  const { Sidebar } = window.HL_NAV;
+
+  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function weekOfMonth(iso) { return Math.ceil(+iso.split('-')[2] / 7); }
+  function weekRangeLabel(wk, month, year) {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const from = (wk - 1) * 7 + 1;
+    const to = Math.min(wk * 7, daysInMonth);
+    return MONTH_ABBR[month] + ' ' + from + '\u2013' + to;
+  }
+
+  // size = default width; minSize / maxSize = drag constraints (px), enforced by TanStack
+  const COLS = [
+    { key: 'date', label: 'Date', size: 130, minSize: 96, maxSize: 240 },
+    { key: 'desc', label: 'Description', size: 320, minSize: 160, maxSize: 640 },
+    { key: 'cat', label: 'Category', size: 175, minSize: 130, maxSize: 320 },
+    { key: 'payingFor', label: 'Paying For', size: 150, minSize: 115, maxSize: 280 },
+    { key: 'paymentMethod', label: 'Payment Method', noSort: false, size: 185, minSize: 150, maxSize: 320 },
+    { key: 'amt', label: 'Amount', num: true, size: 150, minSize: 105, maxSize: 280 },
+  ];
+
+  // ── CSV export schema (raw values, resolved labels) ──
+  const PM_LABEL = { 'credit-card': 'Credit Card', 'debit-card': 'Debit Card', 'cash': 'Cash' };
+  const EXPORT_COLS = [
+    { key: 'date', label: 'Date' },
+    { key: 'desc', label: 'Description' },
+    { key: 'cat', label: 'Category', get: r => (CATS[r.cat] || {}).label || r.cat },
+    { key: 'type', label: 'Type' },
+    { key: 'payer', label: 'Payer' },
+    { key: 'payingFor', label: 'Paying For', get: r => r.payingFor === '\u2013' ? '' : r.payingFor },
+    { key: 'paymentMethod', label: 'Payment Method', get: r => PM_LABEL[r.paymentMethod] || r.paymentMethod || '' },
+    { key: 'cur', label: 'Currency' },
+    { key: 'amt', label: 'Amount' },
+    { key: 'tryV', label: 'Amount (TRY)' },
+    { key: 'usdV', label: 'Amount (USD)' },
+  ];
+
+  // ── Table body — memoized so rows do NOT re-render during a column drag ──
+  const TableBody = React.memo(function TableBody({ rows, colCount, flashId, grouped, month, year, onEdit, order }) {
+    if (rows.length === 0) {
+      return (
+        <tbody>
+          <tr className="empty-row"><td colSpan={colCount}>
+            <div className="empty-state">
+              <Icon name="receipt-text" size={32} />
+              <span className="et">No transactions match</span>
+              <span className="es">Try a different month or clear the filters above.</span>
+            </div>
+          </td></tr>
+        </tbody>
+      );
+    }
+    if (!grouped) {
+      return (
+        <tbody>
+          {rows.map(tx => <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order} />)}
+        </tbody>
+      );
+    }
+    const groups = [];
+    let cur = null;
+    rows.forEach((tx) => {
+      const wk = weekOfMonth(tx.date);
+      if (!cur || cur.wk !== wk) { cur = { wk, rows: [] }; groups.push(cur); }
+      cur.rows.push(tx);
+    });
+    const out = [];
+    groups.forEach((g, gi) => {
+      if (gi > 0) out.push(<tr className="week-spacer" key={'wkspc-' + g.wk}><td colSpan={99}></td></tr>);
+      out.push(
+        <tr className="week-group-row" key={'wk-' + g.wk}>
+          <td colSpan={99}>
+            <span className="week-group-label"><Icon name="calendar-range" size={12} />Week {g.wk}</span>
+            <span className="week-group-range">{weekRangeLabel(g.wk, month, year)}</span>
+          </td>
+        </tr>
+      );
+      g.rows.forEach((tx, ri) => {
+        const isLast = ri === g.rows.length - 1;
+        out.push(
+          <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order}
+            extraClass={(ri % 2 === 1 ? 'row-alt' : '') + (isLast ? ' week-last' : '')} />
+        );
+      });
+    });
+    return <tbody>{out}</tbody>;
+  });
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const [rows, setRows] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [loadError, setLoadError] = React.useState(null);
+
+    // Load transactions from the backend on mount (replaces the old static TX seed).
+    React.useEffect(() => {
+      let alive = true;
+      window.HL_SPENDING_API.list()
+        .then(data => { if (alive) { setRows(data); setLoadError(null); } })
+        .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })
+        .finally(() => { if (alive) setLoading(false); });
+      return () => { alive = false; };
+    }, []);
+    // Deep-link support: ?month=&year=&highlight= (e.g. from Recurring/Subscriptions linked rows)
+    const URLP = React.useMemo(() => new URLSearchParams(window.location.search), []);
+    const [month, setMonth] = React.useState(() => { const m = URLP.has('month') ? +URLP.get('month') : NaN; return (m >= 0 && m <= 11) ? m : CURRENT_MONTH; });   // default current month (0-indexed)
+    const [year, setYear] = React.useState(() => { const y = URLP.has('year') ? +URLP.get('year') : NaN; return (y >= 2000 && y <= 2100) ? y : CURRENT_YEAR; });
+    const [type, setType] = React.useState('all');
+    const [payer, setPayer] = React.useState('all');
+    const [payingFor, setPayingFor] = React.useState('all');
+    const [cat, setCat] = React.useState('all');
+    const [source, setSource] = React.useState('all');
+    const [search, setSearch] = React.useState('');
+    const [sort, setSort] = React.useState({ col: 'date', dir: 'desc' });
+    const [page, setPage] = React.useState(1);
+    const [perPage, setPerPage] = React.useState(() => { const v = +localStorage.getItem('hl-rows-per-page'); return [10, 20, 30, 40, 50, 100].includes(v) ? v : 10; });
+    React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
+    const [modal, setModal] = React.useState(null);   // {mode, tx, scan}
+    const [scan, setScan] = React.useState(false);
+    const [del, setDel] = React.useState(null);
+    const [flashId, setFlashId] = React.useState(null);
+
+    // Highlight a deep-linked transaction on load (reuses the row-flash used for edits/adds)
+    React.useEffect(() => {
+      const h = URLP.get('highlight');
+      if (!h) return;
+      setFlashId(h);
+      const id = setTimeout(() => setFlashId(null), 2000);
+      return () => clearTimeout(id);
+    }, []);
+
+    // apply accent tweak to root
+    React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
+
+    function monthStep(d) {
+      let m = month + d, y = year;
+      if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+      setMonth(m); setYear(y); setPage(1);
+    }
+
+    // ── filter ──
+    const filtered = React.useMemo(() => {
+      const mm = String(month + 1).padStart(2, '0');
+      const prefix = `${year}-${mm}`;
+      return rows.filter(r => {
+        if (!r.date.startsWith(prefix)) return false;
+        if (type !== 'all' && r.type !== type) return false;
+        if (payer !== 'all' && r.payer !== payer) return false;
+        if (payingFor !== 'all' && r.payingFor !== payingFor) return false;
+        if (cat !== 'all' && r.cat !== cat) return false;
+        if (source !== 'all') {
+          if (source === 'recurring' && !r.recurringId) return false;
+          if (source === 'manual' && r.recurringId) return false;
+          if (source !== 'recurring' && source !== 'manual' && r.recurringId !== source) return false;
+        }
+        if (search.trim() && !r.desc.toLowerCase().includes(search.trim().toLowerCase())) return false;
+        return true;
+      });
+    }, [rows, month, year, type, payer, payingFor, cat, source, search]);
+
+    // ── sort ──
+    const sorted = React.useMemo(() => {
+      const arr = [...filtered];
+      const { col, dir } = sort;
+      arr.sort((a, b) => {
+        let av = a[col], bv = b[col];
+        if (col === 'cat') { av = CATS[a.cat].label; bv = CATS[b.cat].label; }
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return arr;
+    }, [filtered, sort]);
+
+    const total = sorted.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    const curPage = Math.min(page, pages);
+    const start = (curPage - 1) * perPage;
+    const end = Math.min(start + perPage, total);
+    // memoized: stable identity keeps the memoized <TableBody> from re-rendering during column drags
+    const pageRows = React.useMemo(() => sorted.slice(start, end), [sorted, start, end]);
+
+    React.useEffect(() => { setPage(1); }, [month, year, type, payer, payingFor, cat, source, search, perPage]);
+
+    function toggleSort(col) {
+      if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
+      if (COLS.find(c => c.key === col)?.noSort) return;
+      setSort(s => s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'desc' ? 'asc' : 'desc' });
+    }
+
+    async function saveTx(tx) {
+      try {
+        if (tx.id) {
+          const saved = await window.HL_SPENDING_API.update(tx.id, tx);
+          setRows(rs => rs.map(r => r.id === saved.id ? saved : r));
+          setFlashId(saved.id);
+        } else {
+          const saved = await window.HL_SPENDING_API.create(tx);
+          setRows(rs => [saved, ...rs]);
+          setFlashId(saved.id);
+          // jump view to the new tx's month
+          const [y, m] = saved.date.split('-'); setYear(+y); setMonth(+m - 1);
+        }
+        setModal(null);
+        setTimeout(() => setFlashId(null), 1500);
+      } catch (err) {
+        alert('Could not save transaction: ' + (err.message || err));
+      }
+    }
+    async function confirmDelete() {
+      const id = del.id;
+      try {
+        await window.HL_SPENDING_API.remove(id);
+        setRows(rs => rs.filter(r => r.id !== id));
+        setDel(null);
+      } catch (err) {
+        alert('Could not delete transaction: ' + (err.message || err));
+      }
+    }
+
+    const cols = React.useMemo(() => COLS.filter(c => t.showConverted || !c.conv), [t.showConverted]);
+
+    // ── column resizing (TanStack Table) — widths persist in localStorage ──
+    const rz = useResizableColumns({ columns: cols, storageKey: 'hl-spending-colwidths' });
+    const onEditTx = React.useCallback((x) => setModal({ mode: 'edit', tx: x }), []);
+    // Stable list of keys in the user's column order — drives <colgroup>, <thead>,
+    // and each row's cell order. Memoized so resize re-renders don't churn rows.
+    const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
+
+    return (
+      <div className="app">
+        <Sidebar active="spending" />
+        <div className="main">
+          <header className="page-head">
+            <div className="page-head-top">
+              <div className="cfg-detail-head-left">
+                <div className="page-title-wrap cfg-detail-title-wrap">
+                  <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#22c55e' }}><Icon name="shopping-bag" size={21} /></span>
+                  <div className="cfg-title-col">
+                    <h1 className="page-title">Spending</h1>
+                    <p className="page-subtitle">Expenses by category and member</p>
+                  </div>
+                </div>
+              </div>
+              <div className="head-actions">
+                <button className="action-modal-btn scan" onClick={() => setScan(true)}><Icon name="scan-line" size={14} />Scan Receipt</button>
+                <button className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>
+              </div>
+            </div>
+            <FilterBar
+              month={month} year={year} onMonthStep={monthStep}
+              type={type} setType={setType} payer={payer} setPayer={setPayer}
+              payingFor={payingFor} setPayingFor={setPayingFor}
+              cat={cat} setCat={setCat} source={source} setSource={setSource}
+              search={search} setSearch={setSearch}
+              onResetCols={rz.resetSizes}
+              onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
+              onAdd={() => setModal({ mode: 'add', tx: {} })}
+              onScan={() => setScan(true)}
+              extra={<ExportData entity="spending" entityLabel="Transactions"
+                period={year + '-' + String(month + 1).padStart(2, '0')}
+                columns={EXPORT_COLS} rows={sorted} allRows={rows} inline />} />
+          </header>
+
+          <div className="table-card">
+            <div className="table-scroll">
+              <table ref={rz.tableRef} className={'ledger-table resizable' + (t.zebra ? ' zebra' : '') + (t.colorAmounts ? '' : ' mono-amt') + ' dens-' + t.density + (t.groupByWeek && sort.col === 'date' ? ' week-cards' : '')}
+                  style={rz.colSizeVars}>
+                <colgroup>
+                  {rz.orderedColumns.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
+                </colgroup>
+                <thead>
+                  <tr>
+                    {rz.orderedColumns.map(c => (
+                      <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key && !c.noSort ? 'sorted' : '')}
+                          title="Drag To Reorder · Click To Sort"
+                          {...rz.getReorderProps(c.key)}
+                          onClick={() => toggleSort(c.key)}>
+                        <span className="th-inner">
+                          <span className="th-label">{c.label}</span>
+                          {!c.noSort && <span className="sort-arrow">{sort.col === c.key ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}</span>}
+                        </span>
+                        <ColResizer header={rz.headersById[c.key]} />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <TableBody rows={pageRows} colCount={cols.length} flashId={flashId} order={orderKeys}
+                  grouped={t.groupByWeek && sort.col === 'date'} month={month} year={year} onEdit={onEditTx} />
+              </table>
+            </div>
+            <Pagination page={curPage} pages={pages} total={total} start={start} end={end}
+              perPage={perPage} setPage={setPage} setPerPage={setPerPage} />
+          </div>
+        </div>
+
+        {modal && <TxModal initial={modal.tx} scan={modal.scan} onClose={() => setModal(null)} onSave={saveTx} onDelete={(tx) => { setModal(null); setDel(tx); }} />}
+        {scan && <ScanModal onClose={() => setScan(false)} onScanned={(tx) => { setScan(false); setModal({ mode: 'add', tx, scan: true }); }} />}
+        {del && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDelete} />}
+
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="Appearance" />
+          <TweakColor label="Accent" value={t.accent}
+            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+            onChange={(v) => setTweak('accent', v)} />
+          <TweakRadio label="Density" value={t.density}
+            options={['compact', 'regular', 'comfy']}
+            onChange={(v) => setTweak('density', v)} />
+          <TweakSection label="Table" />
+          <TweakToggle label="Zebra striping" value={t.zebra}
+            onChange={(v) => setTweak('zebra', v)} />
+          <TweakToggle label="Color income / expense" value={t.colorAmounts}
+            onChange={(v) => setTweak('colorAmounts', v)} />
+          <TweakToggle label="Group by week" value={t.groupByWeek}
+            onChange={(v) => setTweak('groupByWeek', v)} />
+        </TweaksPanel>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+})();

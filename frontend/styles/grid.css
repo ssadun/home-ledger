@@ -1,0 +1,30 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Hyper Ledger — grid.css
+   Shared CARD-GRID scaffold for card-based pages (Accounts, Budgets, …).
+   Owns ONLY the common pattern: an auto-fill responsive column track, the
+   gap, the "list" collapse to a single column, and the ≤660px single-column
+   fallback. Page-specific styling (card chrome, per-page list layouts, the
+   :not(--list) density tweaks) stays in the page stylesheet.
+
+   Tune per page by setting two custom properties on the same element:
+     --card-min : min card width before wrapping  (default 320px)
+     --card-gap : gap between cards               (default 12px)
+
+   Usage (className): "card-grid <page>-grid"  +  list mode adds
+   "card-grid--list <page>-list" so the page keeps its own list hooks.
+   Load order: tokens.css → app.css → filters.css → tables.css → grid.css → page css.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.card-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(var(--card-min, 320px), 1fr));
+  gap:var(--card-gap, 12px);
+}
+
+/* List mode → single column (two classes beats the page's single-class vars) */
+.card-grid.card-grid--list{grid-template-columns:1fr}
+
+/* Mobile (≤660px): always a single column */
+@media (max-width:660px){
+  .card-grid{grid-template-columns:1fr}
+}

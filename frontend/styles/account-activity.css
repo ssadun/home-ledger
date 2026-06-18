@@ -1,0 +1,17 @@
+/* ============================================================================
+   Hyper Ledger — Account Activity page-specific styles
+   (moved out of the inline <style> block in Account Activity.html)
+   ============================================================================ */
+
+/* Account Activity cells — plain: muted text + colorful icon (no bg / border) */
+.atx-plain { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-table); white-space: nowrap; }
+.atx-plain svg { flex-shrink: 0; }
+.atx-acct-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 660px) {
+  .atx-acct-name { max-width: 100px; }
+  /* stacked card: only Description + Amount on line 1, meta on line 2 */
+  .ledger-table td[data-label="Account"],
+  .ledger-table td[data-label="Type"],
+  .ledger-table td[data-label="Direction"] { display: none; }
+}

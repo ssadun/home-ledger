@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="auth.js"></script>
+<script>window.HL_AUTH && window.HL_AUTH.requireAuth();</script>
+<title>Hyper Ledger — Currencies</title>
+<link rel="icon" href="assets/ledger-logo.svg" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0d0f14" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Hyper Ledger" />
+<script src="assets/pwa.js" defer></script>
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/app.css" />
+<link rel="stylesheet" href="styles/filters.css" />
+<link rel="stylesheet" href="styles/tables.css" />
+<link rel="stylesheet" href="styles/config.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+<link rel="stylesheet" href="styles/datepicker.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@tanstack/react-table@8.21.3/build/umd/index.production.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="styles/export.css" />
+</head>
+<body>
+<div id="root"></div>
+<script src="data.js"></script>
+<script src="accounts-data.js"></script>
+<script src="menu.js"></script>
+<script src="export-data.js"></script>
+<script type="text/babel" src="Icon.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script>window.CONFIG_SECTION = 'currencies';</script>
+<script type="text/babel" src="resizable-columns.jsx"></script>
+<script type="text/babel" src="nav.jsx"></script>
+<script type="text/babel" src="export-data.jsx"></script>
+<script type="text/babel" src="config-app.jsx"></script>
+</body>
+</html>

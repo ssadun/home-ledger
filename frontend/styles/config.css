@@ -1,0 +1,173 @@
+/* config.css — Configuration screen styles */
+
+/* ── Detail page ── */
+.cfg-detail{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.cfg-detail-head-left{display:flex;align-items:center;min-width:0}
+.cfg-add-btn{white-space:nowrap;flex-shrink:0}
+
+/* Detail header: icon vertically centered against the title + subtitle block */
+.cfg-detail-title-wrap{flex-direction:row;align-items:center;gap:11px}
+.cfg-title-icon{display:flex;align-items:center;flex-shrink:0;color:inherit}
+.cfg-title-icon svg{width:34px;height:34px}
+.cfg-title-col{display:flex;flex-direction:column;gap:3px;min-width:0}
+
+/* ── Table ──
+   Core table look (thead, th, td, row borders, hover, sticky header) comes
+   from styles/tables.css — cfg tables carry class "ledger-table cfg-table".
+   Only cfg-specific deltas live here. */
+.cfg-table-wrap{flex:1;overflow-y:auto;min-height:0}
+.cfg-table td{color:var(--text)}
+/* Detail rows are clickable (open the editor); zebra striping on desktop only
+   (mobile renders each row as a card — see the media query below). */
+.cfg-table tbody tr.cfg-row{cursor:pointer}
+@media (min-width:661px){
+  .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:rgba(42,47,74,.22)}
+  .cfg-table tbody tr.cfg-row:hover{background:var(--bg4)}
+}
+.cfg-actions-col{text-align:right;width:200px}
+
+/* Detail table tools (Fit Columns / Reset Order) — sit above the table, right-aligned */
+.cfg-table-tools{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px 8px;flex-shrink:0}
+.cfg-table-tools .fp-reset{width:auto;flex:0 0 auto}
+@media (max-width:660px){.cfg-table-tools{display:none}}
+
+.cfg-act-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:none;font-size:12px;font-weight:600;cursor:pointer;transition:all .12s}
+.cfg-act-btn.edit{color:var(--accent);border-color:rgba(79,142,247,.4)}
+.cfg-act-btn.edit:hover{background:rgba(79,142,247,.12);border-color:var(--accent)}
+.cfg-act-btn.delete{color:var(--red);border-color:rgba(239,68,68,.4)}
+.cfg-act-btn.delete:hover{background:rgba(239,68,68,.12);border-color:var(--red)}
+.cfg-act-btn.history{color:var(--gold);border-color:rgba(251,191,36,.4)}
+.cfg-act-btn.history:hover{background:rgba(251,191,36,.1);border-color:var(--gold)}
+/* History action relocated into the editor modal footer (Currencies) */
+.cfg-modal-foot-left{display:flex;gap:9px;margin-right:auto}
+.amb.history{color:var(--gold);border-color:rgba(251,191,36,.4)}
+.amb.history:hover{background:rgba(251,191,36,.12);border-color:var(--gold)}
+
+/* ── Cell helpers ── */
+.cfg-icon-preview{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--slate)}
+.cfg-color-dot{display:inline-block;width:14px;height:14px;border-radius:50%;flex-shrink:0}
+.cfg-badge{display:inline-flex;align-items:center;border-radius:10px;font-size:11px;font-weight:600;text-transform:capitalize}
+.cfg-badge-income{color:var(--green)}
+.cfg-badge-expense{color:var(--coral)}
+.cfg-badge-admin{color:var(--gold)}
+.cfg-badge-user{color:var(--accent)}
+.cfg-pw-mask{color:var(--muted);letter-spacing:2px;font-size:11px}
+.cfg-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600}
+.cfg-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:currentColor}
+.cfg-status-active{color:var(--green)}
+.cfg-status-active .cfg-status-dot{box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent)}
+.cfg-status-inactive{color:var(--muted)}
+
+/* ── Empty state ── */
+.cfg-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13px;padding:48px}
+
+/* ── Modal ── */
+.cfg-modal{width:440px}
+.cfg-modal-body{display:flex;flex-direction:column;gap:14px;padding:20px 18px}
+.field-hint{font-size:10px;color:var(--muted);letter-spacing:.2px;margin-top:1px}
+
+/* ── Color swatch grid ── */
+.cfg-color-grid{display:flex;flex-wrap:wrap;gap:7px;padding:4px 0}
+.cfg-color-swatch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .1s,border-color .1s}
+.cfg-color-swatch:hover{transform:scale(1.2)}
+.cfg-color-swatch.selected{border-color:var(--white);transform:scale(1.15)}
+
+/* ── Icon input with preview ── */
+.cfg-icon-field{position:relative;display:flex;align-items:center}
+.cfg-icon-field .field-input{flex:1;padding-right:38px}
+.cfg-icon-field-preview{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none}
+
+/* ── Confirm delete modal ── */
+.cfg-confirm{width:400px}
+.cfg-confirm-body{padding:20px 18px;font-size:13px;color:var(--slate);line-height:1.6}
+.cfg-confirm-body b{color:var(--white)}
+
+/* ── Currency history modal ── */
+.cfg-hist-modal{width:620px;max-height:88vh}
+.cfg-hist-body{display:flex;flex-direction:column;gap:0;overflow-y:auto;flex:1;min-height:0}
+.cfg-hist-form{padding:18px 20px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;flex-direction:column;gap:12px}
+.cfg-hist-form-title{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.cfg-hist-form-title svg{width:13px;height:13px;color:var(--accent)}
+.cfg-hist-fields{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.cfg-hist-form-foot{display:flex;justify-content:flex-end}
+.cfg-hist-err{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--red)}
+.cfg-hist-err svg{width:12px;height:12px;flex-shrink:0}
+.cfg-hist-table-wrap{padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.cfg-hist-section-title{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.cfg-hist-section-title svg{width:13px;height:13px}
+.cfg-hist-table{font-size:12px}
+.cfg-hist-current td{color:var(--white);background:rgba(251,191,36,.06)}
+.cfg-hist-current td:first-child{border-left:2px solid var(--gold)}
+
+/* ── Rate source badge ── */
+.cfg-src-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.cfg-src-badge svg{width:11px;height:11px}
+.src-tcmb{color:var(--gold)}
+.src-market{color:var(--sky)}
+
+/* ── Retrieve From TCMB ── */
+.cfg-head-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.action-modal-btn.tcmb{color:var(--gold);border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.10)}
+.action-modal-btn.tcmb:hover{background:rgba(251,191,36,.2);border-color:var(--gold)}
+.cfg-tcmb-modal{width:560px;max-height:88vh}
+.cfg-tcmb-body{display:flex;flex-direction:column;gap:14px;padding:18px 20px;overflow-y:auto}
+.cfg-tcmb-banner{display:flex;align-items:center;gap:11px;padding:12px 14px;border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.07);border-radius:var(--radius)}
+.cfg-tcmb-banner>svg{width:18px;height:18px;color:var(--gold);flex-shrink:0}
+.cfg-tcmb-banner-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cfg-tcmb-banner-title{font-size:13px;font-weight:700;color:var(--white)}
+.cfg-tcmb-banner-sub{font-size:11px;color:var(--slate)}
+.cfg-tcmb-table{font-size:12px}
+.cfg-tcmb-delta{font-weight:600}
+.cfg-tcmb-delta.up{color:var(--green)}
+.cfg-tcmb-delta.down{color:var(--coral)}
+.cfg-tcmb-delta.flat{color:var(--muted);font-weight:500}
+.cfg-tcmb-foot-note{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);line-height:1.4}
+.cfg-tcmb-foot-note svg{width:12px;height:12px;flex-shrink:0}
+
+/* ── Responsive — two views only: computer (>660px) & mobile (500–660px) ── */
+@media (max-width:660px){
+  /* cfg tables → stacked cards (tables.css hides thead / blockifies the table) */
+  .cfg-table-wrap{padding:10px}
+  .cfg-table tbody tr.cfg-row{display:flex;flex-direction:column;gap:8px;
+           background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+           padding:11px 13px;margin:0 0 8px}
+  .cfg-table tbody tr.cfg-row:hover{background:var(--bg2)}
+  /* zebra striping carries onto mobile cards too (parity matches desktop) */
+  .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:rgba(42,47,74,.42)}
+  .cfg-table.zebra tbody tr.cfg-row:nth-child(even):hover{background:rgba(42,47,74,.42)}
+  .cfg-table td[data-label]{display:flex;align-items:center;justify-content:space-between;
+           gap:12px;width:100%;min-height:24px;white-space:normal}
+  .cfg-table td[data-label]::before{content:attr(data-label);font-size:10px;font-weight:700;
+           letter-spacing:1px;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+  .cfg-table td:not([data-label]){display:none}
+  .cfg-table td[data-label="Actions"]{justify-content:flex-end;margin-top:2px}
+  .cfg-table td[data-label="Actions"]::before{display:none}
+  .cfg-act-btn{min-height:36px;padding:7px 14px}
+
+  /* Detail section tables (Currencies, Members, …) → 4-column grid card:
+     two caption|value pairs per line, captions aligned in their own column.
+     Each td uses display:contents so its ::before (caption) and value land as
+     direct grid items of the row grid; auto-placement flows them L→R, wrapping. */
+  .cfg-table.resizable tbody tr.cfg-row{display:grid;flex-direction:unset;
+           grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);
+           gap:9px 11px;align-items:center}
+  .cfg-table.resizable td[data-label]{display:contents}
+  .cfg-table.resizable td[data-label]::before{content:attr(data-label);
+           font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+           color:var(--muted);white-space:nowrap;align-self:center;justify-self:start}
+
+  /* currency history: "current" row marked by gold border instead of cell tint */
+  .cfg-hist-current{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)}
+  .cfg-table .cfg-hist-current td{background:none}
+  .cfg-hist-current td:first-child{border-left:none}
+  .cfg-modal{width:calc(100vw - 32px)}
+  .cfg-hist-modal{width:calc(100vw - 32px)}
+  .cfg-hist-fields{grid-template-columns:1fr 1fr}
+  .cfg-tcmb-modal{width:calc(100vw - 32px)}
+  /* keep title left, actions right on the same line */
+  .page-head-top:has(.cfg-head-actions){flex-direction:row;align-items:center;gap:10px}
+  .cfg-detail-head-left{flex:1;min-width:0}
+  .cfg-head-actions{width:auto;flex-direction:row;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0}
+  .cfg-head-actions .action-modal-btn{width:auto;justify-content:center;min-height:44px}
+  /* page-sub hidden globally */
+}

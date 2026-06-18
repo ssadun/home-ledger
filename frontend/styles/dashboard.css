@@ -1,0 +1,288 @@
+/* ============================================================================
+   Hyper Ledger — Dashboard page styles
+   ============================================================================ */
+
+/* ── KPI group wrapper ── */
+.dash-kpi-group{display:flex;flex-direction:column;gap:0;margin-bottom:14px;width:100%;max-width:934px;margin-left:auto;margin-right:auto}
+.dash-kpi-source{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0}
+.dash-kpi-source svg{width:11px;height:11px;flex-shrink:0;opacity:.6}
+.dash-kpi-source strong{color:var(--slate);font-weight:700}
+.dash-kpi-group .dash-kpi-row{margin-bottom:0;border-radius:0 0 var(--radius2) var(--radius2)}
+.dash-kpi-group .summary-row{border-radius:0 0 var(--radius2) var(--radius2);overflow:hidden}
+
+/* ── KPI strip ── */
+.dash-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;margin:0 0 14px 0}
+.dash-kpi{background:var(--bg3);padding:14px 18px;display:flex;flex-direction:column;gap:4px}
+.dash-kpi-label{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dash-kpi-label svg{width:13px;height:13px}
+.dash-kpi-value{font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.dash-kpi-sub{font-size:11px;color:var(--muted);font-weight:500}
+.dash-kpi-detail{font-size:11px;font-weight:600;margin-top:2px}
+
+/* KPI color variants */
+.kpi-expense .dash-kpi-value{color:var(--red)}
+.kpi-expense .dash-kpi-detail{color:var(--slate)}
+
+.kpi-budget .dash-kpi-value{color:var(--white)}
+.kpi-budget .dash-kpi-detail{color:var(--slate)}
+
+.kpi-ok .dash-kpi-value{color:var(--green)}
+.kpi-ok .dash-kpi-detail{color:var(--green)}
+
+.kpi-warn .dash-kpi-value{color:var(--orange)}
+.kpi-warn .dash-kpi-detail{color:var(--red)}
+
+.kpi-total .dash-kpi-value{color:var(--accent)}
+.kpi-total .dash-kpi-detail{color:var(--slate)}
+
+.kpi-income .dash-kpi-value{color:var(--green)}
+.kpi-income .dash-kpi-detail{color:var(--slate)}
+
+/* ── Scrollable body ── */
+.dash-body{flex:1;min-height:0;overflow-y:auto;padding:0 22px 28px;display:grid;grid-template-columns:repeat(2,minmax(0,460px));justify-content:center;gap:14px;align-content:start}
+.dash-widget-full{grid-column:1/-1}
+
+/* ── Widget card (generic) ── */
+.dash-widget{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;display:flex;flex-direction:column;gap:16px;transition:border-color .15s}
+.dash-widget:hover{border-color:var(--border2)}
+.dash-widget-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.dash-widget-head svg{width:15px;height:15px;flex-shrink:0}
+.dash-widget-title{font-size:14px;font-weight:700;color:var(--white);letter-spacing:.2px}
+.dash-widget-legend{display:flex;align-items:center;gap:14px;margin-left:auto}
+.dash-wl-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--slate)}
+.dash-wl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dash-wl-line{width:16px;height:0;border-top:2px dashed var(--orange);opacity:.55}
+.dash-wl-line-orange{border-color:var(--orange)}
+
+/* ── Monthly spend vs budget chart ── */
+.dash-monthly-chart{display:flex;gap:4px;align-items:flex-end;padding:0 2px;min-height:240px}
+.dash-mc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.dash-mc-bars{position:relative;width:100%;height:200px;display:flex;align-items:flex-end;justify-content:center}
+.dash-mc-bar{width:70%;max-width:42px;border-radius:4px 4px 0 0;transition:height .5s ease;background:linear-gradient(to top, color-mix(in srgb, var(--accent) 60%, transparent), var(--accent))}
+.dash-mc-bar.fc{background:linear-gradient(to top, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 35%, transparent))}
+.dash-mc-bar.over{background:linear-gradient(to top, color-mix(in srgb, var(--red) 60%, transparent), var(--red))}
+.dash-mc-budget-line{position:absolute;left:5%;right:5%;height:0;border-top:2px dashed var(--orange);opacity:.45;z-index:2;pointer-events:none}
+.dash-mc-label{font-size:10px;font-weight:700;color:var(--text);letter-spacing:.2px}
+.dash-mc-val{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.dash-mc-col.current .dash-mc-label{color:var(--accent);font-weight:800}
+.dash-mc-col.current .dash-mc-bar{box-shadow:0 0 8px rgba(79,142,247,.35)}
+.dash-mc-col.forecast .dash-mc-label{color:var(--muted)}
+
+/* ── Cumulative chart ── */
+.dash-cum-wrap{width:100%;overflow:hidden}
+.dash-cum-svg{width:100%;height:auto;display:block}
+
+/* ── Category forecast table ── */
+.dash-cat-table{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.dash-ct-header{display:grid;grid-template-columns:180px 1fr 1fr 1fr 140px;gap:12px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.dash-ct-h{font-size:var(--fs-label);font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.dash-ct-h.num{text-align:right}
+.dash-ct-h.num:last-child{text-align:left}
+.dash-ct-row{display:grid;grid-template-columns:180px 1fr 1fr 1fr 140px;gap:12px;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);align-items:center;transition:background .1s}
+.dash-ct-nums-row{display:contents}
+.dash-ct-row:last-child{border-bottom:none}
+.dash-ct-row:hover{background:var(--bg4)}
+.dash-ct-cat{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-ct-ico{width:24px;height:24px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
+.dash-ct-ico svg{width:12px;height:12px}
+.dash-ct-num{font-size:12px;font-weight:600;color:var(--slate);font-variant-numeric:tabular-nums;text-align:right}
+.dash-ct-num.txt-over{color:var(--red);font-weight:700}
+.dash-ct-status{display:flex;align-items:center;gap:8px}
+.dash-ct-pct{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
+.dash-ct-pct{color:var(--green)}
+.dash-ct-status.warn .dash-ct-pct{color:var(--orange)}
+.dash-ct-status.over .dash-ct-pct{color:var(--red)}
+.dash-ct-bar{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.dash-ct-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.dash-ct-fill.ok{background:var(--green)}
+.dash-ct-fill.warn{background:var(--orange)}
+.dash-ct-fill.over{background:var(--red)}
+
+/* ── Summary row — match KPI card sizing on dashboard ── */
+.rpt-body .summary-row{margin:0 auto;width:100%;max-width:934px;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;border-radius:var(--radius2);overflow:hidden}
+.rpt-body .summary-card{padding:14px 18px;gap:4px}
+.rpt-body .summary-label{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px}
+.rpt-body .summary-label svg{width:13px;height:13px}
+.rpt-body .summary-value{font-size:17px;font-weight:700;line-height:1.15;letter-spacing:-.3px}
+.rpt-body .summary-sub{font-size:11px;font-weight:500}
+
+/* ============================================================================
+   RESPONSIVE — two views only: computer (>660px) & mobile (500–660px)
+   ============================================================================ */
+
+@media (max-width:660px){
+  html,body{overflow:auto;height:auto}
+
+  /* sidebar → bottom tab bar */
+  .sidebar{top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;
+           border-right:none;border-top:1px solid var(--border);z-index:200}
+  body.sidebar-expanded .sidebar{width:100%}
+  .sidebar-toggle,.sidebar-float-btn{display:none}
+  .sidebar-nav{flex-direction:row;flex:1;overflow:visible;padding:0}
+  .sidebar-section{display:contents}
+  .sidebar-section.bottom{margin-top:0;border-top:none;padding:0}
+  .sidebar-item,
+  body:not(.sidebar-expanded) .sidebar-item{flex-direction:column;gap:3px;width:auto;flex:1;
+           margin:0;padding:8px 4px;min-height:52px;justify-content:center;border-radius:0}
+  .sidebar-item-text,
+  body:not(.sidebar-expanded) .sidebar-item-text{display:block;font-size:9px;letter-spacing:.2px}
+  .sidebar-section.bottom .sidebar-item-text{display:block}
+
+  .main,body.sidebar-expanded .main{margin-left:0;height:auto;min-height:100vh;padding-bottom:66px}
+
+  .page-head{padding:12px}
+  .page-title{font-size:18px;letter-spacing:1px}
+  .page-sub{padding-left:0;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+
+  /* KPI 2×2, widgets centered at ≤522px */
+  .dash-kpi-row{grid-template-columns:1fr 1fr}
+  .dash-kpi-value{font-size:17px}
+  .dash-kpi-group,.rpt-body .summary-row{max-width:522px}
+  .dash-body{padding:0 12px 22px;grid-template-columns:minmax(0,522px);justify-content:center}
+  .dash-widget-legend{margin-left:0;margin-top:4px;flex-basis:100%}
+
+  /* monthly chart compact */
+  .dash-monthly-chart{min-height:160px;gap:2px}
+  .dash-mc-bars{height:130px}
+  .dash-mc-label{font-size:9px}
+  .dash-mc-val{display:none}
+
+  /* table → stacked cards on phone */
+  .dash-ct-header{display:none}
+  .dash-ct-row{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:start;min-width:0;padding:12px 14px}
+  .dash-ct-cat{grid-column:1 / -1;font-size:13px;padding-bottom:4px;border-bottom:1px solid var(--border);justify-content:flex-start}
+  .dash-ct-nums-row{display:contents}
+  .dash-ct-num{text-align:left;font-size:12px}
+  .dash-ct-num::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+  .dash-ct-status{align-self:end}
+}
+
+/* ============================================================================
+   Reports / chart styles (merged from reports.css)
+   ============================================================================ */
+
+/* ── Scrollable body ── */
+.rpt-body{flex:1;min-height:0;overflow-y:auto;background: var(--bg2);padding:10px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:14px}
+
+/* ── Grid layout ── */
+.rpt-grid{display:grid;grid-template-columns:minmax(0,460px) minmax(0,460px);gap:14px;width:100%;max-width:934px;margin:0 auto}
+.rpt-single{grid-template-columns:minmax(0,934px)}
+.rpt-col-left{grid-column:1;display:flex;flex-direction:column;gap:14px}
+.rpt-col-right{grid-column:2;display:flex;flex-direction:column;gap:14px}
+.rpt-col-full{grid-column:1 / -1}
+
+/* ── Filter bar overrides ── */
+.rpt-filter-bar{align-items: flex-end}
+.rpt-view-name{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--white);margin-right:auto;padding-bottom: 5px;}
+.rpt-view-name svg{width:14px;height:14px;color:var(--text)}
+
+/* ── Horizontal bar chart (CategoryBarChart) ── */
+.rpt-hbar-list{display:flex;flex-direction:column;gap:10px}
+.rpt-hbar-row{display:flex;align-items:center;gap:10px}
+.rpt-hbar-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text);min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpt-hbar-ico{width:22px;height:22px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
+.rpt-hbar-ico svg{width:11px;height:11px}
+.rpt-hbar-track{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.rpt-hbar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.rpt-hbar-val{font-size:12px;font-weight:700;color:var(--slate);font-variant-numeric:tabular-nums;min-width:72px;text-align:right}
+
+/* ── Donut chart ── */
+.rpt-donut-wrap{position:relative;display:flex;align-items:center;justify-content:center;min-height:180px}
+.rpt-donut-svg{width:180px;height:180px}
+.rpt-donut-center{position:absolute;display:flex;flex-direction:column;align-items:center;gap:2px}
+.rpt-dc-label{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.rpt-dc-value{font-size:18px;font-weight:700;color:var(--white);letter-spacing:-.3px}
+.rpt-donut-legend{display:flex;flex-wrap:wrap;gap:6px 14px}
+.rpt-dl-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--slate)}
+.rpt-dl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rpt-dl-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px}
+.rpt-dl-pct{color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums;margin-left:auto}
+
+/* ── Monthly trend chart (grouped bars) ── */
+.rpt-trend-chart{display:flex;gap:6px;align-items:flex-end;padding:0 2px;min-height:200px}
+.rpt-tc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.rpt-tc-bars{position:relative;width:100%;height:170px;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+.rpt-tc-bar{flex:1;max-width:28px;border-radius:3px 3px 0 0;transition:height .5s ease}
+.rpt-tc-bar.income{background:linear-gradient(to top, color-mix(in srgb, var(--green) 55%, transparent), var(--green))}
+.rpt-tc-bar.expense{background:linear-gradient(to top, color-mix(in srgb, var(--red) 55%, transparent), var(--red))}
+.rpt-tc-label{font-size:10px;font-weight:700;color:var(--text);letter-spacing:.2px}
+
+/* ── Budget vs actual bars ── */
+.rpt-bva-list{display:flex;flex-direction:column;gap:12px}
+.rpt-bva-row{display:flex;align-items:center;gap:10px}
+.rpt-bva-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text);min-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpt-bva-ico{width:22px;height:22px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
+.rpt-bva-ico svg{width:11px;height:11px}
+.rpt-bva-track{flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden;position:relative;border:1px solid var(--border)}
+.rpt-bva-budget{position:absolute;top:0;left:0;height:100%;background:rgba(79,142,247,.18);border-radius:5px}
+.rpt-bva-actual{position:absolute;top:0;left:0;height:100%;background:var(--accent);border-radius:5px;transition:width .5s ease;z-index:1}
+.rpt-bva-actual.over{background:var(--red)}
+.rpt-bva-vals{display:flex;align-items:baseline;gap:4px;min-width:130px;justify-content:flex-end}
+.rpt-bva-amt{font-size:12px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.rpt-bva-amt.over{color:var(--red)}
+.rpt-bva-lim{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ── Top expenses list ── */
+.rpt-top-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.rpt-top-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border-bottom:1px solid var(--border);transition:background .1s}
+.rpt-top-row:last-child{border-bottom:none}
+.rpt-top-row:hover{background:var(--bg4)}
+.rpt-top-rank{width:20px;text-align:center;font-size:11px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
+.rpt-top-ico{width:22px;height:22px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
+.rpt-top-ico svg{width:11px;height:11px}
+.rpt-top-desc{flex:1;font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rpt-top-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rpt-top-amt{font-size:12px;font-weight:700;color:var(--red);font-variant-numeric:tabular-nums;min-width:70px;text-align:right}
+
+/* ── Payer comparison ── */
+.rpt-payer-chart{display:flex;flex-direction:column;gap:14px}
+.rpt-payer-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px}
+.rpt-pb-seg{transition:width .5s ease;min-width:4px;border-radius:7px}
+.rpt-payer-legend{display:flex;gap:20px}
+.rpt-pl-item{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--text)}
+.rpt-pl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.rpt-pl-name{font-weight:600}
+.rpt-pl-val{color:var(--slate);font-variant-numeric:tabular-nums}
+.rpt-pl-pct{color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ── Reports responsive — mobile (≤660px) ── */
+@media (max-width:660px){
+  .rpt-body{padding:0 12px 22px}
+  .rpt-grid{grid-template-columns:minmax(0,522px)}
+  .rpt-col-left,.rpt-col-right{grid-column:1}
+  .rpt-col-full{grid-column:1}
+  .rpt-view-name{font-size:12px}
+
+  .rpt-hbar-row{flex-wrap:wrap}
+  .rpt-hbar-label{min-width:unset;flex-basis:100%}
+  .rpt-hbar-track{flex:1;min-width:0}
+  .rpt-hbar-val{min-width:60px}
+
+  .rpt-bva-row{flex-wrap:wrap}
+  .rpt-bva-label{min-width:unset;flex-basis:100%}
+  .rpt-bva-track{flex:1;min-width:0}
+  .rpt-bva-vals{min-width:unset}
+
+  .rpt-top-date{display:none}
+  .rpt-payer-legend{flex-direction:column;gap:8px}
+
+  .rpt-trend-chart{min-height:150px}
+  .rpt-tc-bars{height:130px}
+  .rpt-tc-label{font-size:9px}
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Filter-bar layout on phones (moved out of Dashboard.html inline <style>).
+   Shows the filter-label inline (left of the control).
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width:660px){
+  .rpt-filter-bar               { flex-wrap: nowrap; align-items: center; gap: 8px; }
+  .rpt-filter-bar > .ff-tabs    { flex: 0 0 auto; }
+  .rpt-filter-bar > .ff-period  { flex: 0 0 auto; }
+  .rpt-filter-bar .filter-field { flex-direction: row; align-items: center; gap: 6px; }
+  .rpt-filter-bar .filter-label { display: flex; font-size: 9px; white-space: nowrap; }
+  .rpt-filter-bar .month-step   { width: auto; height: 32px; justify-content: flex-start; gap: 2px; }
+  .rpt-filter-bar .ms-btn       { height: 100%; }
+  .rpt-filter-bar .ms-label     { font-size: 11px; padding: 0 4px; white-space: nowrap;
+                                  height: 100%; box-sizing: border-box; }
+}
