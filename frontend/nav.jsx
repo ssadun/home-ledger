@@ -16,7 +16,7 @@
   // App version shown in the sidebar footer (below Log Out).
   // APP_BUILD is bumped automatically by ./push.sh on each push to GitHub —
   // do NOT edit it by hand (the marker line below is matched by sed).
-  const APP_BUILD = 1; // build:auto
+  const APP_BUILD = 2; // build:auto
   const APP_VERSION = 'v1.0.' + APP_BUILD;
 
   // ── Persistent grid/list "View" selection, shared across the whole app ──────
