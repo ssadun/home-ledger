@@ -95,11 +95,8 @@
 .act-amt.income{color:var(--green)}
 .act-amt.expense{color:var(--red)}
 
-/* ── Empty state ── */
-.acct-empty-state{display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px;color:var(--muted);text-align:center}
-.acct-empty-state svg{width:36px;height:36px;opacity:.4}
-.acct-empty-state .et{font-size:14px;font-weight:600;color:var(--slate)}
-.acct-empty-state .es{font-size:12px}
+/* ── Empty state ── (shared definition lives in app.css so card pages that
+   don't load accounts.css — e.g. Budgets — still get the stacked layout) */
 
 /* ── Detail empty ── */
 .detail-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;color:var(--muted);text-align:center;font-size:12px}

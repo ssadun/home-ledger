@@ -292,6 +292,14 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 .confirm-text b{color:var(--text);font-weight:600}
 .confirm-text .warn{display:block;margin-top:6px;color:var(--muted);font-size:12px}
 
+/* ── Shared empty state (used by Accounts, Budgets, …) ──
+   Lives here (loaded by every page) so card pages that don't pull accounts.css
+   still get the centered icon + title + subtitle stack instead of run-on text. */
+.acct-empty-state{display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px 20px;color:var(--muted);text-align:center}
+.acct-empty-state svg{width:36px;height:36px;opacity:.4}
+.acct-empty-state .et{font-size:14px;font-weight:600;color:var(--slate)}
+.acct-empty-state .es{font-size:12px}
+
 /* mobile meta cell — hidden on desktop */
 .td-meta-mobile{display:none}
 
@@ -421,6 +429,18 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .modal{max-height:92vh}
   .form-grid{grid-template-columns:1fr}
   .modal-body{gap:14px}
+}
+
+/* ── Narrow phones (≤410px) ──
+   The bottom tab bar has 6 equal-width tabs; at 360px each is only ~60px wide.
+   The 9px label size tuned for 500–660px clips the longest label
+   ("Configuration"). Shrink the label + tighten the item padding so every tab
+   fits without truncation. The (0,3,0) selectors intentionally out-specify the
+   per-page sidebar blocks in dashboard/accounts/budgets css that re-declare the
+   9px size later in the cascade. */
+@media (max-width:410px){
+  .sidebar .sidebar-nav .sidebar-item{padding-left:2px;padding-right:2px}
+  .sidebar .sidebar-nav .sidebar-item-text{font-size:8px;letter-spacing:0}
 }
 
 /* ════════════════════════════════════════════════════════════════════════

@@ -99,7 +99,10 @@
   .filter-bar>.filter-field{flex:0 0 auto;min-width:0}
   .filter-label{display:none}
   .ff-period{order:1;flex:0 0 auto}
-  .ff-search{order:2;flex:1 1 0;min-width:0}
+  /* Search must out-specify `.filter-bar>.filter-field{flex:0 0 auto}` above
+     (0,2,0) so it actually flex-shrinks — otherwise it keeps its intrinsic
+     ~235px width and shoves the export/filters icons off a 360px screen. */
+  .filter-bar>.ff-search{order:2;flex:1 1 0;min-width:0}
   .ff-export{order:3;flex:0 0 auto}
   .ff-filters{order:4;flex:0 0 auto}
   .ff-add{order:5;flex:0 0 auto}
