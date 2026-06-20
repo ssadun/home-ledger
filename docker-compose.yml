@@ -5,10 +5,10 @@ services:
     build:
       context: ./backend
       network: host
-    container_name: hyper-ledger-api
+    container_name: home-ledger-api
     restart: unless-stopped
     environment:
-      DATABASE_URL: sqlite:////app/data/hyper-ledger.db
+      DATABASE_URL: sqlite:////app/data/home-ledger.db
       SECRET_KEY: change_this_in_production_please
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
@@ -22,7 +22,7 @@ services:
     build:
       context: ./frontend
       network: host
-    container_name: hyper-ledger-web
+    container_name: home-ledger-web
     restart: unless-stopped
     ports:
       - "3236:80"
@@ -32,11 +32,3 @@ services:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
-
-  playwright:
-    build:
-      context: ./playwright
-      network: host
-    container_name: hyper-ledger-playwright
-    restart: unless-stopped
-    network_mode: host
