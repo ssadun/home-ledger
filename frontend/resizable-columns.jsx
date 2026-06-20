@@ -1,4 +1,4 @@
-// resizable-columns.jsx — drag-to-resize table columns for Hyper Ledger.
+// resizable-columns.jsx — drag-to-resize table columns for Home Ledger.
 //
 // Powered by TanStack Table v8 (@tanstack/react-table UMD → window.ReactTable).
 // The library natively handles the drag math, pointer/touch tracking, and

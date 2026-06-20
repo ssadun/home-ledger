@@ -1,4 +1,4 @@
-# Hyper Ledger — Frontend ↔ DB Wiring Progress
+# Home Ledger — Frontend ↔ DB Wiring Progress
 
 > **Goal:** Wire every frontend module to the backend database. Before this work,
 > only authentication talked to the backend — every other page ran on static mock
@@ -383,12 +383,12 @@ Transactions" shows **2 rows** (was 0). Budgets "Groceries" shows **₺1,251 / �
 ## How to verify a module (recipe)
 
 ```bash
-cd /volume1/system/hyper-ledger
+cd /volume1/system/home-ledger
 docker-compose up -d --build backend frontend      # apply baked code changes
 API=http://localhost:8100
 # register/login a throwaway user (use @example.com, NOT .local)
 # exercise create → list → delete → list and confirm persistence
-# then: sqlite3 data/hyper-ledger.db "DELETE FROM users WHERE email='...';"  # cleanup
+# then: sqlite3 data/home-ledger.db "DELETE FROM users WHERE email='...';"  # cleanup
 ```
 
-The live SQLite DB is at `./data/hyper-ledger.db` (host) → `/app/data/hyper-ledger.db` (container).
+The live SQLite DB is at `./data/home-ledger.db` (host) → `/app/data/home-ledger.db` (container).

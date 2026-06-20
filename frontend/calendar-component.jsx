@@ -1,4 +1,4 @@
-// calendar-component.jsx — Hyper Ledger Calendar widget for Dashboard.
+// calendar-component.jsx — Home Ledger Calendar widget for Dashboard.
 // Aggregates Spending TX, Account Activity TX, and Recurring due dates onto a month grid.
 // Clicking a day shows event detail; clicking an event navigates to the source page.
 (function () {

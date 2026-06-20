@@ -1,4 +1,4 @@
-// account-tx-data.js — Hyper Ledger sample account-sourced transactions.
+// account-tx-data.js — Home Ledger sample account-sourced transactions.
 // These represent records imported from bank/card statements.
 (function () {
   const { FX } = window.LEDGER;

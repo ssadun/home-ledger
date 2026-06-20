@@ -1,4 +1,4 @@
-/* Hyper Ledger — service worker (kill switch)
+/* Home Ledger — service worker (kill switch)
  * This version intentionally does NO caching. It exists only to replace any
  * previously installed service worker: on activation it deletes all caches,
  * unregisters itself, and reloads open tabs. After that, the browser talks to

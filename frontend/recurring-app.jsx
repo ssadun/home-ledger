@@ -1,4 +1,4 @@
-// recurring-app.jsx — Hyper Ledger Recurring Transactions page.
+// recurring-app.jsx — Home Ledger Recurring Transactions page.
 (function () {
   const Icon = window.Icon;
   const { CATS, PAYERS } = window.LEDGER;

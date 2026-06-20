@@ -1,4 +1,4 @@
-// budgets-app.jsx — Hyper Ledger Budgets page.
+// budgets-app.jsx — Home Ledger Budgets page.
 (function () {
   const Icon = window.Icon;
   const { CATS, TX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;

@@ -1,4 +1,4 @@
-// config-app.jsx — Hyper Ledger Configuration Screen
+// config-app.jsx — Home Ledger Configuration Screen
 (function () {
   const Icon = window.Icon;
 

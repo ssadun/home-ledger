@@ -1,4 +1,4 @@
-// dashboard-app.jsx — Hyper Ledger Dashboard + Reports (merged)
+// dashboard-app.jsx — Home Ledger Dashboard + Reports (merged)
 (function () {
   const Icon = window.Icon;
   const { CATS, TX } = window.LEDGER;

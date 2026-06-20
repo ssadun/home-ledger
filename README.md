@@ -1,4 +1,4 @@
-# Hyper Ledger
+# Home Ledger
 
 A self-hosted **personal finance tracker** built for a multi-currency (TRY / USD / EUR)
 household. It tracks income and expenses with automatic TCMB exchange-rate conversion,
@@ -6,7 +6,7 @@ imports statements from Turkish banks, and manages investments, budgets, account
 recurring bills, and subscriptions. Designed to run on a Synology NAS behind a reverse
 proxy via Docker.
 
-> ⚠️ Personal project — the live database (`data/hyper-ledger.db`) and uploaded receipts
+> ⚠️ Personal project — the live database (`data/home-ledger.db`) and uploaded receipts
 > are **git-ignored** and never committed.
 
 ---
@@ -76,13 +76,13 @@ uvicorn app.main:app --reload --port 8000
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:////app/data/hyper-ledger.db` | |
+| `DATABASE_URL` | `sqlite:////app/data/home-ledger.db` | |
 | `SECRET_KEY` | `change_this_in_production` | **Change in production** |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | 24-hour JWT lifetime |
 
 ### Database
 
-SQLite at `./data/hyper-ledger.db` (host) → `/app/data/hyper-ledger.db` (container).
+SQLite at `./data/home-ledger.db` (host) → `/app/data/home-ledger.db` (container).
 There is **no Alembic migration flow** — `Base.metadata.create_all()` runs at startup. To add
 columns, update `models.py` and either recreate the DB or run a manual `ALTER TABLE`.
 

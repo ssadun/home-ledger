@@ -1,4 +1,4 @@
-// data.js — Hyper Ledger sample data: categories, FX rates, transactions.
+// data.js — Home Ledger sample data: categories, FX rates, transactions.
 (function () {
   // ── FX rates (base = TRY). TCMB bulletin 2026/108, 15.06.2026 (Döviz Satış). ──
   const FX = {

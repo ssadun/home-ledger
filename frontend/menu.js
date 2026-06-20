@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// menu.js — Collapsible sidebar toggle logic for Hyper Ledger.
+// menu.js — Collapsible sidebar toggle logic for Home Ledger.
 // Mirrors the NAS Monitor sidebar system: collapsed (69px, icons only) /
 // expanded (175px, icons + labels). State persists in sessionStorage.
 // All state is driven off the `sidebar-expanded` class on <body>.

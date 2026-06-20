@@ -1,4 +1,4 @@
-// accounts-components.jsx — Hyper Ledger Accounts page components.
+// accounts-components.jsx — Home Ledger Accounts page components.
 (function () {
   const Icon = window.Icon;
   const { ACCOUNT_TYPES, ACCOUNT_ACTIVITY, FX } = window.ACCOUNTS_DATA;

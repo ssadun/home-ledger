@@ -1,4 +1,4 @@
-// reports-data.js — Hyper Ledger Reports data aggregation helpers.
+// reports-data.js — Home Ledger Reports data aggregation helpers.
 (function () {
   const { CATS } = window.LEDGER;
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];

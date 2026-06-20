@@ -1,4 +1,4 @@
-// export-data.jsx — Hyper Ledger shared "Export Data" control.
+// export-data.jsx — Home Ledger shared "Export Data" control.
 // Renders a compact toolbar row (sits directly below a screen's filters) with a
 // download button + popover offering "Filtered View" and "All <Entity>" exports.
 // Requires: window.HL_EXPORT (export-data.js), window.Icon (Icon.jsx), React.
@@ -27,7 +27,7 @@
 
     const all = allRows || rows;
     const hasMore = all.length !== rows.length;     // are filters actually narrowing the set?
-    const base = 'hyper-ledger-' + (entity || 'data');
+    const base = 'home-ledger-' + (entity || 'data');
     const label = entityLabel || 'Records';
     const plural = (n) => n === 1 ? 'row' : 'rows';
 

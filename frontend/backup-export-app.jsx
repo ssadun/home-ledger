@@ -1,4 +1,4 @@
-// backup-export-app.jsx — Hyper Ledger "Backup & Export" configuration sub-page.
+// backup-export-app.jsx — Home Ledger "Backup & Export" configuration sub-page.
 // ─────────────────────────────────────────────────────────────────────────────
 // A system-wide export hub living in the Configuration submenu. Lets the user:
 //   • tick which tables to include (per-table checkboxes + Select All)
@@ -311,7 +311,7 @@
   }
 
   // ── Downloads ──────────────────────────────────────────────────────────────
-  const base = 'hyper-ledger';
+  const base = 'home-ledger';
   function exportOneCSV(ds, period) {
     const rows = filteredRows(ds, period);
     const name = base + '-' + ds.id + periodSuffix(period) + '.csv';
@@ -411,7 +411,7 @@
       const backup = {};
       if (t.includeManifest) {
         backup._manifest = {
-          app: 'Hyper Ledger', exportedAt: new Date().toISOString(),
+          app: 'Home Ledger', exportedAt: new Date().toISOString(),
           period: period.mode === 'all' ? { mode: 'all' }
             : period.mode === 'year' ? { mode: 'year', year: period.year }
             : { mode: 'range', from: period.from || null, to: period.to || null },

@@ -1,4 +1,4 @@
-// account-tx-app.jsx — Hyper Ledger Account Activity page.
+// account-tx-app.jsx — Home Ledger Account Activity page.
 (function () {
   const Icon = window.Icon;
   const { FX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;

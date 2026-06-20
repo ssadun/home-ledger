@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native dev server for Hyper Ledger frontend — no Docker, no caching.
+"""Native dev server for Home Ledger frontend — no Docker, no caching.
 
 - Serves static files straight from ./frontend (edits show on every refresh).
 - Proxies /api/* to the backend container on http://localhost:8100.
@@ -96,5 +96,5 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 if __name__ == "__main__":
     os.chdir(ROOT)
-    print(f"Hyper Ledger dev server: http://localhost:{PORT}  (serving {ROOT})")
+    print(f"Home Ledger dev server: http://localhost:{PORT}  (serving {ROOT})")
     Server(("0.0.0.0", PORT), Handler).serve_forever()

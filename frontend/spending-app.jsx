@@ -1,4 +1,4 @@
-// spending-app.jsx — Hyper Ledger Spending page.
+// spending-app.jsx — Home Ledger Spending page.
 (function () {
   const Icon = window.Icon;
   const { CATS, TX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;

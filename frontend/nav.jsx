@@ -1,4 +1,4 @@
-// nav.jsx — SINGLE SOURCE OF TRUTH for the Hyper Ledger sidebar.
+// nav.jsx — SINGLE SOURCE OF TRUTH for the Home Ledger sidebar.
 // ─────────────────────────────────────────────────────────────────────────────
 // Every page renders the sidebar from here:
 //     const { Sidebar } = window.HL_NAV;
@@ -181,7 +181,7 @@
           </div>
           <div className="sidebar-section bottom">
             {NAV_BOTTOM.map(n => <SbItem key={n.id} item={n} />)}
-            <div className="sidebar-version" id="sidebar-version" title={'Hyper Ledger ' + APP_VERSION}><span className="sidebar-version-name">Hyper Ledger </span>{APP_VERSION}</div>
+            <div className="sidebar-version" id="sidebar-version" title={'Home Ledger ' + APP_VERSION}><span className="sidebar-version-name">Home Ledger </span>{APP_VERSION}</div>
           </div>
         </div>
       </nav>

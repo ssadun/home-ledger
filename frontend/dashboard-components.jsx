@@ -1,4 +1,4 @@
-// dashboard-components.jsx — Hyper Ledger Dashboard widget components.
+// dashboard-components.jsx — Home Ledger Dashboard widget components.
 (function () {
   const Icon = window.Icon;
   const { CATS } = window.LEDGER;

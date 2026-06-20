@@ -23,7 +23,7 @@ def _to_out(user: User) -> dict:
 
 def _synth_email(username: str) -> str:
     """Members are managed without an email field; derive a stable unique one."""
-    return f"{username}@hyperledger.app"
+    return f"{username}@homeledger.app"
 
 
 @router.get("/", response_model=List[MemberOut])

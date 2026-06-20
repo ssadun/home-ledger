@@ -1,4 +1,4 @@
-// components.jsx — Hyper Ledger presentational components.
+// components.jsx — Home Ledger presentational components.
 (function () {
   const Icon = window.Icon;
   const { CATS } = window.LEDGER;

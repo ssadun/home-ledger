@@ -1,4 +1,4 @@
-// accounts-app.jsx — Hyper Ledger Accounts page.
+// accounts-app.jsx — Home Ledger Accounts page.
 (function () {
   const Icon = window.Icon;
   const { ACCOUNT_TYPES, ACCOUNTS: INITIAL_ACCOUNTS, FX } = window.ACCOUNTS_DATA;

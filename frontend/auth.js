@@ -1,4 +1,4 @@
-// auth.js — JWT token management for Hyper Ledger.
+// auth.js — JWT token management for Home Ledger.
 // Stores token in localStorage so it persists across page reloads.
 // All pages (except Login.html) should call HL_AUTH.requireAuth() on load.
 

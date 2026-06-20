@@ -1,4 +1,4 @@
-// dashboard-data.js — Hyper Ledger Dashboard aggregation & forecast logic.
+// dashboard-data.js — Home Ledger Dashboard aggregation & forecast logic.
 (function () {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 

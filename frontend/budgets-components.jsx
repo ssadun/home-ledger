@@ -1,4 +1,4 @@
-// budgets-components.jsx — Hyper Ledger Budgets presentational components.
+// budgets-components.jsx — Home Ledger Budgets presentational components.
 (function () {
   const Icon = window.Icon;
   const DateInput = window.DateInput;

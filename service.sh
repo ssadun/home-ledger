@@ -1,21 +1,21 @@
 #!/bin/bash
-# Hyper Ledger - Frontend Dev Server Service Manager
+# Home Ledger - Frontend Dev Server Service Manager
 # Usage: bash service.sh {start|stop|status|restart}
 #
 # Serves the frontend natively (no Docker) via dev-server.py on port 8088,
 # with no caching and an /api proxy to the backend container on port 8100.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PID_FILE="${SCRIPT_DIR}/hyper-ledger-web.pid"
-LOG_FILE="${SCRIPT_DIR}/logs/hyper-ledger-web.log"
+PID_FILE="${SCRIPT_DIR}/home-ledger-web.pid"
+LOG_FILE="${SCRIPT_DIR}/logs/home-ledger-web.log"
 SERVER_SCRIPT="${SCRIPT_DIR}/dev-server.py"
 
-SERVICE_NAME="Hyper Ledger Web"
+SERVICE_NAME="Home Ledger Web"
 SERVICE_ICON="📒"
 PORT="${PORT:-8088}"
 HOST="${HOST:-nas-docker}"
 
-# Verify whether a PID belongs to this Hyper Ledger dev server instance
+# Verify whether a PID belongs to this Home Ledger dev server instance
 is_our_server_pid() {
   local pid="$1"
 
@@ -103,7 +103,7 @@ get_pid() {
     fi
   done
 
-  # No Hyper Ledger process found
+  # No Home Ledger process found
   rm -f "$PID_FILE"
 }
 
@@ -281,8 +281,8 @@ case "${1}" in
     echo "Usage: bash service.sh {start|stop|status|restart}"
     echo ""
     echo "Commands:"
-    echo "  start         - Start the Hyper Ledger web dev server"
-    echo "  stop          - Stop the Hyper Ledger web dev server"
+    echo "  start         - Start the Home Ledger web dev server"
+    echo "  stop          - Stop the Home Ledger web dev server"
     echo "  stop --force  - Force kill if graceful stop fails"
     echo "  status        - Show current service status"
     echo "  restart       - Restart the service"

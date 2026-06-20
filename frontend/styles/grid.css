@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════════
-   Hyper Ledger — grid.css
+   Home Ledger — grid.css
    Shared CARD-GRID scaffold for card-based pages (Accounts, Budgets, …).
    Owns ONLY the common pattern: an auto-fill responsive column track, the
    gap, the "list" collapse to a single column, and the ≤660px single-column

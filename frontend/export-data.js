@@ -1,4 +1,4 @@
-// export-data.js — Hyper Ledger shared CSV export helper.
+// export-data.js — Home Ledger shared CSV export helper.
 // Plain JS (load with a normal <script>, before the babel components).
 // Exposes window.HL_EXPORT: { toCSV, download, exportCSV }.
 (function () {

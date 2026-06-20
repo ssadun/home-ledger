@@ -23,7 +23,7 @@ finally:
     _seed_db.close()
 
 app = FastAPI(
-    title="Hyper Ledger API",
+    title="Home Ledger API",
     description="Personal finance tracker",
     version="1.0.0",
 )

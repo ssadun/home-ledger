@@ -1,4 +1,4 @@
-// reports-components.jsx — Hyper Ledger chart & report widgets.
+// reports-components.jsx — Home Ledger chart & report widgets.
 (function () {
   const Icon = window.Icon;
   const { CATS } = window.LEDGER;
