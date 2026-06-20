@@ -403,6 +403,9 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   /* header */
   .page-head{padding:12px;min-height:95px;display:flex;flex-direction:column;justify-content:center;gap:12px}
   .page-title{font-size:14px;letter-spacing:0}
+  /* title on row 1, action buttons wrap to their own full-width row 2 */
+  .page-head-top{flex-wrap:wrap;gap:10px}
+  .head-actions{flex:1 0 100%}
 
   /* filter bar: all controls in one row */
   .summary-row{margin-left:12px;margin-right:12px;display:grid;grid-template-columns:1fr 1fr}

@@ -103,15 +103,18 @@
   .ff-export{order:3;flex:0 0 auto}
   .ff-filters{order:4;flex:0 0 auto}
   .ff-add{order:5;flex:0 0 auto}
-  /* period stepper: compact — match search-input height */
-  .month-step{gap:2px;width:auto;height:32px}
-  .ms-btn{height:100%}
-  .ms-label{font-size:11px;padding:0 5px;white-space:nowrap;height:100%;box-sizing:border-box}
+  /* period stepper: compact — match search-input height. Chevrons signal the
+     stepper, so drop the calendar glyph and slim the buttons to reclaim width. */
+  .month-step{gap:0;width:auto;height:32px}
+  .ms-btn{height:100%;width:24px}
+  .ms-label{font-size:11px;padding:0 5px;gap:0;white-space:nowrap;height:100%;box-sizing:border-box}
+  .ms-label svg{display:none}
   /* search fills remaining space */
-  .search-wrap,.search-input{width:205px}
-  /* filters button: icon + count only, no label text */
-  .filters-btn{padding:7px 10px;width:auto}
-  .filters-btn .filters-text{display:none}
+  .search-wrap,.search-input{width:100%;min-width:0}
+  /* icon-only utility buttons (filters + inline export): no label, no caret */
+  .filters-btn{padding:7px 9px;width:auto}
+  .filters-btn .filters-text,
+  .filters-btn .filters-caret{display:none}
   /* add button: icon only */
   .ff-add .filter-label{display:none}
   .ff-add .action-modal-btn .btn-label{display:none}
