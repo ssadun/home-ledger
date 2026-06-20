@@ -476,9 +476,15 @@ def import_transactions(db: Session, owner_id: int, rows: list[dict], skip_dupli
     for row in rows:
         try:
             tx_date = date_type.fromisoformat(row["date"])
-            amount  = float(row["amount"])
+            raw_amount = float(row["amount"])
             desc    = row.get("description", "")
-            tx_type = TransactionType.income if row["type"] == "income" else TransactionType.expense
+            # type may be explicit (from the review wizard) or derived from the sign
+            # of the parsed amount (positive = income, negative = expense).
+            row_type = row.get("type") or ("income" if raw_amount >= 0 else "expense")
+            tx_type = TransactionType.income if row_type == "income" else TransactionType.expense
+            # Store magnitude only — direction lives in `type`, matching how the
+            # Spending module persists transactions (positive amount + type).
+            amount = abs(raw_amount)
             currency = row.get("currency", "TRY")
 
             if skip_duplicates:
@@ -499,6 +505,10 @@ def import_transactions(db: Session, owner_id: int, rows: list[dict], skip_dupli
                 currency=currency,
                 description=desc,
                 date=tx_date,
+                category_key=row.get("category_key"),
+                payment_method=row.get("payment_method"),
+                payer=row.get("payer"),
+                paying_for=row.get("paying_for"),
                 note="banka_import",
             )
             _apply_rates(tx, db)

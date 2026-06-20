@@ -61,9 +61,9 @@
 | 5 | **Subscriptions** | ✅ | ✅ | ✅ | Reuses recurring backend, `kind=subscription` |
 | 6 | **Accounts/Cards** | ✅ | ✅ | ✅ | One `Account` model (type field); `account_key` for stable linking |
 | 7 | **Members** | ✅ | ✅ | ✅ | Reuse Users table; login now accepts username + gates on `is_active` |
-| 8 | Currencies | ⬜ | ⬜ | ⬜ | Wire to `/api/rates` |
-| 9 | Import/Export | ⬜ | ⬜ | ⬜ | `/api/import` exists; export endpoint TBD |
-| 10 | Dashboard + Reports | ⬜ | ⬜ | ⬜ | **Consumers — done LAST.** See sequencing note |
+| 8 | **Currencies** | ✅ | ✅ | ✅ | New `CurrencyRate` table (NOT `/api/rates`); per-currency rows + JSON `history` |
+| 9 | **Import** | ✅ | ✅ | ✅ | Wizard now uploads real files → `/api/import/preview` → `/confirm`. Export stays client-side, data-fix deferred to #10 |
+| 10 | **Dashboard + Reports + Export** | ✅ | ✅ | ✅ | Shared pre-mount `ledger-hydrate.js` pass; Budgets "spent" + Calendar fold in for free |
 
 ### Sequencing note (Dashboard/Reports moved to last)
 Dashboard and Reports are **pure read-only aggregators** — `dashboard-data.js`/`reports-data.js`
@@ -235,12 +235,148 @@ login as deactivated member returned **403** → duplicate username **400** → 
 
 ---
 
+## ✅ Module 8 — Currencies (DONE, verified)
+
+**Decision (locked in):** the Currencies page is **currency-centric** (one row per ISO
+code, each carrying its own latest rate + a nested rate `history`) — a different shape
+from the day-keyed `ExchangeRate` table that drives transaction conversion. So instead of
+reusing `/api/rates`, a **new `CurrencyRate` table** mirrors the frontend. `ExchangeRate` /
+`_apply_rates()` left untouched; manual/TCMB rate edits here do **not** (yet) feed
+transaction `amount_try`/`amount_usd` conversion (deferred follow-up below).
+
+**Backend**
+- `models.py` → new `CurrencyRate` model (table `currency_rates`): `code` (unique),
+  `to_try`, `to_usd`, `as_of`, `source`, JSON `history`, `is_default`. Named `CurrencyRate`
+  to avoid clashing with the existing `Currency` enum.
+- `schemas.py`: `CurrencyCreate`, `CurrencyUpdate`, `CurrencyOut`.
+- New `routers/currencies.py`: **global** CRUD (not user-scoped — FX rates are shared facts,
+  like categories) + `seed_default_currencies()` (TRY base + USD/EUR from `data.js` FX).
+  Code is upper-cased + dedup-guarded (duplicate → 400) on create and on code-change PATCH.
+- `main.py`: register router + run seed at startup. **No ALTER needed** — brand-new table,
+  `create_all()` makes it.
+
+**Frontend**
+- New `currencies-data.js` (`window.HL_CURRENCIES_API`, `list/create/update/remove` +
+  `fromApi`/`toApi`; maps `to_try↔toTRY`, `to_usd↔toUSD`, `as_of↔asOf`). `Currencies.html`
+  includes it.
+- `config-app.jsx`: load currencies from API on mount (Currencies page only);
+  `saveItem`/`deleteItem` route the `currencies` section through the API. The **History
+  modal** save and the **Retrieve From TCMB** apply now persist (TCMB apply diffs vs. current
+  state and `PATCH`es only the changed rows). `CURRENCY_SAMPLE_HISTORY`/`TCMB_RATES` constants
+  stay as the static bulletin source for the TCMB-preview math.
+
+**Field mapping — Currencies (backend ↔ frontend config item)**
+`{id, code, to_try, to_usd, as_of, source, history[]}` ↔ `{id, code, toTRY, toUSD, asOf, source, history[]}`
+
+**Verification:** 3 defaults seed (TRY base, USD/EUR w/ initial history) → create `gbp`
+(code upper-cased → `GBP`, id 4) → duplicate `GBP` **400** → PATCH appends history (len 2) +
+new rate → DELETE **204** → list back to 3 defaults. Throwaway user removed.
+
+---
+
+## ✅ Module 9 — Import (DONE, verified)
+
+**Scope decision (locked in):** *Import* = full real wiring; *Export* = leave the
+client-side CSV/JSON exporter as-is and fix its empty data sources in the shared
+pre-mount hydration pass bundled with Dashboard/Reports (#10). No backend export
+endpoint — the client-side exporter already honours each page's CSV schema.
+
+**Backend**
+- `services/bank_import.py` → `import_transactions()`: now persists `category_key`,
+  `payment_method`, `payer`, `paying_for` per row (previously only date/amount/type/
+  currency/description). Amount is normalised to **`abs()`** with direction carried by
+  `type` — matching how the Spending module stores rows (was: signed amount). `type`
+  falls back to the sign of the parsed amount when not explicitly supplied (the real
+  `/preview` parse path supplies it; the review wizard supplies both). Dedup now compares
+  on the absolute amount.
+- `/api/import/preview` + `/confirm` routers were already correct — no change.
+
+**Frontend**
+- `import-data.js`: added `window.HL_IMPORT_API` — `preview(file, bank)` (multipart
+  upload to `/api/import/preview`; **no Content-Type header** so the browser sets the
+  boundary) + `confirm(rows, skipDuplicates)` (`/api/import/confirm`). Kept the sample
+  `DOCUMENTS` + `guessCategory`/`tidyDesc` as an offline demo path.
+- `import.jsx` (rewrite): the wizard now hydrates **accounts from `HL_ACCOUNTS_API.list()`**
+  on mount (the static `ACCOUNTS_DATA.ACCOUNTS` placeholder is empty), accepts a **real
+  picked/dropped file**, and on Continue calls `/preview` (busy spinner + inline error
+  banner). `/preview` results are normalised into the same shape the sample docs use so
+  Detect/Review render identically. On Import it maps the reviewed rows to the backend
+  shape (`abs` amount + derived `type` + `category_key` + `payment_method`=account id +
+  `payer`=account owner) and calls `/confirm`; the Done screen shows real
+  `imported`/`skipped` counts. The sample-statement list stays as a `demo`-tagged path.
+- New CSS in `styles/import.css` (`.imp-drop.has-file`, `.imp-error-banner`,
+  `.imp-demo-tag`) — no inline styles.
+
+**Verification** (synthesized Garanti CSV, throwaway user + `acc-1`):
+`/preview` auto-detected `garanti`, returned 3 rows with correct income/expense types →
+`/confirm` imported 3 → re-confirm of an existing row **skipped 1** (dedup) → transactions
+API showed all 3 with `category_key`/`payment_method=acc-1`/`payer=Sadun`, **positive**
+amounts, `note=banka_import`. Throwaway user + data removed.
+
+---
+
+## ✅ Module 10 — Dashboard + Reports + Export (DONE, verified)
+
+**Decision realised:** the read-only aggregator pages (Dashboard + Reports merged
+into `dashboard-app.jsx`, and the Backup & Export hub) capture their data at
+**module scope** (`const { TX } = window.LEDGER`) before React mounts, and their
+~14 memos list only period vars (not TX) in their dependency arrays. So instead
+of rewriting every memo, a **shared pre-mount hydration pass** fetches the real
+DB rows and fills the static `window.LEDGER` / `*_DATA` placeholders **in place**
+(never reassigned), keeping the captured references valid; the mount is gated on
+that pass so the first render already computes against real data.
+
+**Frontend**
+- New `frontend/ledger-hydrate.js` (plain IIFE) → `window.HL_HYDRATE`. `all()`
+  hydrates **CATS + FX first** (recurring rows derive TRY/USD from `LEDGER.FX` at
+  map time), then transactions / budgets / accounts / recurring in parallel. Each
+  hydrator is a no-op when its API client/placeholder is absent and is wrapped so
+  an individual failure logs but never blocks the others or the mount. Fills via
+  in-place `fillArray`/`fillObject`; reuses the existing
+  `HL_CATEGORIES_API.hydrateLedgerCats()`.
+- `dashboard-app.jsx`: mount gated on `HL_HYDRATE.all()`. Add/edit/delete tx now
+  go through `HL_SPENDING_API` (was local-state mutation of the static array — the
+  original bug class) + `refreshTx()` re-hydrates and bumps a new `dataVersion`
+  state that is threaded into every aggregation memo's dependency array so charts
+  refresh after a CRUD. Removed the `window.LEDGER.TX = …filter(…)` reassignment
+  (it broke the captured reference).
+- `backup-export-app.jsx`: mount gated on `HL_HYDRATE.all()`; `AVAILABLE_YEARS`
+  moved from module scope into a `useMemo` inside `App` so the year picker reflects
+  the hydrated rows (the dataset `getRows()` are already lazy).
+- `budgets-app.jsx`: mount gated on `HL_HYDRATE.all()` — the per-category **"spent"**
+  (derived from `LEDGER.TX`) and category labels now reflect real data on first
+  render. *(Closes the Module 3 "spent still from static TX" note.)*
+- HTML includes (`Dashboard.html`, `Backup & Export.html`, `Budgets.html`): added
+  `spending-data.js`, `categories-data.js`, (`currencies-data.js` where used) and
+  `ledger-hydrate.js` before the babel app scripts.
+
+**Free wins:** the Dashboard **Calendar** tab (`calendar-component.jsx`, also
+`const { TX } = window.LEDGER` at module scope) lights up via the same gated
+hydration. `ACCOUNTS_DATA.FX` shares the same object reference as `LEDGER.FX`, so
+the in-place FX fill reaches it too.
+
+**Export scope:** unchanged from Module 9 — the client-side CSV/JSON exporter
+stays; this pass just feeds it real rows. Account-activity export still reads the
+static `ACCT_TX_DATA` (no backend module for it yet).
+
+**Verification** (throwaway user + 2 tx, 1 budget, 1 account, via Playwright
+against the live `hyper-ledger-web` container): Dashboard mounts with **no console/
+page errors**; KPIs render real figures — Actual Spend YTD **₺1,251**, YTD Income
+**₺50,000**, YTD Budget **₺30,000** / Annual **₺60,000**. Backup & Export "Spending
+Transactions" shows **2 rows** (was 0). Budgets "Groceries" shows **₺1,251 / ₺5,000
+· ₺3,750 left** (real spent). Throwaway user + data removed.
+
+---
+
 ## Open follow-ups
 
-- [ ] **Global CATS hydration** — call `HL_CATEGORIES_API.hydrateLedgerCats()` on every page that renders category icons/colors (20+ pages read `window.LEDGER.CATS`), so custom categories propagate everywhere. Helper already exists; needs per-page include + boot call.
+- [ ] **Global CATS hydration (remaining pages)** — `ledger-hydrate.js` now hydrates `LEDGER.CATS` on Dashboard / Backup&Export / Budgets. The other pages that render category icons/colors (Spending, Recurring, Subscriptions, Account Activity, calendar consumers, config sub-pages) still read the static `window.LEDGER.CATS`; include `categories-data.js` + a boot call (or `ledger-hydrate.js`) there so custom categories propagate everywhere.
 - [ ] **Seed demo transactions (optional)** — the 32 sample rows in `data.js` no longer appear (Spending now shows real, empty DB data). Offer a one-time import script if a populated starting point is wanted.
-- [ ] Config-app sections still on static seed and pending their own modules: **currencies** (→ /api/rates), **account-types / cc-types / debit-types** (→ Accounts module).
-- [ ] **Shared ACCOUNTS hydration** — `ACCOUNTS_DATA.ACCOUNTS` is now an empty placeholder, so payment-method/account pickers on not-yet-wired pages (import wizard, dashboard, account-activity, recurring/subscriptions/spending controls, calendar) render empty until they hydrate from `HL_ACCOUNTS_API.list()`. Same pattern/class as the Global CATS hydration follow-up; fold into the shared pre-mount hydration pass.
+- [ ] Config-app sections still on static seed and pending their own modules: **account-types / cc-types / debit-types** (→ Accounts module).
+- [ ] **Currency rates → transaction conversion** — manual/TCMB edits on the Currencies page write to `currency_rates` only; `_apply_rates()` still reads the separate `ExchangeRate` table. To make edited rates actually drive `amount_try`/`amount_usd`, upsert the USD/EUR row into `ExchangeRate` on currency save (the "New table + sync rates" option, deferred per the Module 8 decision).
+- [ ] **Shared ACCOUNTS hydration (remaining pages)** — Dashboard / Backup&Export / Budgets now hydrate `ACCOUNTS_DATA.ACCOUNTS` via the `ledger-hydrate.js` pass; the import wizard self-hydrates (Module 9). Still empty on the other not-yet-wired pages (account-activity, recurring/subscriptions/spending account pickers, calendar controls) — include `ledger-hydrate.js` (or call `HL_ACCOUNTS_API.list()`) there too.
+- [ ] **`_parse_amount` Turkish-decimal bug** (pre-existing, surfaced during Module 9 verify) — a value like `800,00` (comma decimal, **no** thousands separator) is parsed as `80000` instead of `800.00` (the regex only treats comma as decimal when a `.` is also present). Affects every bank-import parse path. Fix: treat a lone comma followed by exactly 2 digits as the decimal separator.
+- [ ] **Import balance-sync vs dedup** — the Accounts page's `handleImport` adjusts each account's balance by the net delta of **all reviewed rows**, but `/confirm` may `skip` duplicates. Re-importing a file thus re-adjusts balances for rows that weren't actually inserted. Either pass `skip_duplicates=false` for wizard imports, or have `/confirm` return which rows were imported so the balance delta can match.
 
 ---
 

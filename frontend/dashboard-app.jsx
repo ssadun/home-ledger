@@ -62,24 +62,39 @@
     const [modal, setModal] = React.useState(null);
     const [scan, setScan]   = React.useState(false);
     const [del, setDel]     = React.useState(null);
+    // Bumped after every tx mutation; threaded into the aggregation memos below
+    // (whose period-only dependency arrays would otherwise miss data changes).
+    const [dataVersion, setDataVersion] = React.useState(0);
 
     React.useEffect(() => {
       document.documentElement.style.setProperty('--accent', t.accent);
     }, [t.accent]);
 
-    function saveTx(tx) {
-      if (!tx.id) {
-        const nt = { ...tx, id: 'tx-' + Date.now() };
-        window.LEDGER.TX.unshift(nt);
-      } else {
-        const idx = window.LEDGER.TX.findIndex(r => r.id === tx.id);
-        if (idx !== -1) window.LEDGER.TX[idx] = tx;
-      }
-      setModal(null);
+    // Re-pull transactions from the DB (mutated into LEDGER.TX in place) and
+    // force the read-only memos to recompute.
+    async function refreshTx() {
+      await window.HL_HYDRATE.hydrateTx();
+      setDataVersion(v => v + 1);
     }
-    function confirmDelete() {
-      window.LEDGER.TX = window.LEDGER.TX.filter(r => r.id !== del.id);
-      setDel(null);
+
+    async function saveTx(tx) {
+      try {
+        if (!tx.id) await window.HL_SPENDING_API.create(tx);
+        else        await window.HL_SPENDING_API.update(tx.id, tx);
+        await refreshTx();
+        setModal(null);
+      } catch (e) {
+        alert('Could not save transaction: ' + ((e && e.message) || e));
+      }
+    }
+    async function confirmDelete() {
+      try {
+        await window.HL_SPENDING_API.remove(del.id);
+        await refreshTx();
+        setDel(null);
+      } catch (e) {
+        alert('Could not delete transaction: ' + ((e && e.message) || e));
+      }
     }
 
     function monthStep(d) {
@@ -93,8 +108,8 @@
     // Determine effective "current month" for the selected annual year:
     // Past year → 11 (all months actual), Current year → CURRENT_MONTH, Future → -1 (all forecast)
     const effectiveMonth = annualYear < CURRENT_YEAR ? 11 : annualYear === CURRENT_YEAR ? CURRENT_MONTH : -1;
-    const yearData   = React.useMemo(() => buildYearData(TX, BUDGETS, annualYear, effectiveMonth), [annualYear, effectiveMonth]);
-    const catForecast= React.useMemo(() => categoryYTDForecast(TX, BUDGETS, CATS, annualYear, effectiveMonth), [annualYear, effectiveMonth]);
+    const yearData   = React.useMemo(() => buildYearData(TX, BUDGETS, annualYear, effectiveMonth), [annualYear, effectiveMonth, dataVersion]);
+    const catForecast= React.useMemo(() => categoryYTDForecast(TX, BUDGETS, CATS, annualYear, effectiveMonth), [annualYear, effectiveMonth, dataVersion]);
 
     const ytdActual   = yearData.filter(d => !d.forecast).reduce((s, d) => s + d.spend, 0);
     const ytdBudget   = yearData.filter(d => !d.forecast).reduce((s, d) => s + d.budget, 0);
@@ -114,7 +129,7 @@
       TX.forEach(tx => ySet.add(parseInt(tx.date.substring(0, 4), 10)));
       ySet.add(CURRENT_YEAR);
       return Array.from(ySet).sort();
-    }, []);
+    }, [dataVersion]);
     const minYear = availableYears[0];
     const maxYear = availableYears[availableYears.length - 1];
 
@@ -127,12 +142,12 @@
     const netWorth = totalAssets - totalLiabilities;
 
     // ── Monthly (reports) derived data ────────────────────────────────────
-    const catSpend    = React.useMemo(() => spendByCat(TX, year, month),            [year, month]);
-    const catIncome   = React.useMemo(() => incomeByCat(TX, year, month),           [year, month]);
-    const payerData   = React.useMemo(() => spendByPayer(TX, year, month),          [year, month]);
-    const topExp      = React.useMemo(() => topExpenses(TX, year, month, 8),        [year, month]);
-    const dailyCum    = React.useMemo(() => dailyCumulative(TX, year, month),       [year, month]);
-    const bva         = React.useMemo(() => budgetVsActual(TX, BUDGETS, year, month),[year, month]);
+    const catSpend    = React.useMemo(() => spendByCat(TX, year, month),            [year, month, dataVersion]);
+    const catIncome   = React.useMemo(() => incomeByCat(TX, year, month),           [year, month, dataVersion]);
+    const payerData   = React.useMemo(() => spendByPayer(TX, year, month),          [year, month, dataVersion]);
+    const topExp      = React.useMemo(() => topExpenses(TX, year, month, 8),        [year, month, dataVersion]);
+    const dailyCum    = React.useMemo(() => dailyCumulative(TX, year, month),       [year, month, dataVersion]);
+    const bva         = React.useMemo(() => budgetVsActual(TX, BUDGETS, year, month),[year, month, dataVersion]);
 
     const prefix     = year + '-' + String(month + 1).padStart(2, '0');
     const monthTx    = TX.filter(tx => tx.date.startsWith(prefix));
@@ -142,7 +157,7 @@
       let sy = year, sm = month - 5;
       while (sm < 0) { sm += 12; sy--; }
       return monthlyTotals(TX, sy, sm, 6);
-    }, [year, month]);
+    }, [year, month, dataVersion]);
 
     const donutData = React.useMemo(() =>
       Object.entries(catSpend).sort((a, b) => b[1] - a[1]).map(([k, v]) => {
@@ -180,9 +195,6 @@
               <div className="head-actions">
                 <button className="action-modal-btn scan" onClick={() => setScan(true)}>
                   <Icon name="scan-line" size={14} />Scan Receipt
-                </button>
-                <button className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}>
-                  <Icon name="plus" size={14} />Add Spending
                 </button>
               </div>
             </div>
@@ -439,5 +451,10 @@
     );
   }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  // Hydrate TX + budgets + accounts + recurring + cats/FX into the static
+  // placeholders (in place) BEFORE the first render, so every aggregation memo
+  // computes against real DB data on mount.
+  window.HL_HYDRATE.all().finally(() => {
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  });
 })();

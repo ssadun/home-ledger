@@ -101,4 +101,48 @@
   }
 
   window.IMPORT_DATA = { DOCUMENTS, guessCategory, tidyDesc };
+
+  // ── Backend bridge: real statement parsing + persistence ──
+  // preview() uploads the picked file to /api/import/preview (the backend's
+  // Garanti/ON/PDF parsers); confirm() persists the reviewed rows via
+  // /api/import/confirm. Exposed as window.HL_IMPORT_API.
+  (function () {
+    const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
+
+    // file: a File object. bank: 'auto' | 'garanti' | 'on_burgan'.
+    async function preview(file, bank) {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('bank', bank || 'auto');
+      // Note: no Content-Type header — the browser sets the multipart boundary.
+      const res = await api()('/api/import/preview', { method: 'POST', body: fd });
+      if (!res.ok) {
+        let msg = 'Preview failed (' + res.status + ')';
+        try { const j = await res.json(); if (j && j.detail) msg = j.detail; } catch (_) {}
+        throw new Error(msg);
+      }
+      const data = await res.json();
+      if (data && data.error) throw new Error(data.error);
+      return data; // { rows, bank_detected, total_rows, income_total, expense_total, date_range, errors }
+    }
+
+    // rows: backend-shaped [{ date, amount, type, currency, description,
+    //   category_key, payment_method, payer, paying_for }]. Returns
+    // { imported, skipped, errors }.
+    async function confirm(rows, skipDuplicates) {
+      const res = await api()('/api/import/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows, skip_duplicates: skipDuplicates !== false }),
+      });
+      if (!res.ok) {
+        let msg = 'Import failed (' + res.status + ')';
+        try { const j = await res.json(); if (j && j.detail) msg = j.detail; } catch (_) {}
+        throw new Error(msg);
+      }
+      return res.json();
+    }
+
+    window.HL_IMPORT_API = { preview, confirm };
+  })();
 })();

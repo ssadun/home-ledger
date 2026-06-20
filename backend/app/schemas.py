@@ -178,6 +178,36 @@ class ExchangeRateOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Currency (Currencies config page) ─────────────────────────────────────────
+
+class CurrencyCreate(BaseModel):
+    code: str
+    to_try: Optional[float] = None
+    to_usd: Optional[float] = None
+    as_of: Optional[date] = None
+    source: Optional[str] = None
+    history: List[dict] = []
+
+class CurrencyUpdate(BaseModel):
+    code: Optional[str] = None
+    to_try: Optional[float] = None
+    to_usd: Optional[float] = None
+    as_of: Optional[date] = None
+    source: Optional[str] = None
+    history: Optional[List[dict]] = None
+
+class CurrencyOut(BaseModel):
+    id: int
+    code: str
+    to_try: Optional[float]
+    to_usd: Optional[float]
+    as_of: Optional[date]
+    source: Optional[str]
+    history: Optional[List[dict]] = []
+    is_default: Optional[bool] = None
+    model_config = {"from_attributes": True}
+
+
 # ── Investment ────────────────────────────────────────────────────────────────
 
 class InvestmentCreate(BaseModel):

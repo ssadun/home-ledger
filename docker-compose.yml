@@ -26,6 +26,10 @@ services:
     restart: unless-stopped
     ports:
       - "3236:80"
+    volumes:
+      # Serve frontend files live from the host so edits show up on browser
+      # refresh — no image rebuild needed. Rebuild only for nginx.conf/Dockerfile.
+      - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
 

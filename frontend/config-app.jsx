@@ -904,6 +904,17 @@
       return () => { alive = false; };
     }, []);
 
+    // Currencies persist to the backend currency_rates table; load on mount
+    // (only on the Currencies config page, which includes currencies-data.js).
+    React.useEffect(() => {
+      if (!window.HL_CURRENCIES_API) return;
+      let alive = true;
+      window.HL_CURRENCIES_API.list()
+        .then(currencies => { if (alive) setSectionData(prev => ({ ...prev, currencies })); })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, []);
+
     const section = view ? SECTIONS.find(s => s.id === view) : null;
     const items = view ? (sectionData[view] || []) : [];
 
@@ -946,6 +957,25 @@
         }
         return;
       }
+      // Currencies persist to the currency_rates table; detect create vs update by existing id.
+      if (view === 'currencies' && window.HL_CURRENCIES_API) {
+        try {
+          const exists = (sectionData.currencies || []).some(x => x.id === item.id);
+          const saved = exists
+            ? await window.HL_CURRENCIES_API.update(item.id, item)
+            : await window.HL_CURRENCIES_API.create(item);
+          setSectionData(prev => {
+            const list = prev.currencies || [];
+            const idx = list.findIndex(x => x.id === saved.id);
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            return { ...prev, currencies: next };
+          });
+          setModal(null);
+        } catch (err) {
+          alert('Could not save currency: ' + (err.message || err));
+        }
+        return;
+      }
       setSectionData(prev => {
         const list = prev[view];
         const idx = list.findIndex(x => x.id === item.id);
@@ -975,6 +1005,17 @@
           setConfirmDel(null);
         } catch (err) {
           alert('Could not delete member: ' + (err.message || err));
+        }
+        return;
+      }
+      if (view === 'currencies' && window.HL_CURRENCIES_API) {
+        try {
+          await window.HL_CURRENCIES_API.remove(item.id);
+          setSectionData(prev => ({ ...prev, currencies: prev.currencies.filter(x => x.id !== item.id) }));
+          setModal(null);
+          setConfirmDel(null);
+        } catch (err) {
+          alert('Could not delete currency: ' + (err.message || err));
         }
         return;
       }
@@ -1031,14 +1072,42 @@
           {tcmbOpen && (
             <TcmbRetrieveModal
               currencies={sectionData.currencies || []}
-              onApply={(updated) => { setSectionData(prev => ({ ...prev, currencies: updated })); setTcmbOpen(false); }}
+              onApply={async (updated) => {
+                // Persist only the rows TCMB actually changed (compare vs current state).
+                const prevList = sectionData.currencies || [];
+                const changed = updated.filter(u => {
+                  const before = prevList.find(c => c.id === u.id);
+                  return before && (before.toTRY !== u.toTRY || before.source !== u.source || before.asOf !== u.asOf);
+                });
+                if (window.HL_CURRENCIES_API && changed.length) {
+                  try {
+                    await Promise.all(changed.map(c => window.HL_CURRENCIES_API.update(c.id, c)));
+                  } catch (err) {
+                    alert('Could not apply TCMB rates: ' + (err.message || err));
+                    return;
+                  }
+                }
+                setSectionData(prev => ({ ...prev, currencies: updated }));
+                setTcmbOpen(false);
+              }}
               onClose={() => setTcmbOpen(false)} />
           )}
 
           {histCurrency && (
             <CurrencyHistoryModal
               currency={histCurrency}
-              onSave={(updated) => {
+              onSave={async (updated) => {
+                if (window.HL_CURRENCIES_API) {
+                  try {
+                    const saved = await window.HL_CURRENCIES_API.update(updated.id, updated);
+                    setSectionData(prev => ({ ...prev, currencies: prev.currencies.map(c => c.id === saved.id ? saved : c) }));
+                    setHistCurrency(saved);
+                    return;
+                  } catch (err) {
+                    alert('Could not save rate history: ' + (err.message || err));
+                    return;
+                  }
+                }
                 setSectionData(prev => ({ ...prev, currencies: prev.currencies.map(c => c.id === updated.id ? updated : c) }));
                 setHistCurrency(updated);
               }}

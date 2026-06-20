@@ -177,3 +177,9 @@ Schema `DashboardOut` + `MonthlySummary` defined. Should aggregate:
 | Any bank | PDF | pdfplumber for text PDFs; PyMuPDF + Tesseract for scanned PDFs |
 
 Import is two-step: `/preview` returns parsed rows for user review; `/confirm` writes to DB. `skip_duplicates=true` deduplicates by (date, amount, type).
+
+
+## After any changes 
+
+docker-compose up -d --build frontend
+

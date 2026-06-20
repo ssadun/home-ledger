@@ -1,9 +1,14 @@
-// Registers the Hyper Ledger service worker for PWA / installable support.
-// Registered at scope "/" so it controls every page in the app.
+// Service worker registration is DISABLED for development so the browser always
+// loads the latest files on a normal refresh (no stale cache, no PWA caching).
+// Also proactively unregister any service worker left over from a previous build
+// and clear its caches, so existing browsers heal on the next page load.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function () {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (err) {
-      console.warn('Service worker registration failed:', err);
-    });
+  navigator.serviceWorker.getRegistrations().then(function (regs) {
+    regs.forEach(function (reg) { reg.unregister(); });
   });
+  if (window.caches && caches.keys) {
+    caches.keys().then(function (keys) {
+      keys.forEach(function (k) { caches.delete(k); });
+    });
+  }
 }

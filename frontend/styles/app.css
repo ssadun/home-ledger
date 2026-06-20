@@ -338,6 +338,8 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .sidebar-section.bottom .sidebar-item.active .sidebar-item-icon{color:var(--sidebar-active-color)}
   /* remove desktop bottom-section item margins that cause vertical gap */
   .sidebar-section.bottom .sidebar-item{margin:0}
+  /* hide version label in the mobile bottom tab bar */
+  .sidebar-version{display:none}
   /* ─── Mobile submenu popup ─── */
   .sidebar-parent{
     position:relative;flex:1;display:flex;min-width:0;height:100%

@@ -294,5 +294,10 @@
     );
   }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  // Pre-mount hydration so the per-category "spent" (derived from LEDGER.TX) and
+  // category labels reflect real DB data on first render. Budget limits are
+  // loaded separately by the App's own effect.
+  window.HL_HYDRATE.all().finally(() => {
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  });
 })();

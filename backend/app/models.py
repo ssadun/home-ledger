@@ -103,6 +103,22 @@ class ExchangeRate(Base):
     fetched_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+# The Currencies config page is currency-centric (one row per ISO code, each with
+# its own latest rate + a nested rate history), distinct from the day-keyed
+# ExchangeRate table that drives transaction conversion. Named CurrencyRate to
+# avoid clashing with the Currency enum above.
+class CurrencyRate(Base):
+    __tablename__ = "currency_rates"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String, unique=True, index=True, nullable=False)  # ISO code, e.g. "USD"
+    to_try = Column(Float)                       # 1 unit of this currency = ? TRY (TRY base = 1)
+    to_usd = Column(Float)                        # 1 unit of this currency = ? USD
+    as_of = Column(Date)                          # date of the latest rate (null for base TRY)
+    source = Column(String)                       # "TCMB" | "Market" | null for base
+    history = Column(JSON, default=list)          # [{date, toTRY, toUSD, source, note?}, ...]
+    is_default = Column(Boolean, default=False)
+
+
 class Investment(Base):
     __tablename__ = "investments"
     id = Column(Integer, primary_key=True, index=True)

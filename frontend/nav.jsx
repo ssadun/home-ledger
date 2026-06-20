@@ -49,7 +49,6 @@
   const NAV = [
     { id: 'dashboard',     icon: 'layout-dashboard', label: 'Dashboard',     color: 'var(--white)',  href: 'Dashboard.html' },
     { id: 'transactions',  icon: 'arrow-left-right', label: 'Transactions',  color: '#22c55e',       parent: 'tx' },
-    { id: 'recurring',     icon: 'repeat',           label: 'Recurring',     color: '#d946ef',       href: 'Recurring.html' },
     { id: 'accounts',      icon: 'wallet',           label: 'Accounts',      color: '#8b5cf6',       href: 'Accounts.html' },
     { id: 'budgets',       icon: 'target',           label: 'Budgets',       color: 'var(--yellow)', href: 'Budgets.html' },
     { id: 'configuration', icon: 'settings-2',       label: 'Configuration', color: 'var(--red)',    parent: 'cfg' },
@@ -60,6 +59,7 @@
     { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: '#22c55e', href: 'Spending.html' },
     { id: 'account-activity', icon: 'landmark',     label: 'Account Activity', color: '#4f8ef7', href: 'Account Activity.html' },
     { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--coral)', href: 'Subscriptions.html' },
+    { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: '#d946ef',      href: 'Recurring.html' },
   ];
 
   // ── Configuration submenu (sectionId === CONFIG_SECTION === active id) ──────

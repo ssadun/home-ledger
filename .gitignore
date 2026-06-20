@@ -22,6 +22,10 @@ venv/
 # ── Node / frontend tooling ──
 node_modules/
 
+# ── Runtime artifacts ──
+*.pid
+logs/
+
 # ── OS / editor ──
 .DS_Store
 Thumbs.db

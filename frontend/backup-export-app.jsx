@@ -260,14 +260,16 @@
   const PERIOD_AWARE_IDS = DATASETS.filter(d => d.dateKey).map(d => d.id);
 
   // Years present across the period-aware datasets (for the Year picker).
-  const AVAILABLE_YEARS = (() => {
+  // Computed lazily (called from inside App after pre-mount hydration) so it
+  // reflects the real transaction rows, not the empty placeholders.
+  function computeAvailableYears() {
     const set = new Set();
-    DATASETS.filter(d => d.dateKey).forEach(d => d.getRows().forEach(r => {
+    DATASETS.filter(d => d.dateKey).forEach(d => (d.getRows() || []).forEach(r => {
       const v = r[d.dateKey]; if (v) set.add(String(v).slice(0, 4));
     }));
     const arr = [...set].sort().reverse();
     return arr.length ? arr : [String((L.CURRENT_YEAR) || new Date().getFullYear())];
-  })();
+  }
 
   // ── Period helpers ─────────────────────────────────────────────────────────
   function inPeriod(row, ds, period) {
@@ -366,6 +368,9 @@
   function App() {
     const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakToggle, TweakRadio } = window;
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+    // Resolved once, after hydration has populated the dataset sources.
+    const AVAILABLE_YEARS = React.useMemo(computeAvailableYears, []);
 
     const [period, setPeriod] = React.useState({ mode: 'all', year: AVAILABLE_YEARS[0], from: '', to: '' });
     const [sel, setSel] = React.useState(() => {
@@ -557,5 +562,10 @@
     );
   }
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  // Hydrate every export source (spending TX, budgets, accounts, recurring,
+  // cats/FX) into the static placeholders before the first render so the
+  // dataset row counts, year picker and exported files carry real DB data.
+  window.HL_HYDRATE.all().finally(() => {
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  });
 })();
