@@ -217,8 +217,14 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
   .ledger-table tr.empty-row td{display:flex;justify-content:center;padding:60px 20px}
   .empty-state{width:100%;justify-content:center;text-align:center}
 
-  /* pagination: fixed flush above the bottom nav, wraps if it can't fit one line */
-  .pagination{flex-wrap:wrap;gap:8px;justify-content:center;position:fixed;bottom:var(--mnav);left:0;right:0;z-index:150;border-top:1px solid var(--border);padding:10px 16px}
+  /* pagination: fixed flush above the bottom nav, compressed to a single row */
+  .pagination{flex-wrap:nowrap;gap:8px;justify-content:space-between;position:fixed;bottom:var(--mnav);left:0;right:0;z-index:150;border-top:1px solid var(--border);padding:10px 12px}
+  .page-count,.page-info .sep{display:none}            /* drop "Showing X–Y of Z" + separator */
+  .pager-rows-label{display:inline}                    /* keep the "Records #:" caption visible */
+  .page-btn-label{display:none}                        /* Prev/Next become icon-only */
+  .page-controls{gap:4px;flex-shrink:0}
+  .page-btn{min-width:28px;height:28px;padding:0 6px;gap:0}
+  #pagination-prev-btn,#pagination-next-btn{padding:0}
 }
 
 /* ════════════════════════════════════════════════════════════════════════

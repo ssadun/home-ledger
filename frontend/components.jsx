@@ -104,9 +104,24 @@
     if (!type || !payer) return null;
     return CARD_NUMBERS[payer + '|' + type] || null;
   }
+  // Resolve an account id (e.g. "acc-1") to its hydrated account record. Built at
+  // render time so it reads ACCOUNTS after the page hydrates them from the backend.
+  function accountById(value) {
+    const accts = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
+    return accts.find(a => a.id === value) || null;
+  }
   function PaymentMethodCell({ value, payer }) {
-    const pm = PM_MAP[value] || { label: value || '–', icon: 'circle', color: 'var(--slate)' };
-    const num = cardNumberFor(value, payer);
+    const TYPES = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES) || {};
+    const acct = !PM_MAP[value] ? accountById(value) : null;
+    let pm, num;
+    if (acct) {
+      const t = TYPES[acct.type] || {};
+      pm = { label: acct.name, icon: t.icon || 'circle', color: t.color || 'var(--slate)' };
+      num = acct.number && acct.number !== '–' ? acct.number : null;
+    } else {
+      pm = PM_MAP[value] || { label: value || '–', icon: 'circle', color: 'var(--slate)' };
+      num = cardNumberFor(value, payer);
+    }
     return (
       <span className="pm-plain">
         <Icon name={pm.icon} size={13} style={{ color: pm.color }} />{pm.label}

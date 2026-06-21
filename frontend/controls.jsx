@@ -360,7 +360,7 @@
     return (
       <div className="pagination">
         <span className="page-info">
-          Showing <b>{total ? start + 1 : 0}–{end}</b> of <b>{total}</b>
+          <span className="page-count">Showing <b>{total ? start + 1 : 0}–{end}</b> of <b>{total}</b></span>
           <span className="sep">|</span>
           <span className="pager-rows">
             <span className="pager-rows-label">Rows</span>
@@ -373,11 +373,11 @@
           </span>
         </span>
         <div className="page-controls">
-          <button id="pagination-prev-btn" className="page-btn" disabled={page === 1} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={14} />Prev</button>
+          <button id="pagination-prev-btn" className="page-btn" disabled={page === 1} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={14} /><span className="page-btn-label">Prev</span></button>
           {nums.map((n, i) => n === '…'
             ? <span className="page-ellipsis" key={'e' + i}>…</span>
             : <button key={n} id={'pagination-page-' + n + '-btn'} className={'page-btn' + (n === page ? ' active' : '')} onClick={() => setPage(n)}>{n}</button>)}
-          <button id="pagination-next-btn" className="page-btn" disabled={page === pages || pages === 0} onClick={() => setPage(page + 1)}>Next<Icon name="chevron-right" size={14} /></button>
+          <button id="pagination-next-btn" className="page-btn" disabled={page === pages || pages === 0} onClick={() => setPage(page + 1)}><span className="page-btn-label">Next</span><Icon name="chevron-right" size={14} /></button>
         </div>
       </div>
     );

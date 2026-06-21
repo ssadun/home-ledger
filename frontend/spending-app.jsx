@@ -39,6 +39,14 @@
 
   // ── CSV export schema (raw values, resolved labels) ──
   const PM_LABEL = { 'credit-card': 'Credit Card', 'debit-card': 'Debit Card', 'cash': 'Cash' };
+  // Resolve a payment-method value to a display label: legacy key → fixed label,
+  // otherwise an account id (e.g. "acc-1") → the hydrated account's name.
+  function pmLabel(value) {
+    if (PM_LABEL[value]) return PM_LABEL[value];
+    const accts = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
+    const acct = accts.find(a => a.id === value);
+    return acct ? acct.name : (value || '');
+  }
   const EXPORT_COLS = [
     { key: 'date', label: 'Date' },
     { key: 'desc', label: 'Description' },
@@ -46,7 +54,7 @@
     { key: 'type', label: 'Type' },
     { key: 'payer', label: 'Payer' },
     { key: 'payingFor', label: 'Paying For', get: r => r.payingFor === '\u2013' ? '' : r.payingFor },
-    { key: 'paymentMethod', label: 'Payment Method', get: r => PM_LABEL[r.paymentMethod] || r.paymentMethod || '' },
+    { key: 'paymentMethod', label: 'Payment Method', get: r => pmLabel(r.paymentMethod) },
     { key: 'cur', label: 'Currency' },
     { key: 'amt', label: 'Amount' },
     { key: 'tryV', label: 'Amount (TRY)' },
@@ -110,10 +118,22 @@
     const [loading, setLoading] = React.useState(true);
     const [loadError, setLoadError] = React.useState(null);
 
-    // Load transactions from the backend on mount (replaces the old static TX seed).
+    // Load transactions + accounts from the backend on mount (replaces the old static
+    // TX seed). Accounts hydrate ACCOUNTS_DATA.ACCOUNTS in place so the Payment Method
+    // cell can resolve account ids (e.g. "acc-3") to their real names before rows render.
     React.useEffect(() => {
       let alive = true;
-      window.HL_SPENDING_API.list()
+      const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
+        ? window.HL_ACCOUNTS_API.list()
+            .then(accts => {
+              const arr = window.ACCOUNTS_DATA.ACCOUNTS;
+              arr.length = 0;
+              (accts || []).forEach(a => arr.push(a));
+            })
+            .catch(() => { /* names just fall back to the raw id */ })
+        : Promise.resolve();
+      loadAccounts
+        .then(() => window.HL_SPENDING_API.list())
         .then(data => { if (alive) { setRows(data); setLoadError(null); } })
         .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })
         .finally(() => { if (alive) setLoading(false); });
