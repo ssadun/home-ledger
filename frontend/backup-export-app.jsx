@@ -441,14 +441,6 @@
                   </div>
                 </div>
               </div>
-              <div className="head-actions cfg-head-actions">
-                <button id="bx-header-json-btn" className="action-modal-btn bx-json" onClick={exportJSON} disabled={!selCount}>
-                  <Icon name="file-json" size={14} />Export JSON Backup
-                </button>
-                <button id="bx-header-csv-btn" className="action-modal-btn ok" onClick={exportCSVAll} disabled={!selCount}>
-                  <Icon name="download" size={14} />Export CSV{selCount ? ' (' + selCount + ')' : ''}
-                </button>
-              </div>
             </div>
           </header>
 
