@@ -200,7 +200,7 @@
   }
 
   // ── Filter bar ──────────────────────────────────────────────────────────
-  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, source, setSource, search, setSearch, onAdd, onScan, onResetCols, onResetOrder, orderIsDefault, extra }) {
+  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, source, setSource, search, setSearch, onAdd, onScan, onResetCols, onResetOrder, orderIsDefault, extra, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -263,6 +263,7 @@
               </button>
               {open && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}

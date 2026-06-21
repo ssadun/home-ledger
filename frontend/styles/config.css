@@ -165,9 +165,16 @@
   .cfg-hist-fields{grid-template-columns:1fr 1fr}
   .cfg-tcmb-modal{width:calc(100vw - 32px)}
   /* keep title left, actions right on the same line */
-  .page-head-top:has(.cfg-head-actions){flex-direction:row;align-items:center;gap:10px}
+  .page-head-top:has(.cfg-head-actions){flex-direction:row;flex-wrap:nowrap;align-items:center;gap:10px}
   .cfg-detail-head-left{flex:1;min-width:0}
-  .cfg-head-actions{width:auto;flex-direction:row;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0}
-  .cfg-head-actions .action-modal-btn{width:auto;justify-content:center;min-height:44px}
+  /* size to content (don't inherit flex-basis:100% from the generic .head-actions
+     rule, which overflows the title row and kills the right-edge gap) */
+  .cfg-head-actions{width:auto;flex-direction:row;align-items:center;flex-wrap:nowrap;justify-content:flex-end;flex:0 0 auto}
+  /* match Spending's sleek header buttons (inherit padding:8px 14px from the
+     generic .page-head-top .action-modal-btn rule); no chunky min-height */
+  .cfg-head-actions .action-modal-btn{width:auto;justify-content:center}
+  /* Overflow action button (e.g. Add Currency) moves into the filters popover
+     (.fp-actions, see filters.css); keep only the first button next to the title. */
+  .cfg-head-actions .ha-overflow{display:none}
   /* page-sub hidden globally */
 }

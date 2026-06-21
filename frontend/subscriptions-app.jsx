@@ -419,7 +419,7 @@
                   <p className="page-subtitle">Recurring services and renewals</p>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions sub-head-actions">
                 <button id="sub-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Subscription</button>
               </div>
             </div>

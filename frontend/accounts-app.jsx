@@ -24,7 +24,7 @@
   ];
 
   // ── Filter bar ──
-  function AccountsFilter({ owner, setOwner, typeFilter, setTypeFilter, search, setSearch, layout, setLayout, extra }) {
+  function AccountsFilter({ owner, setOwner, typeFilter, setTypeFilter, search, setSearch, layout, setLayout, extra, popActions }) {
     const [filtersOpen, setFiltersOpen] = React.useState(false);
     const filtersRef = React.useRef(null);
 
@@ -94,6 +94,7 @@
               </button>
               {filtersOpen && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By</span>
                     {active.length > 0 && <button id="acct-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -268,14 +269,15 @@
                   <p className="page-subtitle">Balances across every account</p>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions acct-head-actions">
                 <button id="acct-import-btn" className="action-modal-btn scan" onClick={() => openImport(null)}><Icon name="file-down" size={14} />Import Statement</button>
-                <button id="acct-add-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>
+                <button id="acct-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>
               </div>
             </div>
             <AccountsFilter owner={owner} setOwner={setOwner} typeFilter={typeFilter}
               setTypeFilter={setTypeFilter} search={search} setSearch={setSearch}
               layout={layout} setLayout={setLayout}
+              popActions={<button id="acct-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>}
               extra={<ExportData entity="accounts" entityLabel="Accounts"
                 columns={EXPORT_COLS} rows={filtered} allRows={accounts} inline />} />
           </header>

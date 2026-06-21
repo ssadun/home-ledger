@@ -261,9 +261,9 @@
                   </div>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions sp-head-actions">
                 <button id="sp-scan-receipt-btn" className="action-modal-btn scan" onClick={() => setScan(true)}><Icon name="scan-line" size={14} />Scan Receipt</button>
-                <button id="sp-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>
+                <button id="sp-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>
               </div>
             </div>
             <FilterBar
@@ -276,6 +276,7 @@
               onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
               onAdd={() => setModal({ mode: 'add', tx: {} })}
               onScan={() => setScan(true)}
+              popActions={<button id="sp-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>}
               extra={<ExportData entity="spending" entityLabel="Transactions"
                 period={year + '-' + String(month + 1).padStart(2, '0')}
                 columns={EXPORT_COLS} rows={sorted} allRows={rows} inline />} />

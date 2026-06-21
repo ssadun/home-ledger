@@ -142,6 +142,11 @@
    RESPONSIVE — Mobile (500–660px)
    ═══════════════════════════════════════════════════ */
 @media (max-width:660px){
+  /* Keep the action button inline next to the title (in .page-head-top) instead
+     of wrapping to a full-width row. Overrides app.css's full-width row. */
+  .page-head-top:has(.rec-head-actions){flex-wrap:nowrap}
+  .rec-head-actions{flex:0 0 auto}
+
   .rec-group-cards{grid-template-columns:1fr}
 
   /* Table card layout (same pattern as Transactions) */

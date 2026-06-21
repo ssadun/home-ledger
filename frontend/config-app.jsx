@@ -654,7 +654,7 @@
 
   // ── Filter bar (mirrors the Spending filter bar) — search + a Filters popover
   //    that holds the per-section facet selects and the column tools (Fit / Reset Order). ──
-  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, onResetCols, onResetOrder, orderIsDefault }) {
+  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, onResetCols, onResetOrder, orderIsDefault, popActions }) {
     const { FitColumnsButton, ResetOrderButton } = window;
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
@@ -701,6 +701,7 @@
               </button>
               {open && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="cfg-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -747,7 +748,7 @@
   }
 
   // ── Detail section table — sortable, resizable, drag-reorderable; rows open the editor ──
-  function CfgSectionTable({ section, items, onEdit }) {
+  function CfgSectionTable({ section, items, onEdit, onAdd, onTcmb }) {
     const { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton, ExportData } = window;
     // Map the section's columns to the resizable hook's descriptor shape.
     const cols = React.useMemo(() => section.columns.map(c => ({
@@ -821,14 +822,43 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const popActions = section.id === 'currencies'
+      ? <button id="cfg-add-item-fp-btn" className="action-modal-btn ok" onClick={onAdd}><Icon name="plus" size={14} />{section.addLabel || 'Add Item'}</button>
+      : null;
+
     return (
       <React.Fragment>
-        <CfgFilterBar
-          table={section.id}
-          search={search} setSearch={setSearch}
-          facets={facets} setFacet={setFacet} facetCols={facetCols} searchCols={searchCols}
-          onResetCols={rz.resetSizes}
-          onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder} />
+        <header className="page-head">
+          <div className="page-head-top">
+            <div className="cfg-detail-head-left">
+              <div className="page-title-wrap cfg-detail-title-wrap">
+                <span className="cfg-title-icon" style={{ color: section.color }}><Icon name={section.icon} size={21} /></span>
+                <div className="cfg-title-col">
+                  <h1 className="page-title">{section.label}</h1>
+                  {section.desc && <p className="page-subtitle">{section.desc}</p>}
+                </div>
+              </div>
+            </div>
+            <div className="head-actions cfg-head-actions">
+              {section.id === 'currencies' && (
+                <button id="cfg-tcmb-retrieve-btn" className="action-modal-btn tcmb cfg-tcmb-btn" onClick={onTcmb}>
+                  <Icon name="refresh-cw" size={14} />Retrieve From TCMB
+                </button>
+              )}
+              <button id="cfg-add-item-btn" className={'action-modal-btn ok cfg-add-btn' + (section.id === 'currencies' ? ' ha-overflow' : '')} onClick={onAdd}>
+                <Icon name="plus" size={14} />{section.addLabel || 'Add Item'}
+              </button>
+            </div>
+          </div>
+          <CfgFilterBar
+            table={section.id}
+            search={search} setSearch={setSearch}
+            facets={facets} setFacet={setFacet} facetCols={facetCols} searchCols={searchCols}
+            onResetCols={rz.resetSizes}
+            onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
+            popActions={popActions} />
+        </header>
+
         <div className="table-card">
           <div className="table-scroll">
             <table ref={rz.tableRef} className="ledger-table cfg-table resizable zebra" style={rz.colSizeVars}>
@@ -852,7 +882,16 @@
                 </tr>
               </thead>
               <tbody>
-                {sortedItems.map(item => (
+                {sortedItems.length === 0 ? (
+                  <tr className="empty-row">
+                    <td colSpan={rz.orderedColumns.length}>
+                      <div className="cfg-empty">
+                        <Icon name="inbox" size={32} color="var(--muted)" />
+                        <span>No items yet — click Add to create one.</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : sortedItems.map(item => (
                   <tr key={item.id} className="cfg-row" onClick={() => onEdit(item)}
                     title={'Edit ' + (item.label || item.name || item.code || 'item')}>
                     {rz.orderedColumns.map(c => (
@@ -1034,43 +1073,10 @@
         <div className="main">
           {/* ── Detail: dedicated section page ── */}
           {view && section && (
-            <React.Fragment>
-              <header className="page-head">
-                <div className="page-head-top">
-                  <div className="cfg-detail-head-left">
-                    <div className="page-title-wrap cfg-detail-title-wrap">
-                      <span className="cfg-title-icon" style={{ color: section.color }}><Icon name={section.icon} size={21} /></span>
-                      <div className="cfg-title-col">
-                        <h1 className="page-title">{section.label}</h1>
-                        {section.desc && <p className="page-subtitle">{section.desc}</p>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="head-actions cfg-head-actions">
-                    {section.id === 'currencies' && (
-                      <button id="cfg-tcmb-retrieve-btn" className="action-modal-btn tcmb cfg-tcmb-btn" onClick={() => setTcmbOpen(true)}>
-                        <Icon name="refresh-cw" size={14} />Retrieve From TCMB
-                      </button>
-                    )}
-                    <button id="cfg-add-item-btn" className="action-modal-btn ok cfg-add-btn" onClick={() => setModal({ item: null })}>
-                      <Icon name="plus" size={14} />{section.addLabel || 'Add Item'}
-                    </button>
-                  </div>
-                </div>
-              </header>
-
-              <div className="cfg-detail">
-                {items.length === 0 ? (
-                  <div className="cfg-empty">
-                    <Icon name="inbox" size={32} color="var(--muted)" />
-                    <span>No items yet — click Add to create one.</span>
-                  </div>
-                ) : (
-                  <CfgSectionTable key={view} section={section} items={items}
-                    onEdit={(it) => setModal({ item: it })} />
-                )}
-              </div>
-            </React.Fragment>
+            <CfgSectionTable key={view} section={section} items={items}
+              onEdit={(it) => setModal({ item: it })}
+              onAdd={() => setModal({ item: null })}
+              onTcmb={() => setTcmbOpen(true)} />
           )}
 
           {tcmbOpen && (

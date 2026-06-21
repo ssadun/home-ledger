@@ -420,7 +420,7 @@
                   </div>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions rec-head-actions">
                 <button id="rec-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>
               </div>
             </div>

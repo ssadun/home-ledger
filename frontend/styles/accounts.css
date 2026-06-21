@@ -151,6 +151,12 @@
 
   .page-head{padding:12px}
   .page-title{font-size:18px;letter-spacing:1px}
+  /* Keep the first action button inline next to the title (in .page-head-top);
+     the overflow button (.ha-overflow) moves into the filters popover
+     (.fp-actions, see filters.css). Overrides app.css's full-width row. */
+  .page-head-top:has(.acct-head-actions){flex-wrap:nowrap}
+  .acct-head-actions{flex:0 0 auto}
+  .acct-head-actions .ha-overflow{display:none}
   .page-sub{padding-left:0;font-size:11px;overflow:hidden;text-overflow:ellipsis}
 
   .summary-row,.acct-body{margin-left:12px;margin-right:12px}

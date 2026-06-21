@@ -81,6 +81,13 @@
 .fp-clear:hover{text-decoration:underline}
 .filters-pop .filter-field{width:100%}
 .filters-pop .select-wrap,.filters-pop .sel{width:100%}
+/* Page header action buttons relocated into the popover on mobile (the title row
+   can't fit them at 360px). Hidden on desktop where they live next to the title. */
+.fp-actions{display:none}
+@media (max-width:660px){
+  .fp-actions{display:flex;flex-direction:column;gap:8px;width:100%;padding-bottom:11px;margin-bottom:0;border-bottom:1px solid var(--border)}
+  .fp-actions .action-modal-btn{width:100%;justify-content:flex-start;padding:10px 12px}
+}
 .active-chips{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:11px}
 .chips-lead{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-label);letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
 .chips-lead svg{width:12px;height:12px}
