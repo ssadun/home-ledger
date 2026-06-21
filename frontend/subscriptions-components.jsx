@@ -156,7 +156,7 @@
               <span className="modal-title"><Icon name="history" size={16} />Payment History</span>
               <span className="modal-sub">{rec.name}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="sub-history-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
           <div className="modal-body" style={{ padding: 0 }}>
             <div className="rec-history-list">
@@ -181,7 +181,7 @@
             </div>
           </div>
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Close</button>
+            <button id="sub-history-close-foot-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Close</button>
           </div>
         </div>
       </div>
@@ -211,7 +211,7 @@
     const selectedGroup = selected ? groups.find(g => g.type === selected.type) : null;
     return (
       <div className="pm-select" ref={ref}>
-        <button type="button" className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+        <button type="button" id="sub-payment-method-trigger-btn" className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
           {selected && selectedGroup ? (
             <span className="pm-trigger-inner">
               <span className="pm-icon" style={{ color: PM_TYPE_COLORS[selectedGroup.type] }}>
@@ -223,7 +223,7 @@
         </button>
         {open && (
           <div className="pm-dropdown">
-            <div className="pm-option" onClick={() => { onChange(''); setOpen(false); }}>
+            <div id="sub-payment-method-option-none" className="pm-option" onClick={() => { onChange(''); setOpen(false); }}>
               <span className="pm-placeholder">— Select —</span>
             </div>
             {groups.map(g => {
@@ -236,7 +236,7 @@
                     {g.label}
                   </div>
                   {accts.map(a => (
-                    <div key={a.id} className={'pm-option' + (String(value) === String(a.id) ? ' selected' : '')}
+                    <div key={a.id} id={'sub-payment-method-option-' + a.id} className={'pm-option' + (String(value) === String(a.id) ? ' selected' : '')}
                       onClick={() => { onChange(String(a.id)); setOpen(false); }}>
                       <span className="pm-icon" style={{ color: PM_TYPE_COLORS[g.type] }}>
                         <Icon name={PM_TYPE_ICONS[g.type]} size={13} /></span>
@@ -357,16 +357,16 @@
               <span className="modal-title"><Icon name={editing ? 'pencil' : 'plus-circle'} size={16} />{editing ? 'Edit Subscription' : 'Add Subscription'}</span>
               <span className="modal-sub">{editing ? initial.name : 'Set up a new bill or subscription'}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="sub-modal-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
           {/* Tab bar — only in edit mode */}
           {editing && (
             <div className="rec-modal-tabs">
-              <button className={'rec-modal-tab' + (tab === 'details' ? ' active' : '')} onClick={() => setTab('details')}>
+              <button id="sub-modal-tab-details-btn" className={'rec-modal-tab' + (tab === 'details' ? ' active' : '')} onClick={() => setTab('details')}>
                 <Icon name="settings-2" size={13} />Details
               </button>
-              <button className={'rec-modal-tab' + (tab === 'linked' ? ' active' : '')} onClick={() => setTab('linked')}>
+              <button id="sub-modal-tab-linked-btn" className={'rec-modal-tab' + (tab === 'linked' ? ' active' : '')} onClick={() => setTab('linked')}>
                 <Icon name="link-2" size={13} />Linked Transactions
                 {linkedCount > 0 && <span className="rec-tab-count">{linkedCount}</span>}
               </button>
@@ -379,16 +379,16 @@
               {/* Row 1: Name */}
               <div className="form-field full">
                 <span className="field-label">Name</span>
-                <input className="field-input" placeholder="e.g. Netflix, Rent, Gym" value={f.name} onChange={e => set('name', e.target.value)} />
+                <input id="sub-modal-name-input" className="field-input" placeholder="e.g. Netflix, Rent, Gym" value={f.name} onChange={e => set('name', e.target.value)} />
               </div>
 
               {/* Row 2: Status */}
               <div className="form-field full">
                 <span className="field-label">Status</span>
                 <div className="seg seg-3">
-                  <button className={f.status === 'active' ? 'on-active' : ''} onClick={() => set('status', 'active')}><Icon name="circle-check" size={13} />Active</button>
-                  <button className={f.status === 'paused' ? 'on-paused' : ''} onClick={() => set('status', 'paused')}><Icon name="pause-circle" size={13} />Paused</button>
-                  <button className={f.status === 'ended' ? 'on-ended' : ''} onClick={() => set('status', 'ended')}><Icon name="circle-x" size={13} />Ended</button>
+                  <button id="sub-modal-status-active-btn" className={f.status === 'active' ? 'on-active' : ''} onClick={() => set('status', 'active')}><Icon name="circle-check" size={13} />Active</button>
+                  <button id="sub-modal-status-paused-btn" className={f.status === 'paused' ? 'on-paused' : ''} onClick={() => set('status', 'paused')}><Icon name="pause-circle" size={13} />Paused</button>
+                  <button id="sub-modal-status-ended-btn" className={f.status === 'ended' ? 'on-ended' : ''} onClick={() => set('status', 'ended')}><Icon name="circle-x" size={13} />Ended</button>
                 </div>
               </div>
 
@@ -396,7 +396,7 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Frequency</span>
-                  <select className="field-input" value={f.frequency} onChange={e => set('frequency', e.target.value)}>
+                  <select id="sub-modal-frequency-select" className="field-input" value={f.frequency} onChange={e => set('frequency', e.target.value)}>
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
@@ -405,7 +405,7 @@
                 {f.frequency === 'monthly' && (
                   <div className="form-field">
                     <span className="field-label">Payment Day</span>
-                    <select className="field-input" value={f.paymentDay} onChange={e => set('paymentDay', e.target.value)}>
+                    <select id="sub-modal-paymentday-select" className="field-input" value={f.paymentDay} onChange={e => set('paymentDay', e.target.value)}>
                       {dayOptions.map(d => (
                         <option key={d} value={d}>{d === -1 ? 'Last Day of Month' : d === 1 ? '1st Day of Month' : 'Day ' + d}</option>
                       ))}
@@ -418,9 +418,9 @@
               <div className="form-field full">
                 <span className="field-label">If Payment Day Is Weekend / Holiday</span>
                 <div className="seg seg-3">
-                  <button className={f.weekendRule === 'defer' ? 'on-defer' : ''} onClick={() => set('weekendRule', 'defer')}><Icon name="arrow-right" size={13} />Defer</button>
-                  <button className={f.weekendRule === 'advance' ? 'on-advance' : ''} onClick={() => set('weekendRule', 'advance')}><Icon name="arrow-left" size={13} />Advance</button>
-                  <button className={f.weekendRule === 'none' ? 'on-none' : ''} onClick={() => set('weekendRule', 'none')}><Icon name="minus" size={13} />No Change</button>
+                  <button id="sub-modal-weekend-defer-btn" className={f.weekendRule === 'defer' ? 'on-defer' : ''} onClick={() => set('weekendRule', 'defer')}><Icon name="arrow-right" size={13} />Defer</button>
+                  <button id="sub-modal-weekend-advance-btn" className={f.weekendRule === 'advance' ? 'on-advance' : ''} onClick={() => set('weekendRule', 'advance')}><Icon name="arrow-left" size={13} />Advance</button>
+                  <button id="sub-modal-weekend-none-btn" className={f.weekendRule === 'none' ? 'on-none' : ''} onClick={() => set('weekendRule', 'none')}><Icon name="minus" size={13} />No Change</button>
                 </div>
               </div>
 
@@ -428,18 +428,18 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Start Date</span>
-                  <DateInput className="field-input" value={f.startDate} onChange={e => set('startDate', e.target.value)} />
+                  <DateInput id="sub-modal-start-date-input" className="field-input" value={f.startDate} onChange={e => set('startDate', e.target.value)} />
                 </div>
                 <div className="form-field">
                   <span className="field-label">End Date <span style={{ color: 'var(--muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
-                  <DateInput className="field-input" value={f.endDate} onChange={e => set('endDate', e.target.value)} min={f.startDate} placeholder="No end date" />
+                  <DateInput id="sub-modal-end-date-input" className="field-input" value={f.endDate} onChange={e => set('endDate', e.target.value)} min={f.startDate} placeholder="No end date" />
                 </div>
               </div>
 
               {/* Row 6: Category */}
               <div className="form-field full">
                 <span className="field-label">Category</span>
-                <select className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
+                <select id="sub-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
                   {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => (
                     <option key={k} value={k}>{CATS[k].label}</option>
                   ))}
@@ -450,13 +450,13 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Payer</span>
-                  <select className="field-input" value={f.payer} onChange={e => set('payer', e.target.value)}>
+                  <select id="sub-modal-payer-select" className="field-input" value={f.payer} onChange={e => set('payer', e.target.value)}>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 <div className="form-field">
                   <span className="field-label">Paying For</span>
-                  <select className="field-input" value={f.payingFor} onChange={e => set('payingFor', e.target.value)}>
+                  <select id="sub-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={e => set('payingFor', e.target.value)}>
                     <option value="Shared">Shared</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                     <option value="–">Other</option>
@@ -467,15 +467,15 @@
               {/* Row 8: Description */}
               <div className="form-field full">
                 <span className="field-label">Description</span>
-                <input className="field-input" placeholder="e.g. Netflix Standard plan, monthly" value={f.desc} onChange={e => set('desc', e.target.value)} />
+                <input id="sub-modal-desc-input" className="field-input" placeholder="e.g. Netflix Standard plan, monthly" value={f.desc} onChange={e => set('desc', e.target.value)} />
               </div>
 
               {/* Row 9: Amount */}
               <div className="form-field full">
                 <span className="field-label">Amount</span>
                 <div className="amount-input-wrap">
-                  <input className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
-                  <select className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
+                  <input id="sub-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
+                  <select id="sub-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
                     <option>TRY</option><option>USD</option><option>EUR</option>
                   </select>
                 </div>
@@ -503,9 +503,9 @@
           )}
 
           <div className="modal-foot">
-            {editing && <button className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            {(tab === 'details' || !editing) && <button className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Subscription'}</button>}
+            {editing && <button id="sub-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
+            <button id="sub-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            {(tab === 'details' || !editing) && <button id="sub-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Subscription'}</button>}
           </div>
         </div>
       </div>

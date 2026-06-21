@@ -38,7 +38,7 @@
     };
   }
 
-  function DateInput({ value, onChange, min, max, className, placeholder, dataTable, dataCol }) {
+  function DateInput({ value, onChange, min, max, className, placeholder, dataTable, dataCol, id }) {
     const inputRef = React.useRef(null);
     const wrapRef  = React.useRef(null);
     const fpRef    = React.useRef(null);
@@ -79,6 +79,7 @@
     return (
       <div ref={wrapRef} className="date-input-wrap">
         <input
+          id={id}
           ref={inputRef}
           type="text"
           className={className || 'field-input'}
@@ -196,7 +197,7 @@
               <Icon name="clock" size={15} color="var(--gold)" />
               Exchange Rate History — {currency.code}
             </span>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
+            <button id="currency-history-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
           <div className="cfg-hist-body">
             {/* Add new rate form */}
@@ -205,30 +206,30 @@
               <div className="cfg-hist-fields">
                 <div className="form-field">
                   <span className="field-label">Currency Code</span>
-                  <input className="field-input" type="text" value={currency.code} readOnly
+                  <input id="currency-history-code-input" className="field-input" type="text" value={currency.code} readOnly
                     data-table="currency_rates" data-col="currency_code" />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Date</span>
-                  <input className="field-input" type="text" value={date} readOnly
+                  <input id="currency-history-date-input" className="field-input" type="text" value={date} readOnly
                     title="New rates are always recorded with today's date"
                     data-table="currency_rates" data-col="date" />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Rate → TRY *</span>
-                  <input className="field-input" type="text" inputMode="decimal" placeholder="e.g. 39.50"
+                  <input id="currency-history-totry-input" className="field-input" type="text" inputMode="decimal" placeholder="e.g. 39.50"
                     value={toTRY} onChange={e => setToTRY(e.target.value)}
                     data-table="currency_rates" data-col="rate_try" />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Rate → USD</span>
-                  <input className="field-input" type="text" inputMode="decimal" placeholder="e.g. 1.09"
+                  <input id="currency-history-tousd-input" className="field-input" type="text" inputMode="decimal" placeholder="e.g. 1.09"
                     value={toUSD} onChange={e => setToUSD(e.target.value)}
                     data-table="currency_rates" data-col="rate_usd" />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Source</span>
-                  <select className="field-input" value={source} onChange={e => setSource(e.target.value)}
+                  <select id="currency-history-source-select" className="field-input" value={source} onChange={e => setSource(e.target.value)}
                     data-table="currency_rates" data-col="source">
                     <option value="TCMB">TCMB</option>
                     <option value="Market">Market</option>
@@ -236,14 +237,14 @@
                 </div>
                 <div className="form-field">
                   <span className="field-label">Note</span>
-                  <input className="field-input" type="text" placeholder="Optional note"
+                  <input id="currency-history-note-input" className="field-input" type="text" placeholder="Optional note"
                     value={note} onChange={e => setNote(e.target.value)}
                     data-table="currency_rates" data-col="note" />
                 </div>
               </div>
               {err && <span className="cfg-hist-err"><Icon name="alert-triangle" size={12} />{err}</span>}
               <div className="cfg-hist-form-foot">
-                <button type="submit" className="amb ok"><Icon name="plus" size={14} />Add Rate</button>
+                <button type="submit" id="currency-history-add-btn" className="amb ok"><Icon name="plus" size={14} />Add Rate</button>
               </div>
             </form>
             {/* History table */}
@@ -285,7 +286,7 @@
             </div>
           </div>
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Close</button>
+            <button id="currency-history-close-foot-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Close</button>
           </div>
         </div>
       </div>
@@ -332,7 +333,7 @@
               <Icon name="refresh-cw" size={15} color="var(--gold)" />
               Retrieve From TCMB
             </span>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
+            <button id="tcmb-retrieve-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
           <div className="cfg-tcmb-body">
             <div className="cfg-tcmb-banner">
@@ -369,8 +370,8 @@
             <span className="cfg-tcmb-foot-note"><Icon name="info" size={12} />Applying overwrites the current rate, marks the source as TCMB, and records a history entry dated {today}.</span>
           </div>
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button className="amb ok" onClick={apply} disabled={matched.length === 0}><Icon name="file-input" size={14} />Apply Rates</button>
+            <button id="tcmb-retrieve-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="tcmb-retrieve-apply-btn" className="amb ok" onClick={apply} disabled={matched.length === 0}><Icon name="file-input" size={14} />Apply Rates</button>
           </div>
         </div>
       </div>
@@ -561,7 +562,7 @@
               <Icon name={section.icon} size={15} color={section.color} />
               {editing ? 'Edit' : 'Add'} — {section.label}
             </span>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
+            <button id="cfg-item-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
           <form onSubmit={submit}>
             <div className="cfg-modal-body">
@@ -570,6 +571,7 @@
                   <div key={fd.key} className="form-field full">
                     <label className="acct-check-label">
                       <input type="checkbox"
+                        id={'cfg-field-' + fd.key}
                         data-table="members" data-col={fd.key}
                         checked={f[fd.key] !== false}
                         onChange={e => set(fd.key, e.target.checked)} />
@@ -582,7 +584,7 @@
                   <span className="field-label">{fd.label}{(fd.required || (fd.requiredOnCreate && !editing)) ? ' *' : ''}</span>
                   {(editing && fd.editHint ? fd.editHint : fd.hint) && <span className="field-hint">{editing && fd.editHint ? fd.editHint : fd.hint}</span>}
                   {fd.type === 'select' ? (
-                    <select className="field-input" value={f[fd.key] || ''}
+                    <select className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
                       data-table={section.id} data-col={fd.key}
                       onChange={e => set(fd.key, e.target.value)}>
                       <option value="">— Select —</option>
@@ -592,6 +594,7 @@
                     <div className="cfg-color-grid">
                       {COLOR_OPTIONS.map(c => (
                         <button key={c.var} type="button"
+                          id={'cfg-field-' + fd.key + '-swatch-' + c.label.toLowerCase()}
                           className={'cfg-color-swatch' + (f[fd.key] === c.var ? ' selected' : '')}
                           style={{ background: c.hex }} title={c.label}
                           onClick={() => set(fd.key, c.var)} />
@@ -599,22 +602,23 @@
                     </div>
                   ) : fd.type === 'icon' ? (
                     <div className="cfg-icon-field">
-                      <input className="field-input" type="text"
+                      <input className="field-input" id={'cfg-field-' + fd.key} type="text"
                         placeholder={fd.placeholder || 'Lucide icon name'}
                         value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
                       {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color="var(--accent)" /></span>}
                     </div>
                   ) : fd.type === 'date' ? (
                     <DateInput
+                      id={'cfg-field-' + fd.key}
                       dataTable={section.id} dataCol={fd.key}
                       value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
                   ) : fd.type === 'password' ? (
-                    <input className="field-input" type="password"
+                    <input className="field-input" id={'cfg-field-' + fd.key} type="password"
                       placeholder={fd.placeholder || ''} value={f[fd.key] || ''}
                       autoComplete="new-password"
                       onChange={e => set(fd.key, e.target.value)} />
                   ) : (
-                    <input className="field-input" type="text"
+                    <input className="field-input" id={'cfg-field-' + fd.key} type="text"
                       inputMode={fd.type === 'number' ? 'decimal' : 'text'}
                       data-table={section.id} data-col={fd.key}
                       placeholder={fd.placeholder || ''} value={f[fd.key] || ''}
@@ -628,19 +632,19 @@
               {editing && (
                 <div className="cfg-modal-foot-left">
                   {section.extraRowAction && (
-                    <button type="button" className="amb history"
+                    <button type="button" id="cfg-item-history-btn" className="amb history"
                       onClick={() => { onClose(); onHistory && onHistory(item); }}>
                       <Icon name="clock" size={14} />History
                     </button>
                   )}
-                  <button type="button" className="amb danger"
+                  <button type="button" id="cfg-item-delete-btn" className="amb danger"
                     onClick={() => onDelete(item)}>
                     <Icon name="trash-2" size={14} />Delete
                   </button>
                 </div>
               )}
-              <button type="button" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-              <button type="submit" className="amb ok"><Icon name="check" size={14} />Save</button>
+              <button type="button" id="cfg-item-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+              <button type="submit" id="cfg-item-save-btn" className="amb ok"><Icon name="check" size={14} />Save</button>
             </div>
           </form>
         </div>
@@ -680,17 +684,17 @@
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
               <Icon name="search" size={13} />
-              <input className="search-input" placeholder="Search…" value={search}
+              <input id="cfg-filter-search-input" className="search-input" placeholder="Search…" value={search}
                 data-table={table} data-cols={searchCols.join(',')}
                 onChange={(e) => setSearch(e.target.value)} />
-              {search && <button className="search-clear" onClick={() => setSearch('')} title="Clear search"><Icon name="x" size={13} /></button>}
+              {search && <button id="cfg-filter-search-clear-btn" className="search-clear" onClick={() => setSearch('')} title="Clear search"><Icon name="x" size={13} /></button>}
             </div>
           </div>
 
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={anchorRef}>
-              <button className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+              <button id="cfg-filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
                 <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -699,13 +703,13 @@
                 <div className="filters-pop">
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
-                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="cfg-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
                   {facetCols.map(fc => (
                     <div className="filter-field" key={fc.key}>
                       <span className="filter-label">{fc.label}</span>
                       <div className="select-wrap">
-                        <select className="sel" value={facets[fc.key] || 'all'}
+                        <select className="sel" id={'cfg-filter-' + fc.key + '-select'} value={facets[fc.key] || 'all'}
                           data-table={table} data-col={fc.key}
                           onChange={(e) => setFacet(fc.key, e.target.value)}>
                           <option value="all">All</option>
@@ -731,11 +735,11 @@
           <div className="active-chips">
             <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
             {active.map(a => (
-              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+              <button key={a.key} id={'cfg-filter-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
                 <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
               </button>
             ))}
-            <button className="chip chip-clear" onClick={clearAll}>Clear all</button>
+            <button id="cfg-filter-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear all</button>
           </div>
         )}
       </div>
@@ -1044,11 +1048,11 @@
                   </div>
                   <div className="head-actions cfg-head-actions">
                     {section.id === 'currencies' && (
-                      <button className="action-modal-btn tcmb cfg-tcmb-btn" onClick={() => setTcmbOpen(true)}>
+                      <button id="cfg-tcmb-retrieve-btn" className="action-modal-btn tcmb cfg-tcmb-btn" onClick={() => setTcmbOpen(true)}>
                         <Icon name="refresh-cw" size={14} />Retrieve From TCMB
                       </button>
                     )}
-                    <button className="action-modal-btn ok cfg-add-btn" onClick={() => setModal({ item: null })}>
+                    <button id="cfg-add-item-btn" className="action-modal-btn ok cfg-add-btn" onClick={() => setModal({ item: null })}>
                       <Icon name="plus" size={14} />{section.addLabel || 'Add Item'}
                     </button>
                   </div>
@@ -1125,14 +1129,14 @@
               <div className="modal cfg-confirm">
                 <div className="modal-head">
                   <span className="modal-title"><Icon name="alert-triangle" size={15} color="var(--red)" />Delete Item</span>
-                  <button className="m-close" onClick={() => setConfirmDel(null)}><Icon name="x" size={16} /></button>
+                  <button id="cfg-delete-close-btn" className="m-close" onClick={() => setConfirmDel(null)}><Icon name="x" size={16} /></button>
                 </div>
                 <div className="cfg-confirm-body">
                   Delete <b>{confirmDel.label || confirmDel.name || confirmDel.code}</b> from {section.label}? This cannot be undone.
                 </div>
                 <div className="modal-foot">
-                  <button className="amb cancel" onClick={() => setConfirmDel(null)}><Icon name="x" size={14} />Cancel</button>
-                  <button className="amb danger" onClick={() => deleteItem(confirmDel)}><Icon name="trash-2" size={14} />Delete</button>
+                  <button id="cfg-delete-cancel-btn" className="amb cancel" onClick={() => setConfirmDel(null)}><Icon name="x" size={14} />Cancel</button>
+                  <button id="cfg-delete-confirm-btn" className="amb danger" onClick={() => deleteItem(confirmDel)}><Icon name="trash-2" size={14} />Delete</button>
                 </div>
               </div>
             </div>

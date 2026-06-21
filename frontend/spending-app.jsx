@@ -262,8 +262,8 @@
                 </div>
               </div>
               <div className="head-actions">
-                <button className="action-modal-btn scan" onClick={() => setScan(true)}><Icon name="scan-line" size={14} />Scan Receipt</button>
-                <button className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>
+                <button id="sp-scan-receipt-btn" className="action-modal-btn scan" onClick={() => setScan(true)}><Icon name="scan-line" size={14} />Scan Receipt</button>
+                <button id="sp-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>
               </div>
             </div>
             <FilterBar

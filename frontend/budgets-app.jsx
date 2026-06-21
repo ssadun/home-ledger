@@ -51,18 +51,18 @@
           <div className="filter-field ff-period">
             <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
             <div className="month-step">
-              <button className="ms-btn" onClick={() => monthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
+              <button id="bgt-period-prev-btn" className="ms-btn" onClick={() => monthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
               <span className="ms-label"><Icon name="calendar-days" size={13} />{MONTHS[month]} {year}</span>
-              <button className="ms-btn" onClick={() => monthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
+              <button id="bgt-period-next-btn" className="ms-btn" onClick={() => monthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
             </div>
           </div>
           <div className="filter-field ff-search">
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
               <Icon name="search" size={13} />
-              <input className="search-input" type="text" placeholder="Category…"
+              <input id="bgt-search-input" className="search-input" type="text" placeholder="Category…"
                 value={search} onChange={e => setSearch(e.target.value)} />
-              {search && <button className="search-clear" onClick={() => setSearch('')} title="Clear"><Icon name="x" size={12} /></button>}
+              {search && <button id="bgt-search-clear-btn" className="search-clear" onClick={() => setSearch('')} title="Clear"><Icon name="x" size={12} /></button>}
             </div>
           </div>
           {exportEl}
@@ -70,7 +70,7 @@
           <div className="filter-field ff-sort bgt-ff-inline">
             <span className="filter-label"><Icon name="arrow-up-down" size={11} />Sort By</span>
             <div className="select-wrap">
-              <select className="sel" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <select id="bgt-sort-select" className="sel" value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="usage">Utilization</option>
                 <option value="name">Name</option>
                 <option value="limit">Limit</option>
@@ -84,7 +84,7 @@
           <div className="filter-field bgt-ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={filtersRef}>
-              <button className={'filters-btn' + (active.length ? ' has' : '') + (filtersOpen ? ' open' : '')} onClick={() => setFiltersOpen(o => !o)}>
+              <button id="bgt-filters-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (filtersOpen ? ' open' : '')} onClick={() => setFiltersOpen(o => !o)}>
                 <Icon name="sliders-horizontal" size={14} />
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -93,12 +93,12 @@
                 <div className="filters-pop">
                   <div className="filters-pop-head">
                     <span>Filter & Sort</span>
-                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="bgt-filters-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
                   <div className="filter-field" style={{width:'100%'}}>
                     <span className="filter-label" style={{display:'flex'}}><Icon name="arrow-up-down" size={11} />Sort By</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <select className="sel" style={{width:'100%'}} value={sort} onChange={(e) => setSort(e.target.value)}>
+                      <select id="bgt-sort-mobile-select" className="sel" style={{width:'100%'}} value={sort} onChange={(e) => setSort(e.target.value)}>
                         <option value="usage">Utilization</option>
                         <option value="name">Name</option>
                         <option value="limit">Limit</option>
@@ -115,8 +115,8 @@
           <div className="filter-field ff-tabs">
             <span className="filter-label"><Icon name="layout-grid" size={11} />View</span>
             <div className="view-toggle">
-              <button className={'vt-btn' + (layout === 'grid' ? ' active' : '')} onClick={() => setLayout('grid')} title="Grid view"><Icon name="layout-grid" size={14} /></button>
-              <button className={'vt-btn' + (layout === 'list' ? ' active' : '')} onClick={() => setLayout('list')} title="List view"><Icon name="list" size={14} /></button>
+              <button id="bgt-view-grid-btn" className={'vt-btn' + (layout === 'grid' ? ' active' : '')} onClick={() => setLayout('grid')} title="Grid view"><Icon name="layout-grid" size={14} /></button>
+              <button id="bgt-view-list-btn" className={'vt-btn' + (layout === 'list' ? ' active' : '')} onClick={() => setLayout('list')} title="List view"><Icon name="list" size={14} /></button>
             </div>
           </div>
         </div>
@@ -125,11 +125,11 @@
           <div className="active-chips">
             <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
             {active.map(a => (
-              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label}>
+              <button key={a.key} id={'bgt-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label}>
                 <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
               </button>
             ))}
-            <button className="chip chip-clear" onClick={clearAll}>Clear all</button>
+            <button id="bgt-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear all</button>
           </div>
         )}
       </div>
@@ -248,7 +248,7 @@
                   <p className="page-subtitle">Monthly limits and spending progress</p>
                 </div>
               </div>
-              <button className="action-modal-btn ok" onClick={() => setModal({})}><Icon name="plus" size={14} />New Budget</button>
+              <button id="bgt-new-btn" className="action-modal-btn ok" onClick={() => setModal({})}><Icon name="plus" size={14} />New Budget</button>
             </div>
             <BgtFilterBar search={search} setSearch={setSearch} sort={t.sort} setSort={v => setTweak('sort', v)}
               month={month} year={year} monthStep={monthStep} layout={layout} setLayout={setLayout}

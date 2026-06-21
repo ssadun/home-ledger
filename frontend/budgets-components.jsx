@@ -46,7 +46,7 @@
     const range = monthRange(row.start, row.end);
 
     return (
-      <button className={'bgt-card status-' + row.status + (flash ? ' bgt-flash' : '')}
+      <button id={'bgt-card-' + row.cat} className={'bgt-card status-' + row.status + (flash ? ' bgt-flash' : '')}
         onClick={() => onClick(row)} title="Edit budget">
         <div className="bgt-card-top">
           <span className="cat-ico cat-chip" style={{ '--cat': c.color }}>
@@ -166,7 +166,7 @@
               <span className="modal-title"><Icon name={editing ? 'pencil' : 'plus-circle'} size={16} />{editing ? 'Edit Budget' : 'New Budget'}</span>
               <span className="modal-sub">{editing ? 'Adjust the monthly limit for this category' : 'Set a monthly spending limit'}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="bgt-modal-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="modal-body">
@@ -180,7 +180,7 @@
                   {c.label}
                 </div>
               ) : (
-                <select className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
+                <select id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
                   {expenseCats.map(k => (
                     <option key={k} value={k} disabled={existingCats.includes(k)}>
                       {CATS[k].label}{existingCats.includes(k) ? ' — already set' : ''}
@@ -194,10 +194,10 @@
               <span className="field-label">Monthly Limit</span>
               <div className="amt-num">
                 <span className="field-currency-prefix">₺</span>
-                <input className="field-input field-input-currency" type="text" inputMode="decimal" placeholder="0" value={limitFocused ? limitRaw : fmtTRY(limit)} onFocus={handleLimitFocus} onChange={handleLimitChange} onBlur={handleLimitBlur} />
+                <input id="bgt-modal-limit-input" className="field-input field-input-currency" type="text" inputMode="decimal" placeholder="0" value={limitFocused ? limitRaw : fmtTRY(limit)} onFocus={handleLimitFocus} onChange={handleLimitChange} onBlur={handleLimitBlur} />
                 <div className="amt-step">
-                  <button type="button" tabIndex={-1} title="Increase" onClick={() => bump(500)}><Icon name="chevron-up" size={12} /></button>
-                  <button type="button" tabIndex={-1} title="Decrease" onClick={() => bump(-500)}><Icon name="chevron-down" size={12} /></button>
+                  <button id="bgt-modal-limit-up-btn" type="button" tabIndex={-1} title="Increase" onClick={() => bump(500)}><Icon name="chevron-up" size={12} /></button>
+                  <button id="bgt-modal-limit-down-btn" type="button" tabIndex={-1} title="Decrease" onClick={() => bump(-500)}><Icon name="chevron-down" size={12} /></button>
                 </div>
               </div>
             </div>
@@ -205,11 +205,11 @@
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Start Date <span className="fl-opt">(optional)</span></span>
-                <DateInput className="field-input" value={start} onChange={(e) => setStart(e.target.value)} />
+                <DateInput id="bgt-modal-start-input" className="field-input" value={start} onChange={(e) => setStart(e.target.value)} />
               </div>
               <div className="form-field">
                 <span className="field-label">End Date <span className="fl-opt">(optional)</span></span>
-                <DateInput className="field-input" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
+                <DateInput id="bgt-modal-end-input" className="field-input" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
               </div>
             </div>
 
@@ -223,9 +223,9 @@
           </div>
 
           <div className="modal-foot">
-            {editing && <button className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onRemove(initial.cat)}><Icon name="trash-2" size={14} />Remove</button>}
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Budget'}</button>
+            {editing && <button id="bgt-modal-remove-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onRemove(initial.cat)}><Icon name="trash-2" size={14} />Remove</button>}
+            <button id="bgt-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="bgt-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Budget'}</button>
           </div>
         </div>
       </div>

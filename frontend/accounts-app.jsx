@@ -50,7 +50,7 @@
           <div className="filter-field acct-ff-inline">
             <span className="filter-label"><Icon name="user" size={11} />Owner</span>
             <div className="select-wrap">
-              <select className="sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
+              <select id="acct-filter-owner-select" className="sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
                 <option value="all">All Owners</option>
                 <option value="Sadun">Sadun</option>
                 <option value="Handan">Handan</option>
@@ -63,7 +63,7 @@
           <div className="filter-field acct-ff-inline">
             <span className="filter-label"><Icon name="layers" size={11} />Type</span>
             <div className="select-wrap">
-              <select className="sel" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <select id="acct-filter-type-select" className="sel" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">All Types</option>
                 {Object.keys(ACCOUNT_TYPES).map(k => (
                   <option key={k} value={k}>{ACCOUNT_TYPES[k].label}</option>
@@ -77,7 +77,7 @@
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
               <Icon name="search" size={13} />
-              <input className="search-input" placeholder="Account name…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <input id="acct-filter-search-input" className="search-input" placeholder="Account name…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
 
@@ -87,7 +87,7 @@
           <div className="filter-field acct-ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={filtersRef}>
-              <button className={'filters-btn' + (active.length ? ' has' : '') + (filtersOpen ? ' open' : '')} onClick={() => setFiltersOpen(o => !o)}>
+              <button id="acct-filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (filtersOpen ? ' open' : '')} onClick={() => setFiltersOpen(o => !o)}>
                 <Icon name="sliders-horizontal" size={14} />
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -96,12 +96,12 @@
                 <div className="filters-pop">
                   <div className="filters-pop-head">
                     <span>Filter By</span>
-                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="acct-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
                   <div className="filter-field" style={{width:'100%'}}>
                     <span className="filter-label" style={{display:'flex'}}><Icon name="user" size={11} />Owner</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <select className="sel" style={{width:'100%'}} value={owner} onChange={(e) => setOwner(e.target.value)}>
+                      <select id="acct-filter-owner-mobile-select" className="sel" style={{width:'100%'}} value={owner} onChange={(e) => setOwner(e.target.value)}>
                         <option value="all">All Owners</option>
                         <option value="Sadun">Sadun</option>
                         <option value="Handan">Handan</option>
@@ -113,7 +113,7 @@
                   <div className="filter-field" style={{width:'100%'}}>
                     <span className="filter-label" style={{display:'flex'}}><Icon name="layers" size={11} />Type</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <select className="sel" style={{width:'100%'}} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                      <select id="acct-filter-type-mobile-select" className="sel" style={{width:'100%'}} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                         <option value="all">All Types</option>
                         {Object.keys(ACCOUNT_TYPES).map(k => (
                           <option key={k} value={k}>{ACCOUNT_TYPES[k].label}</option>
@@ -130,8 +130,8 @@
           <div className="filter-field ff-tabs">
             <span className="filter-label"><Icon name="layout-grid" size={11} />View</span>
             <div className="view-toggle">
-              <button className={'vt-btn' + (layout === 'grid' ? ' active' : '')} onClick={() => setLayout('grid')} title="Grid view"><Icon name="layout-grid" size={14} /></button>
-              <button className={'vt-btn' + (layout === 'list' ? ' active' : '')} onClick={() => setLayout('list')} title="List view"><Icon name="list" size={14} /></button>
+              <button id="acct-view-grid-btn" className={'vt-btn' + (layout === 'grid' ? ' active' : '')} onClick={() => setLayout('grid')} title="Grid view"><Icon name="layout-grid" size={14} /></button>
+              <button id="acct-view-list-btn" className={'vt-btn' + (layout === 'list' ? ' active' : '')} onClick={() => setLayout('list')} title="List view"><Icon name="list" size={14} /></button>
             </div>
           </div>
         </div>
@@ -140,11 +140,11 @@
           <div className="active-chips">
             <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
             {active.map(a => (
-              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+              <button key={a.key} id={'acct-filter-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
                 <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
               </button>
             ))}
-            <button className="chip chip-clear" onClick={clearAll}>Clear all</button>
+            <button id="acct-filter-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear all</button>
           </div>
         )}
       </div>
@@ -269,8 +269,8 @@
                 </div>
               </div>
               <div className="head-actions">
-                <button className="action-modal-btn scan" onClick={() => openImport(null)}><Icon name="file-down" size={14} />Import Statement</button>
-                <button className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>
+                <button id="acct-import-btn" className="action-modal-btn scan" onClick={() => openImport(null)}><Icon name="file-down" size={14} />Import Statement</button>
+                <button id="acct-add-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>
               </div>
             </div>
             <AccountsFilter owner={owner} setOwner={setOwner} typeFilter={typeFilter}

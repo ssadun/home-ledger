@@ -193,7 +193,7 @@
                 </div>
               </div>
               <div className="head-actions">
-                <button className="action-modal-btn scan" onClick={() => setScan(true)}>
+                <button id="dash-scan-receipt-btn" className="action-modal-btn scan" onClick={() => setScan(true)}>
                   <Icon name="scan-line" size={14} />Scan Receipt
                 </button>
               </div>
@@ -209,13 +209,13 @@
                 <div className="filter-field ff-period">
                   <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
                   <div className="month-step">
-                    <button className="ms-btn" onClick={() => monthStep(-1)} title="Previous month">
+                    <button id="dash-period-prev-btn" className="ms-btn" onClick={() => monthStep(-1)} title="Previous month">
                       <Icon name="chevron-left" size={14} />
                     </button>
                     <span className="ms-label">
                       <Icon name="calendar-days" size={13} />{MONTHS[month]} {year}
                     </span>
-                    <button className="ms-btn" onClick={() => monthStep(1)} title="Next month">
+                    <button id="dash-period-next-btn" className="ms-btn" onClick={() => monthStep(1)} title="Next month">
                       <Icon name="chevron-right" size={14} />
                     </button>
                   </div>
@@ -225,13 +225,13 @@
                 <div className="filter-field ff-period">
                   <span className="filter-label"><Icon name="calendar-range" size={11} />Year</span>
                   <div className="month-step">
-                    <button className="ms-btn" onClick={() => setAnnualYear(y => Math.max(y - 1, minYear - 1))} title="Previous year">
+                    <button id="dash-year-prev-btn" className="ms-btn" onClick={() => setAnnualYear(y => Math.max(y - 1, minYear - 1))} title="Previous year">
                       <Icon name="chevron-left" size={14} />
                     </button>
                     <span className="ms-label">
                       <Icon name="calendar-range" size={13} />{annualYear}
                     </span>
-                    <button className="ms-btn" onClick={() => setAnnualYear(y => Math.min(y + 1, maxYear + 1))} title="Next year">
+                    <button id="dash-year-next-btn" className="ms-btn" onClick={() => setAnnualYear(y => Math.min(y + 1, maxYear + 1))} title="Next year">
                       <Icon name="chevron-right" size={14} />
                     </button>
                   </div>
@@ -240,7 +240,7 @@
               <div className="filter-field ff-tabs">
                 <span className="filter-label"><Icon name="layout-grid" size={11} />View</span>
                 <div className="select-wrap">
-                  <select className="sel" value={tab} onChange={(e) => setTab(e.target.value)}>
+                  <select id="dash-view-select" className="sel" value={tab} onChange={(e) => setTab(e.target.value)}>
                     {TABS.map(tb => (
                       <option key={tb.key} value={tb.key}>{tb.label}</option>
                     ))}

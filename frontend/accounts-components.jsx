@@ -79,7 +79,7 @@
     return isNaN(num) ? '' : String(num);
   }
 
-  function CurrencyInput({ value, currency, placeholder, onChange }) {
+  function CurrencyInput({ value, currency, placeholder, onChange, id }) {
     const [focused, setFocused] = React.useState(false);
     const [raw, setRaw] = React.useState(value || '');
     React.useEffect(() => {if (!focused) setRaw(value || '');}, [value, focused]);
@@ -95,7 +95,7 @@
       onChange(parsed);
     }
     return (
-      <input className="field-input" type="text" inputMode="decimal"
+      <input id={id} className="field-input" type="text" inputMode="decimal"
       placeholder={placeholder || (currency === 'TRY' ? '0,00' : '0.00')}
       value={focused ? raw : fmtCurrency(value, currency)}
       onFocus={handleFocus} onChange={handleChange} onBlur={handleBlur} />);
@@ -151,7 +151,7 @@
     const t = ACCOUNT_TYPES[account.type];
     const isCredit = account.type === 'credit';
     return (
-      <button className={'acct-card' + (isCredit ? ' is-credit' : '') + (flash ? ' acct-flash' : '')} onClick={() => onClick(account)}>
+      <button id={'acct-card-' + account.id} className={'acct-card' + (isCredit ? ' is-credit' : '') + (flash ? ' acct-flash' : '')} onClick={() => onClick(account)}>
         <div className="acct-card-row">
           <span className="acct-type-ico" style={{
             color: t.color,
@@ -228,7 +228,7 @@
               </span>
               <span className="modal-sub">{account.institution} · {account.number} · {account.owner}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="acct-detail-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="modal-body">
@@ -323,13 +323,13 @@
           </div>
 
           <div className="modal-foot">
-            <button className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(account)}>
+            <button id="acct-detail-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(account)}>
               <Icon name="trash-2" size={14} />Delete
             </button>
-            <button className="amb cancel" onClick={() => onImport(account.id)}>
+            <button id="acct-detail-import-btn" className="amb cancel" onClick={() => onImport(account.id)}>
               <Icon name="file-down" size={14} />Import
             </button>
-            <button className="amb ok" onClick={() => onEdit(account)}>
+            <button id="acct-detail-edit-btn" className="amb ok" onClick={() => onEdit(account)}>
               <Icon name="pencil" size={14} />Edit Account
             </button>
           </div>
@@ -400,7 +400,7 @@
               </span>
               <span className="modal-sub" data-comment-anchor="3414084801-span-275-15">{editing ? (initial.name || initial.id) : 'Create a new bank account, card, or wallet'}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="acct-form-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="modal-body">
@@ -410,7 +410,7 @@
                 {Object.keys(ACCOUNT_TYPES).map((k) => {
                   const at = ACCOUNT_TYPES[k];
                   return (
-                    <button key={k} className={f.type === k ? 'on-acct-type' : ''} onClick={() => set('type', k)}
+                    <button key={k} id={'acct-form-type-' + k + '-btn'} className={f.type === k ? 'on-acct-type' : ''} onClick={() => set('type', k)}
                     style={f.type === k ? { background: 'color-mix(in srgb, ' + at.color + ' 16%, transparent)', color: at.color } : {}}>
                       <Icon name={at.icon} size={13} />{at.label}
                     </button>);
@@ -422,18 +422,18 @@
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Account Name</span>
-                <input className="field-input" placeholder="e.g. Vakıfbank Salary" value={f.name} onChange={(e) => set('name', e.target.value)} />
+                <input id="acct-form-name-input" className="field-input" placeholder="e.g. Vakıfbank Salary" value={f.name} onChange={(e) => set('name', e.target.value)} />
               </div>
               <div className="form-field">
                 <span className="field-label">Institution</span>
-                <input className="field-input" placeholder="e.g. Garanti BBVA" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
+                <input id="acct-form-institution-input" className="field-input" placeholder="e.g. Garanti BBVA" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
               </div>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Owner</span>
-                <select className="field-input" value={f.owner} onChange={(e) => set('owner', e.target.value)}>
+                <select id="acct-form-owner-select" className="field-input" value={f.owner} onChange={(e) => set('owner', e.target.value)}>
                   <option value="Sadun">Sadun</option>
                   <option value="Handan">Handan</option>
                   <option value="Shared">Shared</option>
@@ -442,7 +442,7 @@
               {isCredit &&
               <div className="form-field">
                   <span className="field-label">CC Type</span>
-                  <select className="field-input" value={f.ccType} onChange={(e) => set('ccType', e.target.value)}>
+                  <select id="acct-form-cctype-select" className="field-input" value={f.ccType} onChange={(e) => set('ccType', e.target.value)}>
                     <option value="visa">Visa</option>
                     <option value="mastercard">MasterCard</option>
                     <option value="troy">Troy</option>
@@ -452,7 +452,7 @@
               {f.type === 'debit' &&
               <div className="form-field">
                   <span className="field-label">Card Type</span>
-                  <select className="field-input" value={f.debitType} onChange={(e) => set('debitType', e.target.value)}>
+                  <select id="acct-form-debittype-select" className="field-input" value={f.debitType} onChange={(e) => set('debitType', e.target.value)}>
                     <option value="electron">Visa Electron</option>
                     <option value="maestro">Maestro</option>
                     <option value="troy">Troy</option>
@@ -464,12 +464,12 @@
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}</span>
-                <input className="field-input" placeholder="e.g. ****3847" value={f.number} onChange={(e) => set('number', e.target.value)} />
+                <input id="acct-form-number-input" className="field-input" placeholder="e.g. ****3847" value={f.number} onChange={(e) => set('number', e.target.value)} />
               </div>
               {(isCredit || f.type === 'debit') &&
               <div className="form-field">
                 <span className="field-label">Currency</span>
-                <select className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
+                <select id="acct-form-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
                   <option value="TRY">TRY (₺)</option>
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
@@ -481,7 +481,7 @@
             {(isCredit || f.type === 'debit') &&
             <div className="form-field full">
                 <span className="field-label">Name On Card</span>
-                <input className="field-input" placeholder="e.g. SADUN AYDIN" value={f.cardName}
+                <input id="acct-form-cardname-input" className="field-input" placeholder="e.g. SADUN AYDIN" value={f.cardName}
               onChange={(e) => set('cardName', e.target.value)} />
               </div>
             }
@@ -490,12 +490,12 @@
             <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Validity Month</span>
-                  <input className="field-input" type="number" min="1" max="12" placeholder="MM" value={f.validityMonth}
+                  <input id="acct-form-validity-month-input" className="field-input" type="number" min="1" max="12" placeholder="MM" value={f.validityMonth}
                 onChange={(e) => set('validityMonth', e.target.value)} />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Validity Year</span>
-                  <input className="field-input" type="number" min="2026" max="2099" placeholder="YYYY" value={f.validityYear}
+                  <input id="acct-form-validity-year-input" className="field-input" type="number" min="2026" max="2099" placeholder="YYYY" value={f.validityYear}
                 onChange={(e) => set('validityYear', e.target.value)} />
                 </div>
               </div>
@@ -505,7 +505,7 @@
             <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Statement Cutoff Week</span>
-                  <select className="field-input" value={f.statementCutoff} onChange={(e) => set('statementCutoff', e.target.value ? Number(e.target.value) : '')}>
+                  <select id="acct-form-cutoff-select" className="field-input" value={f.statementCutoff} onChange={(e) => set('statementCutoff', e.target.value ? Number(e.target.value) : '')}>
                     <option value="">— Select Week —</option>
                     <option value="1">1st Week (Days 1–7)</option>
                     <option value="2">2nd Week (Days 8–14)</option>
@@ -532,11 +532,11 @@
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Current Balance</span>
-                <CurrencyInput value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+                <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
               </div>
               <div className="form-field">
                 <span className="field-label">Overdraft Limit</span>
-                <CurrencyInput value={f.limit} currency={f.cur} placeholder={f.cur === 'TRY' ? 'örn. 50.000,00' : 'e.g. 50,000.00'} onChange={(v) => set('limit', v)} />
+                <CurrencyInput id="acct-form-limit-input" value={f.limit} currency={f.cur} placeholder={f.cur === 'TRY' ? 'örn. 50.000,00' : 'e.g. 50,000.00'} onChange={(v) => set('limit', v)} />
               </div>
             </div>
             )}
@@ -544,7 +544,7 @@
             {f.type === 'bank' &&
             <div className="form-field full">
               <label className="acct-check-label">
-                <input type="checkbox" checked={f.primary} onChange={(e) => set('primary', e.target.checked)} />
+                <input id="acct-form-primary-checkbox" type="checkbox" checked={f.primary} onChange={(e) => set('primary', e.target.checked)} />
                 <Icon name="star" size={12} />Mark As Primary Account
               </label>
             </div>
@@ -552,8 +552,8 @@
           </div>
 
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Account'}</button>
+            <button id="acct-form-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="acct-form-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Account'}</button>
           </div>
         </div>
       </div>);
@@ -569,7 +569,7 @@
             <div className="modal-head-l">
               <span className="modal-title"><Icon name="trash-2" size={16} />Delete Account</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="acct-delete-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
           <div className="confirm-body">
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
@@ -579,8 +579,8 @@
             </div>
           </div>
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button className="amb danger" onClick={onConfirm}><Icon name="trash-2" size={14} />Delete</button>
+            <button id="acct-delete-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="acct-delete-confirm-btn" className="amb danger" onClick={onConfirm}><Icon name="trash-2" size={14} />Delete</button>
           </div>
         </div>
       </div>);

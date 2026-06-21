@@ -28,6 +28,7 @@
     const all = allRows || rows;
     const hasMore = all.length !== rows.length;     // are filters actually narrowing the set?
     const base = 'home-ledger-' + (entity || 'data');
+    const idBase = 'export-' + (entity || 'data');
     const label = entityLabel || 'Records';
     const plural = (n) => n === 1 ? 'row' : 'rows';
 
@@ -48,7 +49,7 @@
         <div className="filter-field ff-export">
           <span className="filter-label"><Icon name="download" size={11} />Export Data</span>
           <div className="filters-anchor export-anchor" ref={ref}>
-            <button className={'filters-btn' + (open ? ' open' : '')}
+            <button id={idBase + '-toggle-btn'} className={'filters-btn' + (open ? ' open' : '')}
               onClick={() => setOpen(o => !o)}
               title="Export this screen's data as a CSV file">
               <Icon name="download" size={14} /><span className="filters-text">Export CSV</span>
@@ -63,7 +64,7 @@
     return (
       <div className="export-bar">
         <div className="export-anchor" ref={ref}>
-          <button className={'export-btn' + (open ? ' open' : '')}
+          <button id={idBase + '-toggle-btn'} className={'export-btn' + (open ? ' open' : '')}
             onClick={() => setOpen(o => !o)}
             title="Export this screen's data as a CSV file">
             <Icon name="download" size={14} />
@@ -81,7 +82,7 @@
       return (
         <div className="export-pop">
           <div className="export-pop-head"><Icon name="file-spreadsheet" size={12} />Export As CSV</div>
-              <button className="export-opt" onClick={() => doExport('filtered')}>
+              <button id={idBase + '-filtered-btn'} className="export-opt" onClick={() => doExport('filtered')}>
                 <Icon name={hasMore ? 'list-filter' : 'table'} size={15} />
                 <span className="export-opt-txt">
                   <span className="export-opt-title">{hasMore ? 'Filtered View' : 'All ' + label}</span>
@@ -90,7 +91,7 @@
                 <Icon name="download" size={13} />
               </button>
               {hasMore && (
-                <button className="export-opt" onClick={() => doExport('all')}>
+                <button id={idBase + '-all-btn'} className="export-opt" onClick={() => doExport('all')}>
                   <Icon name="database" size={15} />
                   <span className="export-opt-txt">
                     <span className="export-opt-title">All {label}</span>

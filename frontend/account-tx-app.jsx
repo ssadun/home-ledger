@@ -103,12 +103,12 @@
     ].filter(Boolean);
     const clearAll = () => { setAccount('all'); setTxType('all'); setDirection('all'); };
 
-    function Sel({ label, icon, value, onChange, children }) {
+    function Sel({ label, icon, value, onChange, children, id }) {
       return (
         <div className="filter-field">
           <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
           <div className="select-wrap">
-            <select className="sel" value={value} onChange={e => onChange(e.target.value)}>{children}</select>
+            <select id={id} className="sel" value={value} onChange={e => onChange(e.target.value)}>{children}</select>
             <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
           </div>
         </div>
@@ -121,23 +121,23 @@
           <div className="filter-field ff-period">
             <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
             <div className="month-step">
-              <button className="ms-btn" onClick={() => onMonthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
+              <button id="atx-period-prev-btn" className="ms-btn" onClick={() => onMonthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
               <span className="ms-label"><Icon name="calendar-days" size={13} />{MONTHS[month]} {year}</span>
-              <button className="ms-btn" onClick={() => onMonthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
+              <button id="atx-period-next-btn" className="ms-btn" onClick={() => onMonthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
             </div>
           </div>
           <div className="filter-field ff-search">
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
               <Icon name="search" size={13} />
-              <input className="search-input" placeholder="Description…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input id="atx-filter-search-input" className="search-input" placeholder="Description…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
           {extra}
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={anchorRef}>
-              <button className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+              <button id="atx-filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
                 <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -146,17 +146,17 @@
                 <div className="filters-pop">
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
-                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="atx-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
-                  <Sel label="Account" icon="landmark" value={account} onChange={setAccount}>
+                  <Sel id="atx-filter-account-select" label="Account" icon="landmark" value={account} onChange={setAccount}>
                     <option value="all">All Accounts</option>
                     {ACCOUNTS.map(a => <option key={a.id} value={a.id}>{a.name} ({a.institution})</option>)}
                   </Sel>
-                  <Sel label="Type" icon="tag" value={txType} onChange={setTxType}>
+                  <Sel id="atx-filter-type-select" label="Type" icon="tag" value={txType} onChange={setTxType}>
                     <option value="all">All Types</option>
                     {Object.keys(ACCT_TX_TYPES).map(k => <option key={k} value={k}>{ACCT_TX_TYPES[k].label}</option>)}
                   </Sel>
-                  <Sel label="Direction" icon="arrow-left-right" value={direction} onChange={setDirection}>
+                  <Sel id="atx-filter-direction-select" label="Direction" icon="arrow-left-right" value={direction} onChange={setDirection}>
                     <option value="all">All Directions</option>
                     <option value="incoming">Incoming</option>
                     <option value="outgoing">Outgoing</option>
@@ -176,11 +176,11 @@
           <div className="active-chips">
             <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
             {active.map(a => (
-              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+              <button key={a.key} id={'atx-filter-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
                 <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
               </button>
             ))}
-            <button className="chip chip-clear" onClick={clearAll}>Clear All</button>
+            <button id="atx-filter-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear All</button>
           </div>
         )}
       </div>

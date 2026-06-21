@@ -271,7 +271,7 @@ function TweaksPanel({ title = 'Tweaks', children }) {
            style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
         <div className="twk-hd" onMouseDown={onDragStart}>
           <b>{title}</b>
-          <button className="twk-x" aria-label="Close tweaks"
+          <button id="tweaks-close-btn" className="twk-x" aria-label="Close tweaks"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={dismiss}>✕</button>
         </div>
@@ -308,10 +308,15 @@ function TweakRow({ label, value, children, inline = false }) {
 
 // ── Controls ────────────────────────────────────────────────────────────────
 
+// Derive a stable kebab-case id from a control's (panel-unique) label.
+function __twkSlug(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
   return (
     <TweakRow label={label} value={`${value}${unit}`}>
-      <input type="range" className="twk-slider" min={min} max={max} step={step}
+      <input id={'twk-slider-' + __twkSlug(label)} type="range" className="twk-slider" min={min} max={max} step={step}
              value={value} onChange={(e) => onChange(Number(e.target.value))} />
     </TweakRow>
   );
@@ -321,7 +326,7 @@ function TweakToggle({ label, value, onChange }) {
   return (
     <div className="twk-row twk-row-h">
       <div className="twk-lbl"><span>{label}</span></div>
-      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+      <button type="button" id={'twk-toggle-' + __twkSlug(label)} className="twk-toggle" data-on={value ? '1' : '0'}
               role="switch" aria-checked={!!value}
               onClick={() => onChange(!value)}><i /></button>
     </div>
@@ -391,7 +396,7 @@ function TweakRadio({ label, value, options, onChange }) {
              style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
                       width: `calc((100% - 4px) / ${n})` }} />
         {opts.map((o) => (
-          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+          <button key={o.value} type="button" id={'twk-radio-' + __twkSlug(label) + '-' + __twkSlug(o.value)} role="radio" aria-checked={o.value === value}>
             {o.label}
           </button>
         ))}
@@ -403,7 +408,7 @@ function TweakRadio({ label, value, options, onChange }) {
 function TweakSelect({ label, value, options, onChange }) {
   return (
     <TweakRow label={label}>
-      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+      <select id={'twk-select-' + __twkSlug(label)} className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => {
           const v = typeof o === 'object' ? o.value : o;
           const l = typeof o === 'object' ? o.label : o;
@@ -417,7 +422,7 @@ function TweakSelect({ label, value, options, onChange }) {
 function TweakText({ label, value, placeholder, onChange }) {
   return (
     <TweakRow label={label}>
-      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+      <input id={'twk-text-' + __twkSlug(label)} className="twk-field" type="text" value={value} placeholder={placeholder}
              onChange={(e) => onChange(e.target.value)} />
     </TweakRow>
   );
@@ -450,7 +455,7 @@ function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) 
   return (
     <div className="twk-num">
       <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
-      <input type="number" value={value} min={min} max={max} step={step}
+      <input id={'twk-number-' + __twkSlug(label)} type="number" value={value} min={min} max={max} step={step}
              onChange={(e) => onChange(clamp(Number(e.target.value)))} />
       {unit && <span className="twk-num-unit">{unit}</span>}
     </div>
@@ -488,7 +493,7 @@ function TweakColor({ label, value, options, onChange }) {
     return (
       <div className="twk-row twk-row-h">
         <div className="twk-lbl"><span>{label}</span></div>
-        <input type="color" className="twk-swatch" value={value}
+        <input id={'twk-color-' + __twkSlug(label)} type="color" className="twk-swatch" value={value}
                onChange={(e) => onChange(e.target.value)} />
       </div>
     );
@@ -507,7 +512,7 @@ function TweakColor({ label, value, options, onChange }) {
           const sup = rest.slice(0, 4);
           const on = key(o) === cur;
           return (
-            <button key={i} type="button" className="twk-chip" role="radio"
+            <button key={i} type="button" id={'twk-color-' + __twkSlug(label) + '-' + i} className="twk-chip" role="radio"
                     aria-checked={on} data-on={on ? '1' : '0'}
                     aria-label={colors.join(', ')} title={colors.join(' · ')}
                     style={{ background: hero }}
@@ -528,7 +533,7 @@ function TweakColor({ label, value, options, onChange }) {
 
 function TweakButton({ label, onClick, secondary = false }) {
   return (
-    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+    <button type="button" id={'twk-btn-' + __twkSlug(label)} className={secondary ? 'twk-btn secondary' : 'twk-btn'}
             onClick={onClick}>{label}</button>
   );
 }

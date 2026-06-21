@@ -104,7 +104,7 @@
           <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} />
           <WeekendBadge rule={rec.weekendRule} />
           {rec.nextDue && <span className="rc-due"><Icon name="calendar" size={10} />{fmtDate(rec.nextDue)}</span>}
-          <button className="rc-history-btn" onClick={e => { e.stopPropagation(); onHistory(rec); }} title="Payment history">
+          <button id={'sub-card-' + rec.id + '-history-btn'} className="rc-history-btn" onClick={e => { e.stopPropagation(); onHistory(rec); }} title="Payment history">
             <Icon name="history" size={12} />
           </button>
         </div>
@@ -177,7 +177,7 @@
                 <div className="tl-meta">
                   <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} />
                   <WeekendBadge rule={rec.weekendRule} />
-                  <button className="rc-history-btn" onClick={e => { e.stopPropagation(); onHistory(rec); }} title="Payment history">
+                  <button id={'sub-tl-' + rec.id + '-history-btn'} className="rc-history-btn" onClick={e => { e.stopPropagation(); onHistory(rec); }} title="Payment history">
                     <Icon name="history" size={12} />History
                   </button>
                 </div>
@@ -213,12 +213,12 @@
     ].filter(Boolean);
     const clearAll = () => { setStatus('all'); setCat('all'); setPayer('all'); setFrequency('all'); };
 
-    function RecSelect({ label, icon, value, onChange, children }) {
+    function RecSelect({ label, icon, value, onChange, children, id }) {
       return (
         <div className="filter-field">
           <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
           <div className="select-wrap">
-            <select className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
+            <select id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
             <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
           </div>
         </div>
@@ -232,7 +232,7 @@
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
               <Icon name="search" size={13} />
-              <input className="search-input" placeholder="Name…" value={search} onChange={e => setSearch(e.target.value)} />
+              <input id="sub-filter-search-input" className="search-input" placeholder="Name…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
 
@@ -241,7 +241,7 @@
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={anchorRef}>
-              <button className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+              <button id="sub-filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
                 <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -250,23 +250,23 @@
                 <div className="filters-pop">
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
-                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="sub-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
-                  <RecSelect label="Status" icon="circle-check" value={status} onChange={setStatus}>
+                  <RecSelect id="sub-filter-status-select" label="Status" icon="circle-check" value={status} onChange={setStatus}>
                     <option value="all">All Statuses</option>
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
                     <option value="ended">Ended</option>
                   </RecSelect>
-                  <RecSelect label="Category" icon="tag" value={cat} onChange={setCat}>
+                  <RecSelect id="sub-filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat}>
                     <option value="all">All Categories</option>
                     {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
                   </RecSelect>
-                  <RecSelect label="Payer" icon="user" value={payer} onChange={setPayer}>
+                  <RecSelect id="sub-filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
                     <option value="all">All Payers</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                   </RecSelect>
-                  <RecSelect label="Frequency" icon="calendar-clock" value={frequency} onChange={setFrequency}>
+                  <RecSelect id="sub-filter-frequency-select" label="Frequency" icon="calendar-clock" value={frequency} onChange={setFrequency}>
                     <option value="all">All Frequencies</option>
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
@@ -288,11 +288,11 @@
           <div className="active-chips">
             <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
             {active.map(a => (
-              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+              <button key={a.key} id={'sub-filter-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
                 <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
               </button>
             ))}
-            <button className="chip chip-clear" onClick={clearAll}>Clear All</button>
+            <button id="sub-filter-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear All</button>
           </div>
         )}
       </div>
@@ -420,7 +420,7 @@
                 </div>
               </div>
               <div className="head-actions">
-                <button className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Subscription</button>
+                <button id="sub-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Subscription</button>
               </div>
             </div>
             <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency} onResetCols={rz.resetSizes} onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}

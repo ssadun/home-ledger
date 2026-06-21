@@ -307,11 +307,11 @@
   // Every table's filter bar renders this same control — wire it straight to the
   // hook: <FitColumnsButton onClick={rz.resetSizes} />. resetSizes fits all
   // columns to the table-card width. Returns null when no handler is supplied.
-  function FitColumnsButton({ onClick, label }) {
+  function FitColumnsButton({ onClick, label, id }) {
     if (!onClick) return null;
     const Icon = window.Icon;
     return (
-      <button className="fp-reset" onClick={onClick} title="Fit All Columns To The Table Width">
+      <button id={id || 'fit-columns-btn'} className="fp-reset" onClick={onClick} title="Fit All Columns To The Table Width">
         <Icon name="unfold-horizontal" size={12} />{label || 'Fit Columns'}
       </button>
     );
@@ -320,11 +320,11 @@
   // ── The "Reset Order" toolbar button ──
   // Restores the table's columns to their original left-to-right order and
   // forgets the user's saved arrangement. Disabled while already at default.
-  function ResetOrderButton({ onClick, disabled, label }) {
+  function ResetOrderButton({ onClick, disabled, label, id }) {
     if (!onClick) return null;
     const Icon = window.Icon;
     return (
-      <button className="fp-reset" onClick={onClick} disabled={disabled}
+      <button id={id || 'reset-order-btn'} className="fp-reset" onClick={onClick} disabled={disabled}
         title="Restore Columns To Their Original Order">
         <Icon name="list-restart" size={12} />{label || 'Reset Order'}
       </button>

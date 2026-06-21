@@ -130,12 +130,12 @@
         {/* ── Calendar grid card ── */}
         <div className="cal-card">
           <div className="cal-header">
-            <button className="cal-nav-btn" onClick={() => step(-1)} title="Previous Month"><Icon name="chevron-left" size={16} /></button>
+            <button id="cal-prev-month-btn" className="cal-nav-btn" onClick={() => step(-1)} title="Previous Month"><Icon name="chevron-left" size={16} /></button>
             <div className="cal-header-center">
               <span className="cal-month-label">{MONTHS[month]} {year}</span>
               <span className="cal-month-sub">{mCnt} transaction{mCnt !== 1 ? 's' : ''}</span>
             </div>
-            <button className="cal-nav-btn" onClick={() => step(1)} title="Next Month"><Icon name="chevron-right" size={16} /></button>
+            <button id="cal-next-month-btn" className="cal-nav-btn" onClick={() => step(1)} title="Next Month"><Icon name="chevron-right" size={16} /></button>
           </div>
 
           <div className="cal-summary">
@@ -150,6 +150,7 @@
               const dd = d.date ? dots(d.date) : [];
               return (
                 <button key={i}
+                  id={'cal-day-' + (d.date || ('pad-' + i))}
                   className={'cal-day' + (!d.inMonth ? ' out' : '') + (d.date === todayStr ? ' today' : '') + (d.date === sel ? ' selected' : '') + (dd.length ? ' has-events' : '')}
                   onClick={() => d.inMonth && setSel(d.date === sel ? null : d.date)}
                   disabled={!d.inMonth}>

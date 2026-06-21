@@ -104,7 +104,7 @@
       ? () => window.HL_AUTH && window.HL_AUTH.logout()
       : undefined;
     return (
-      <button className={'sidebar-item' + (item.active ? ' active' : '')} title={item.label} style={style} onClick={onClick}>{inner}</button>
+      <button id={'sidebar-item-' + item.id + '-btn'} className={'sidebar-item' + (item.active ? ' active' : '')} title={item.label} style={style} onClick={onClick}>{inner}</button>
     );
   }
 
@@ -118,15 +118,20 @@
     if (item.href) {
       return <a className={'sidebar-subitem' + (item.active ? ' active' : '')} href={item.href} title={item.label} style={{ '--item-color': item.color, textDecoration: 'none' }}>{inner}</a>;
     }
-    return <button className={'sidebar-subitem' + (item.active ? ' active' : '')} title={item.label} style={{ '--item-color': item.color }}>{inner}</button>;
+    return <button id={'sidebar-subitem-' + item.id + '-btn'} className={'sidebar-subitem' + (item.active ? ' active' : '')} title={item.label} style={{ '--item-color': item.color }}>{inner}</button>;
   }
 
   function Sidebar({ active }) {
     const inTx = active === 'transactions' || NAV_TX_SUB.some(n => n.id === active);
     const inCfg = active === 'configuration' || NAV_CFG_SUB.some(n => n.sectionId === active);
 
-    const [txOpen, setTxOpen] = React.useState(inTx);
-    const [cfgOpen, setCfgOpen] = React.useState(inCfg);
+    // On mobile the sidebar is a bottom tab bar and an open parent renders its
+    // submenu as a floating popup. Don't auto-open it on page load there — it
+    // would pop over the content every time you land on a sub-page. On desktop
+    // the open submenu is a useful "you are here" cue, so keep it.
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 660;
+    const [txOpen, setTxOpen] = React.useState(inTx && !isMobile);
+    const [cfgOpen, setCfgOpen] = React.useState(inCfg && !isMobile);
     React.useEffect(() => { window.updateSidebarToggleLabel && window.updateSidebarToggleLabel(); }, []);
 
     const txIdx = NAV.findIndex(n => n.id === 'transactions');
@@ -147,7 +152,7 @@
 
     return (
       <nav className="sidebar" id="sidebar">
-        <button className="sidebar-toggle" onClick={() => window.toggleSidebar()} title="Toggle sidebar">
+        <button id="sidebar-toggle-btn" className="sidebar-toggle" onClick={() => window.toggleSidebar()} title="Toggle sidebar">
           <span className="sidebar-toggle-icon"><Icon name="pyramid" size={76} color="var(--accent)" /></span>
           <span className="sidebar-toggle-text">
             <span className="sidebar-toggle-name"><span className="bw">Hyper</span><span className="bl">Ledger</span></span>
@@ -158,7 +163,7 @@
           <div className="sidebar-section">
             {NAV.slice(0, txIdx).map(n => <SbItem key={n.id} item={top(n)} />)}
             <div className={'sidebar-parent' + (txOpen ? ' open' : '')} id="transactions-parent">
-              <button className={'sidebar-item' + (inTx ? ' active' : '')} title="Transactions" style={txStyle} onClick={toggleTx}>
+              <button id="nav-transactions-toggle-btn" className={'sidebar-item' + (inTx ? ' active' : '')} title="Transactions" style={txStyle} onClick={toggleTx}>
                 <span className="sidebar-item-icon"><Icon name="arrow-left-right" size={20} color="currentColor" /></span>
                 <span className="sidebar-item-text">Transactions</span>
                 <span className="sidebar-item-chevron" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTxOpen(o => !o); setCfgOpen(false); }}><Icon name="chevron-down" size={14} /></span>
@@ -169,7 +174,7 @@
             </div>
             {NAV.slice(txIdx + 1, cfgIdx).map(n => <SbItem key={n.id} item={top(n)} />)}
             <div className={'sidebar-parent' + (cfgOpen ? ' open' : '')} id="configuration-parent">
-              <button className={'sidebar-item' + (inCfg ? ' active' : '')} title="Configuration" style={cfgStyle} onClick={toggleCfg}>
+              <button id="nav-configuration-toggle-btn" className={'sidebar-item' + (inCfg ? ' active' : '')} title="Configuration" style={cfgStyle} onClick={toggleCfg}>
                 <span className="sidebar-item-icon"><Icon name="settings-2" size={20} color="currentColor" /></span>
                 <span className="sidebar-item-text">Configuration</span>
                 <span className="sidebar-item-chevron" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCfgOpen(o => !o); setTxOpen(false); }}><Icon name="chevron-down" size={14} /></span>

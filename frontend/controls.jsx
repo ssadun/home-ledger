@@ -41,7 +41,7 @@
   }
 
   // ── DateInput — flatpickr wrapper for dark-theme date picking ──────────
-  function DateInput({ value, onChange, min, max, className, placeholder }) {
+  function DateInput({ value, onChange, min, max, className, placeholder, id }) {
     const inputRef = React.useRef(null);
     const wrapRef  = React.useRef(null);
     const fpRef    = React.useRef(null);
@@ -82,6 +82,7 @@
     return (
       <div ref={wrapRef} className="date-input-wrap">
         <input
+          id={id}
           ref={inputRef}
           type="text"
           className={className || 'field-input'}
@@ -93,7 +94,7 @@
     );
   }
 
-  function PaymentMethodSelect({ value, onChange, groups, accounts }) {
+  function PaymentMethodSelect({ value, onChange, groups, accounts, id }) {
     const [open, setOpen] = React.useState(false);
     const ref = React.useRef();
     React.useEffect(() => {
@@ -106,7 +107,7 @@
     const selectedGroup = selected ? groups.find(g => g.type === selected.type) : null;
     return (
       <div className="pm-select" ref={ref}>
-        <button type="button" className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+        <button type="button" id={id} className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
           {selected && selectedGroup ? (
             <span className="pm-trigger-inner">
               <span className="pm-icon" style={{ color: PM_TYPE_COLORS[selectedGroup.type] }}>
@@ -118,7 +119,7 @@
         </button>
         {open && (
           <div className="pm-dropdown">
-            <div className="pm-option" onClick={() => { onChange(''); setOpen(false); }}>
+            <div id={(id || 'pm') + '-option-none'} className="pm-option" onClick={() => { onChange(''); setOpen(false); }}>
               <span className="pm-placeholder">— Select —</span>
             </div>
             {groups.map(g => {
@@ -131,7 +132,7 @@
                     {g.label}
                   </div>
                   {accts.map(a => (
-                    <div key={a.id} className={'pm-option' + (String(value) === String(a.id) ? ' selected' : '')}
+                    <div key={a.id} id={(id || 'pm') + '-option-' + a.id} className={'pm-option' + (String(value) === String(a.id) ? ' selected' : '')}
                       onClick={() => { onChange(String(a.id)); setOpen(false); }}>
                       <span className="pm-icon" style={{ color: PM_TYPE_COLORS[g.type] }}>
                         <Icon name={PM_TYPE_ICONS[g.type]} size={13} /></span>
@@ -165,7 +166,7 @@
       ? num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  function CurrencyInput({ value, currency, onChange }) {
+  function CurrencyInput({ value, currency, onChange, id }) {
     const [focused, setFocused] = React.useState(false);
     const [raw, setRaw] = React.useState(value || '');
     React.useEffect(() => { if (!focused) setRaw(value || ''); }, [value, focused]);
@@ -178,7 +179,7 @@
       onChange(parsed);
     }
     return (
-      <input className="field-input" type="text" inputMode="decimal"
+      <input id={id} className="field-input" type="text" inputMode="decimal"
         placeholder={currency === 'TRY' ? '0,00' : '0.00'}
         value={focused ? raw : fmtCurrencyVal(value, currency)}
         onFocus={handleFocus} onChange={handleChange} onBlur={handleBlur} />
@@ -186,12 +187,12 @@
   }
 
   // ── Select with chevron ────────────────────────────────────────────────
-  function Select({ label, icon, value, onChange, children }) {
+  function Select({ label, icon, value, onChange, children, id }) {
     return (
       <div className="filter-field">
         <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
         <div className="select-wrap">
-          <select className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
+          <select id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
           <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
         </div>
       </div>
@@ -236,9 +237,9 @@
           <div className="filter-field ff-period">
             <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
             <div className="month-step">
-              <button className="ms-btn" onClick={() => onMonthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
+              <button id="filter-period-prev-btn" className="ms-btn" onClick={() => onMonthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
               <span className="ms-label"><Icon name="calendar-days" size={13} />{MONTHS[month]} {year}</span>
-              <button className="ms-btn" onClick={() => onMonthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
+              <button id="filter-period-next-btn" className="ms-btn" onClick={() => onMonthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
             </div>
           </div>
 
@@ -246,7 +247,7 @@
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
               <Icon name="search" size={13} />
-              <input className="search-input" placeholder="Description…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <input id="filter-search-input" className="search-input" placeholder="Description…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
 
@@ -255,7 +256,7 @@
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={anchorRef}>
-              <button className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+              <button id="filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
                 <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -264,28 +265,28 @@
                 <div className="filters-pop">
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
-                    {active.length > 0 && <button className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
-                  <Select label="Type" icon="filter" value={type} onChange={setType}>
+                  <Select id="filter-type-select" label="Type" icon="filter" value={type} onChange={setType}>
                     <option value="all">All Types</option>
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
                   </Select>
-                  <Select label="Payer" icon="user" value={payer} onChange={setPayer}>
+                  <Select id="filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
                     <option value="all">All Payers</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                   </Select>
-                  <Select label="Paying For" icon="users" value={payingFor} onChange={setPayingFor}>
+                  <Select id="filter-payingfor-select" label="Paying For" icon="users" value={payingFor} onChange={setPayingFor}>
                     <option value="all">All Beneficiaries</option>
                     <option value="Shared">Shared</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                     <option value="–">N/A</option>
                   </Select>
-                  <Select label="Category" icon="tag" value={cat} onChange={setCat}>
+                  <Select id="filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat}>
                     <option value="all">All Categories</option>
                     {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
                   </Select>
-                  <Select label="Source" icon="repeat" value={source} onChange={setSource}>
+                  <Select id="filter-source-select" label="Source" icon="repeat" value={source} onChange={setSource}>
                     <option value="all">All Sources</option>
                     <option value="recurring">Recurring Only</option>
                     <option value="manual">Manual Only</option>
@@ -308,11 +309,11 @@
           <div className="active-chips">
             <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
             {active.map(a => (
-              <button key={a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+              <button key={a.key} id={'filter-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
                 <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
               </button>
             ))}
-            <button className="chip chip-clear" onClick={clearAll}>Clear all</button>
+            <button id="filter-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear all</button>
           </div>
         )}
       </div>
@@ -363,7 +364,7 @@
           <span className="pager-rows">
             <span className="pager-rows-label">Rows</span>
             <div className="select-wrap">
-              <select className="sel" style={{ minWidth: 62, padding: '4px 28px 4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
+              <select id="pagination-rows-select" className="sel" style={{ minWidth: 62, padding: '4px 28px 4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
                 <option>10</option><option>20</option><option>30</option><option>40</option><option>50</option><option>100</option>
               </select>
               <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
@@ -371,11 +372,11 @@
           </span>
         </span>
         <div className="page-controls">
-          <button className="page-btn" disabled={page === 1} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={14} />Prev</button>
+          <button id="pagination-prev-btn" className="page-btn" disabled={page === 1} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={14} />Prev</button>
           {nums.map((n, i) => n === '…'
             ? <span className="page-ellipsis" key={'e' + i}>…</span>
-            : <button key={n} className={'page-btn' + (n === page ? ' active' : '')} onClick={() => setPage(n)}>{n}</button>)}
-          <button className="page-btn" disabled={page === pages || pages === 0} onClick={() => setPage(page + 1)}>Next<Icon name="chevron-right" size={14} /></button>
+            : <button key={n} id={'pagination-page-' + n + '-btn'} className={'page-btn' + (n === page ? ' active' : '')} onClick={() => setPage(n)}>{n}</button>)}
+          <button id="pagination-next-btn" className="page-btn" disabled={page === pages || pages === 0} onClick={() => setPage(page + 1)}>Next<Icon name="chevron-right" size={14} /></button>
         </div>
       </div>
     );
@@ -419,7 +420,7 @@
               <span className="modal-title"><Icon name={editing ? 'pencil' : 'plus-circle'} size={16} />{editing ? 'Edit Transaction' : 'Add Spending'}</span>
               <span className="modal-sub">{editing ? (initial.desc || initial.id) : (scan ? 'Pre-filled from receipt · review & save' : 'Record a new income or expense')}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="tx-modal-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="modal-body">
@@ -446,19 +447,19 @@
             <div className="form-field full">
               <span className="field-label">Type</span>
               <div className="seg">
-                <button className={f.type === 'income' ? 'on-income' : ''} onClick={() => set('type', 'income')}><Icon name="arrow-down-left" size={13} />Income</button>
-                <button className={f.type === 'expense' ? 'on-expense' : ''} onClick={() => set('type', 'expense')}><Icon name="arrow-up-right" size={13} />Expense</button>
+                <button id="tx-modal-type-income-btn" className={f.type === 'income' ? 'on-income' : ''} onClick={() => set('type', 'income')}><Icon name="arrow-down-left" size={13} />Income</button>
+                <button id="tx-modal-type-expense-btn" className={f.type === 'expense' ? 'on-expense' : ''} onClick={() => set('type', 'expense')}><Icon name="arrow-up-right" size={13} />Expense</button>
               </div>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Date</span>
-                <DateInput className="field-input" value={f.date} onChange={(e) => set('date', e.target.value)} />
+                <DateInput id="tx-modal-date-input" className="field-input" value={f.date} onChange={(e) => set('date', e.target.value)} />
               </div>
               <div className="form-field">
                 <span className="field-label">Payer</span>
-                <select className="field-input" value={f.payer} onChange={(e) => set('payer', e.target.value)}>
+                <select id="tx-modal-payer-select" className="field-input" value={f.payer} onChange={(e) => set('payer', e.target.value)}>
                   {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -466,7 +467,7 @@
 
             <div className="form-field full">
               <span className="field-label">Paying For</span>
-              <select className="field-input" value={f.payingFor} onChange={(e) => set('payingFor', e.target.value)}>
+              <select id="tx-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={(e) => set('payingFor', e.target.value)}>
                 <option value="Shared">Shared</option>
                 {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                 <option value="–">Other</option>
@@ -475,21 +476,21 @@
 
             <div className="form-field full">
               <span className="field-label">Category</span>
-              <select className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+              <select id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
                 {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
               </select>
             </div>
 
             <div className="form-field full">
               <span className="field-label">Description</span>
-              <input className="field-input" placeholder="e.g. Migros weekly shop" value={f.desc} onChange={(e) => set('desc', e.target.value)} />
+              <input id="tx-modal-desc-input" className="field-input" placeholder="e.g. Migros weekly shop" value={f.desc} onChange={(e) => set('desc', e.target.value)} />
             </div>
 
             <div className="form-field full">
               <span className="field-label">Amount</span>
               <div className="amount-input-wrap">
-                <CurrencyInput value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
-                <select className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
+                <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
+                <select id="tx-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
                   <option>TRY</option><option>USD</option><option>EUR</option>
                 </select>
               </div>
@@ -497,7 +498,7 @@
 
             <div className="form-field full">
               <span className="field-label">Payment Method</span>
-              <PaymentMethodSelect value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
+              <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
                 groups={pmGroups} accounts={paymentAccounts} />
             </div>
 
@@ -509,9 +510,9 @@
           </div>
 
           <div className="modal-foot">
-            {editing && <button className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Spending'}</button>
+            {editing && <button id="tx-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
+            <button id="tx-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="tx-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Spending'}</button>
           </div>
         </div>
       </div>
@@ -527,7 +528,7 @@
             <div className="modal-head-l">
               <span className="modal-title"><Icon name="trash-2" size={16} />Delete Transaction</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="delete-confirm-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
           <div className="confirm-body">
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
@@ -537,8 +538,8 @@
             </div>
           </div>
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button className="amb danger" onClick={onConfirm}><Icon name="trash-2" size={14} />Delete</button>
+            <button id="delete-confirm-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="delete-confirm-delete-btn" className="amb danger" onClick={onConfirm}><Icon name="trash-2" size={14} />Delete</button>
           </div>
         </div>
       </div>

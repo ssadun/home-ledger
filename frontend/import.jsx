@@ -83,7 +83,7 @@
           <span className="field-label">Statement Format</span>
           <div className="seg imp-fmt-seg">
             {Object.keys(FMT).map(k => (
-              <button key={k} className={format === k ? 'on-fmt' : ''} onClick={() => { setFormat(k); setSelected(null); }}
+              <button key={k} id={'imp-format-' + k + '-btn'} className={format === k ? 'on-fmt' : ''} onClick={() => { setFormat(k); setSelected(null); }}
                 style={format === k ? { background: 'color-mix(in srgb, ' + FMT[k].color + ' 16%, transparent)', color: FMT[k].color } : {}}>
                 <Icon name={FMT[k].icon} size={14} />{FMT[k].label}
               </button>
@@ -108,7 +108,7 @@
               <span className="imp-drop-s">or <b>browse files</b> · max 10 MB</span>
             </React.Fragment>
           )}
-          <input ref={fileRef} type="file" hidden accept=".csv,.xls,.xlsx,.pdf"
+          <input id="imp-file-input" ref={fileRef} type="file" hidden accept=".csv,.xls,.xlsx,.pdf"
             onChange={(e) => onFile(e.target.files[0])} />
         </div>
 
@@ -118,7 +118,7 @@
             {docs.map(d => {
               const acc = findByNumber(accounts, d.accountNumber);
               return (
-                <button key={d.id} className={'imp-doc-row' + (selected === d.id ? ' sel' : '')}
+                <button key={d.id} id={'imp-doc-' + d.id + '-btn'} className={'imp-doc-row' + (selected === d.id ? ' sel' : '')}
                   onClick={() => { setSelected(d.id); setPickedFile(null); }}>
                   <span className="imp-doc-ico" style={{ color: FMT[d.format].color }}><Icon name={FMT[d.format].icon} size={17} /></span>
                   <span className="imp-doc-meta">
@@ -176,7 +176,7 @@
             {t && <span className="acct-type-ico" style={{ width: 30, height: 30, color: t.color,
               background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
               borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)' }}><Icon name={t.icon} size={15} /></span>}
-            <select className="field-input" value={accId || ''} onChange={(e) => setAccId(e.target.value)}>
+            <select id="imp-detect-account-select" className="field-input" value={accId || ''} onChange={(e) => setAccId(e.target.value)}>
               <option value="" disabled>Select account…</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)} ({a.owner})</option>)}
             </select>
@@ -191,27 +191,27 @@
   function ReviewRow({ row, idx, update, remove, accounts }) {
     return (
       <div className={'imp-rev-row' + (row.include ? '' : ' excluded')}>
-        <button className="imp-inc" onClick={() => update(idx, { include: !row.include })} title={row.include ? 'Exclude row' : 'Include row'}>
+        <button id={'imp-row-' + idx + '-include-btn'} className="imp-inc" onClick={() => update(idx, { include: !row.include })} title={row.include ? 'Exclude row' : 'Include row'}>
           <Icon name={row.include ? 'check-square' : 'square'} size={16} />
         </button>
-        <input type="date" className="imp-cell imp-date" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
-        <input className="imp-cell imp-desc" placeholder="Description" title="Transaction description" value={row.desc} onChange={(e) => update(idx, { desc: e.target.value })} />
+        <input id={'imp-row-' + idx + '-date-input'} type="date" className="imp-cell imp-date" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
+        <input id={'imp-row-' + idx + '-desc-input'} className="imp-cell imp-desc" placeholder="Description" title="Transaction description" value={row.desc} onChange={(e) => update(idx, { desc: e.target.value })} />
         <div className="imp-cell-cat">
-          <select className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })}>
+          <select id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })}>
             {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
           </select>
         </div>
         <div className={'imp-amt-wrap ' + (row.amount >= 0 ? 'pos' : 'neg')}>
           <span className="imp-amt-sign">{row.amount >= 0 ? '+' : '−'}{SYM[row.cur]}</span>
-          <input type="number" step="0.01" className="imp-cell imp-amt" value={Math.abs(row.amount)}
+          <input id={'imp-row-' + idx + '-amount-input'} type="number" step="0.01" className="imp-cell imp-amt" value={Math.abs(row.amount)}
             onChange={(e) => { const v = parseFloat(e.target.value) || 0; update(idx, { amount: row.amount < 0 ? -v : v }); }} />
-          <button className="imp-amt-flip" title="Flip income/expense" onClick={() => update(idx, { amount: -row.amount })}><Icon name="repeat" size={11} /></button>
+          <button id={'imp-row-' + idx + '-flip-btn'} className="imp-amt-flip" title="Flip income/expense" onClick={() => update(idx, { amount: -row.amount })}><Icon name="repeat" size={11} /></button>
         </div>
-        <select className="imp-cell imp-acc" value={row.accId || ''} onChange={(e) => update(idx, { accId: e.target.value })}>
+        <select id={'imp-row-' + idx + '-account-select'} className="imp-cell imp-acc" value={row.accId || ''} onChange={(e) => update(idx, { accId: e.target.value })}>
           <option value="" disabled>Account…</option>
           {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)}</option>)}
         </select>
-        <button className="imp-del" onClick={() => remove(idx)} title="Remove row"><Icon name="trash-2" size={13} /></button>
+        <button id={'imp-row-' + idx + '-delete-btn'} className="imp-del" onClick={() => remove(idx)} title="Remove row"><Icon name="trash-2" size={13} /></button>
       </div>
     );
   }
@@ -225,7 +225,7 @@
     return (
       <div className="imp-pane imp-review">
         <div className="imp-rev-head">
-          <button className="imp-bulk" onClick={() => setRows(prev => prev.map(r => ({ ...r, include: !allOn })))}>
+          <button id="imp-bulk-select-btn" className="imp-bulk" onClick={() => setRows(prev => prev.map(r => ({ ...r, include: !allOn })))}>
             <Icon name={allOn ? 'check-square' : 'square'} size={14} />{allOn ? 'Deselect all' : 'Select all'}
           </button>
           <span className="imp-rev-count">{incl.length} of {rows.length} rows selected for import</span>
@@ -385,27 +385,27 @@
     function Footer() {
       if (step === 'choose') return (
         <React.Fragment>
-          <button className="amb cancel" onClick={onClose} disabled={busy}><Icon name="x" size={14} />Cancel</button>
-          <button className="amb ok" disabled={!canContinue || busy} onClick={goDetect}>
+          <button id="imp-choose-cancel-btn" className="amb cancel" onClick={onClose} disabled={busy}><Icon name="x" size={14} />Cancel</button>
+          <button id="imp-choose-continue-btn" className="amb ok" disabled={!canContinue || busy} onClick={goDetect}>
             <Icon name={busy ? 'loader' : 'arrow-right'} size={14} />{busy ? 'Parsing…' : 'Continue'}
           </button>
         </React.Fragment>
       );
       if (step === 'detect') return (
         <React.Fragment>
-          <button className="amb cancel" onClick={() => setStep('choose')}><Icon name="arrow-left" size={14} />Back</button>
-          <button className="amb ok" disabled={!accId} onClick={goReview}><Icon name="arrow-right" size={14} />Review</button>
+          <button id="imp-detect-back-btn" className="amb cancel" onClick={() => setStep('choose')}><Icon name="arrow-left" size={14} />Back</button>
+          <button id="imp-detect-review-btn" className="amb ok" disabled={!accId} onClick={goReview}><Icon name="arrow-right" size={14} />Review</button>
         </React.Fragment>
       );
       if (step === 'review') return (
         <React.Fragment>
-          <button className="amb cancel" onClick={() => setStep('detect')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
-          <button className="amb ok" disabled={inclCount === 0 || busy} onClick={commit}>
+          <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep('detect')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
+          <button id="imp-review-import-btn" className="amb ok" disabled={inclCount === 0 || busy} onClick={commit}>
             <Icon name={busy ? 'loader' : 'check'} size={14} />{busy ? 'Importing…' : 'Import'}
           </button>
         </React.Fragment>
       );
-      return <button className="amb ok" style={{ marginLeft: 'auto' }} onClick={onClose}><Icon name="check" size={14} />Done</button>;
+      return <button id="imp-done-btn" className="amb ok" style={{ marginLeft: 'auto' }} onClick={onClose}><Icon name="check" size={14} />Done</button>;
     }
 
     return (
@@ -416,7 +416,7 @@
               <span className="modal-title"><Icon name="file-down" size={16} />Import Transactions</span>
               <span className="modal-sub">{doc ? doc.fileName : 'From CSV, Excel, or PDF statement'}</span>
             </div>
-            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="imp-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="imp-stepper-wrap"><Stepper current={step} /></div>

@@ -127,7 +127,7 @@ ${(text || '').slice(0, 4000)}
               <span className="modal-title"><Icon name="scan-line" size={16} />Scan Receipt</span>
               <span className="modal-sub">Pull the details from a photo</span>
             </div>
-            <button className="m-close" onClick={onClose} disabled={busy}><Icon name="x" size={17} /></button>
+            <button id="scan-modal-close-btn" className="m-close" onClick={onClose} disabled={busy}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="modal-body">
@@ -143,7 +143,7 @@ ${(text || '').slice(0, 4000)}
                   <span className="dz-sub">or click to browse · JPG / PNG</span>
                 </div>
                 <div className="scan-note"><Icon name="cpu" size={13} />Text is read on-device, then structured into a transaction.</div>
-                <input ref={inputRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e.target.files[0])} />
+                <input id="scan-file-input" ref={inputRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e.target.files[0])} />
               </React.Fragment>
             )}
 
@@ -164,13 +164,13 @@ ${(text || '').slice(0, 4000)}
             {phase === 'error' && (
               <React.Fragment>
                 <div className="scan-error"><Icon name="alert-triangle" size={18} /><span>{err}</span></div>
-                <button className="amb ok" style={{ alignSelf: 'flex-start' }} onClick={() => { setPhase('idle'); setErr(''); }}><Icon name="rotate-cw" size={14} />Try Again</button>
+                <button id="scan-try-again-btn" className="amb ok" style={{ alignSelf: 'flex-start' }} onClick={() => { setPhase('idle'); setErr(''); }}><Icon name="rotate-cw" size={14} />Try Again</button>
               </React.Fragment>
             )}
           </div>
 
           <div className="modal-foot">
-            <button className="amb cancel" onClick={onClose} disabled={busy}><Icon name="x" size={14} />Cancel</button>
+            <button id="scan-cancel-btn" className="amb cancel" onClick={onClose} disabled={busy}><Icon name="x" size={14} />Cancel</button>
           </div>
         </div>
       </div>

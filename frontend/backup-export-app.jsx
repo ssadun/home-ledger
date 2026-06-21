@@ -51,7 +51,7 @@
     };
   }
 
-  function DateInput({ value, onChange, min, max, className, placeholder, dataTable, dataCol }) {
+  function DateInput({ value, onChange, min, max, className, placeholder, dataTable, dataCol, id }) {
     const inputRef = React.useRef(null);
     const wrapRef  = React.useRef(null);
     const fpRef    = React.useRef(null);
@@ -87,7 +87,7 @@
 
     return (
       <div ref={wrapRef} className="date-input-wrap">
-        <input ref={inputRef} type="text" className={className || 'field-input'}
+        <input id={id} ref={inputRef} type="text" className={className || 'field-input'}
           placeholder={placeholder || 'YYYY-MM-DD'} data-table={dataTable} data-col={dataCol} readOnly />
         <span className="date-input-icon"><Icon name="calendar" size={14} /></span>
       </div>
@@ -336,7 +336,7 @@
       <div className={'bx-row' + (selected ? '' : ' unsel')} onClick={() => onToggle(ds.id)}
         title={(selected ? 'Exclude ' : 'Include ') + ds.label}>
         <label className="acct-check-label bx-row-check">
-          <input type="checkbox" checked={selected} readOnly
+          <input id={'bx-include-' + ds.id} type="checkbox" checked={selected} readOnly
             data-table={ds.id} data-col="__include" />
         </label>
         <span className="bx-row-ico" style={{ color: ds.color, background: 'color-mix(in srgb, ' + ds.color + ' 14%, transparent)' }}>
@@ -356,7 +356,7 @@
             ? <span className="bx-period-badge"><Icon name="calendar-range" size={10} />Period</span>
             : null}
         </div>
-        <button className="bx-row-export" onClick={(e) => { e.stopPropagation(); onExport(ds); }}
+        <button id={'bx-export-' + ds.id + '-btn'} className="bx-row-export" onClick={(e) => { e.stopPropagation(); onExport(ds); }}
           title={'Export ' + ds.label + ' as CSV'}>
           <Icon name="download" size={13} />CSV
         </button>
@@ -442,10 +442,10 @@
                 </div>
               </div>
               <div className="head-actions cfg-head-actions">
-                <button className="action-modal-btn bx-json" onClick={exportJSON} disabled={!selCount}>
+                <button id="bx-header-json-btn" className="action-modal-btn bx-json" onClick={exportJSON} disabled={!selCount}>
                   <Icon name="file-json" size={14} />Export JSON Backup
                 </button>
-                <button className="action-modal-btn ok" onClick={exportCSVAll} disabled={!selCount}>
+                <button id="bx-header-csv-btn" className="action-modal-btn ok" onClick={exportCSVAll} disabled={!selCount}>
                   <Icon name="download" size={14} />Export CSV{selCount ? ' (' + selCount + ')' : ''}
                 </button>
               </div>
@@ -464,7 +464,7 @@
                 <div className="bx-period">
                   <div className="seg bx-seg">
                     {[{ v: 'all', l: 'All Time' }, { v: 'year', l: 'Year' }, { v: 'range', l: 'Date Range' }].map(o => (
-                      <button key={o.v} type="button" className={period.mode === o.v ? 'on' : ''}
+                      <button key={o.v} type="button" id={'bx-period-' + o.v + '-btn'} className={period.mode === o.v ? 'on' : ''}
                         onClick={() => setPeriod(p => ({ ...p, mode: o.v }))}>{o.l}</button>
                     ))}
                   </div>
@@ -472,7 +472,7 @@
                     <div className="bx-period-field">
                       <span className="field-label">Year</span>
                       <div className="select-wrap bx-year-sel">
-                        <select className="sel" value={period.year} data-table="transactions" data-col="date"
+                        <select id="bx-period-year-select" className="sel" value={period.year} data-table="transactions" data-col="date"
                           onChange={e => setPeriod(p => ({ ...p, year: e.target.value }))}>
                           {AVAILABLE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
@@ -483,12 +483,12 @@
                   {period.mode === 'range' && (
                     <div className="bx-period-dates">
                       <span className="field-label">From</span>
-                      <DateInput value={period.from} dataTable="transactions" dataCol="date"
+                      <DateInput id="bx-period-from-input" value={period.from} dataTable="transactions" dataCol="date"
                         max={period.to || undefined} placeholder="Start date"
                         onChange={e => setPeriod(p => ({ ...p, from: e.target.value }))} />
                       <span className="bx-period-dash">→</span>
                       <span className="field-label">To</span>
-                      <DateInput value={period.to} dataTable="transactions" dataCol="date"
+                      <DateInput id="bx-period-to-input" value={period.to} dataTable="transactions" dataCol="date"
                         min={period.from || undefined} placeholder="End date"
                         onChange={e => setPeriod(p => ({ ...p, to: e.target.value }))} />
                     </div>
@@ -502,7 +502,7 @@
                   <Icon name="table-2" size={15} />
                   <span className="bx-panel-title">Select Tables</span>
                   <label className="acct-check-label bx-selectall" onClick={e => e.stopPropagation()}>
-                    <input ref={selectAllRef} type="checkbox" checked={allSelected} onChange={toggleAll} />
+                    <input id="bx-select-all-checkbox" ref={selectAllRef} type="checkbox" checked={allSelected} onChange={toggleAll} />
                     Select All
                   </label>
                   <span className="bx-sel-count">{selCount} of {total} selected</span>
@@ -537,10 +537,10 @@
                       </React.Fragment>}
                 </div>
                 <div className="bx-foot-actions">
-                  <button className="action-modal-btn bx-json" onClick={exportJSON} disabled={!selCount}>
+                  <button id="bx-foot-json-btn" className="action-modal-btn bx-json" onClick={exportJSON} disabled={!selCount}>
                     <Icon name="file-json" size={14} />Export JSON Backup
                   </button>
-                  <button className="action-modal-btn ok" onClick={exportCSVAll} disabled={!selCount}>
+                  <button id="bx-foot-csv-btn" className="action-modal-btn ok" onClick={exportCSVAll} disabled={!selCount}>
                     <Icon name="download" size={14} />Export CSV{selCount ? ' (' + selCount + ')' : ''}
                   </button>
                 </div>
