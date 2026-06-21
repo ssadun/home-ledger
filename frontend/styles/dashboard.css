@@ -133,6 +133,10 @@
   .page-head{padding:12px}
   .page-title{font-size:18px;letter-spacing:1px}
   .page-sub{padding-left:0;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+  /* keep the Scan Receipt button inline next to the title (like Spending)
+     instead of wrapping to its own full-width row */
+  .page-head-top:has(.dash-head-actions){flex-wrap:nowrap}
+  .dash-head-actions{flex:0 0 auto}
 
   /* KPI 2×2, widgets centered at ≤522px */
   .dash-kpi-row{grid-template-columns:1fr 1fr}

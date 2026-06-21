@@ -192,7 +192,7 @@
                   <p className="page-subtitle">At-a-glance view of household finances</p>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions dash-head-actions">
                 <button id="dash-scan-receipt-btn" className="action-modal-btn scan" onClick={() => setScan(true)}>
                   <Icon name="scan-line" size={14} />Scan Receipt
                 </button>
