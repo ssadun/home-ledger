@@ -2,8 +2,9 @@
 (function () {
   const Icon = window.Icon;
   const DateInput = window.DateInput;
-  const { CATS } = window.LEDGER;
-  const { grp, MONTHS } = window.LEDGER_FMT;
+  const CurrencyInput = window.CurrencyInput;
+  const { CATS, FX } = window.LEDGER;
+  const { grp, SYM, MONTHS } = window.LEDGER_FMT;
   const { WARN_AT, OVER_AT } = window.BUDGETS_DATA;
 
   // month-range label, e.g. "Jan – Dec 2026", "Sep 2026 – Jun 2027", or "From Jan 2026" (no end)
@@ -118,44 +119,21 @@
     const firstFree = expenseCats.find(k => !existingCats.includes(k)) || expenseCats[0];
 
     const [cat, setCat] = React.useState(initial.cat || firstFree);
-    const [limit, setLimit] = React.useState(initial.limit != null ? String(initial.limit) : '');
-    const [limitFocused, setLimitFocused] = React.useState(false);
-    const [limitRaw, setLimitRaw] = React.useState(limit);
+    const [limit, setLimit] = React.useState(initial.limit != null ? initial.limit : '');
+    const [cur, setCur] = React.useState(initial.currency || 'TRY');
     const [start, setStart] = React.useState(initial.start != null ? initial.start : '2026-01-01');
     const [end, setEnd] = React.useState(initial.end != null ? initial.end : '2026-12-31');
     const limitNum = parseFloat(limit) || 0;
     const c = CATS[cat] || CATS.shopping;
-    const spent = initial.spent || 0;
-    const pct = limitNum ? Math.round((spent / limitNum) * 100) : 0;
+    const spent = initial.spent || 0;            // spent is tracked in TRY
+    const limitTRY = +(limitNum * ((FX[cur] || FX.TRY).toTRY)).toFixed(2);
+    const pct = limitTRY ? Math.round((spent / limitTRY) * 100) : 0;
     const badRange = start && end && end < start;
+    const sym = SYM[cur] || '₺';
 
     function submit() {
       if (!limitNum || badRange) return;
-      onSave({ cat, limit: limitNum, start, end });
-    }
-    function bump(d) {
-      const next = String(Math.max(0, (parseFloat(limit) || 0) + d));
-      setLimit(next);
-      setLimitRaw(next);
-    }
-    function fmtTRY(v) {
-      const n = parseFloat(v);
-      if (isNaN(n)) return '';
-      return n.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    }
-    function handleLimitFocus() { setLimitFocused(true); setLimitRaw(limit); }
-    function handleLimitChange(e) {
-      const raw = e.target.value;
-      setLimitRaw(raw);
-      const cleaned = raw.replace(/\./g, '').replace(',', '.');
-      const n = parseFloat(cleaned);
-      setLimit(isNaN(n) ? '' : String(n));
-    }
-    function handleLimitBlur() {
-      setLimitFocused(false);
-      const cleaned = limitRaw.replace(/\./g, '').replace(',', '.');
-      const n = parseFloat(cleaned);
-      if (!isNaN(n)) { setLimit(String(n)); setLimitRaw(String(n)); }
+      onSave({ cat, limit: limitNum, currency: cur, start, end });
     }
 
     return (
@@ -190,18 +168,6 @@
               )}
             </div>
 
-            <div className="form-field full">
-              <span className="field-label">Monthly Limit</span>
-              <div className="amt-num">
-                <span className="field-currency-prefix">₺</span>
-                <input id="bgt-modal-limit-input" className="field-input field-input-currency" type="text" inputMode="decimal" placeholder="0" value={limitFocused ? limitRaw : fmtTRY(limit)} onFocus={handleLimitFocus} onChange={handleLimitChange} onBlur={handleLimitBlur} />
-                <div className="amt-step">
-                  <button id="bgt-modal-limit-up-btn" type="button" tabIndex={-1} title="Increase" onClick={() => bump(500)}><Icon name="chevron-up" size={12} /></button>
-                  <button id="bgt-modal-limit-down-btn" type="button" tabIndex={-1} title="Decrease" onClick={() => bump(-500)}><Icon name="chevron-down" size={12} /></button>
-                </div>
-              </div>
-            </div>
-
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Start Date <span className="fl-opt">(optional)</span></span>
@@ -215,9 +181,19 @@
 
             {badRange && <div className="bgt-range-warn"><Icon name="alert-triangle" size={13} />End date must be on or after the start date.</div>}
 
+            <div className="form-field full">
+              <span className="field-label">Monthly Limit</span>
+              <div className="amount-input-wrap">
+                <CurrencyInput id="bgt-modal-limit-input" value={limit} currency={cur} onChange={(v) => setLimit(v)} />
+                <select id="bgt-modal-currency-select" className="field-input" value={cur} onChange={(e) => setCur(e.target.value)}>
+                  <option>TRY</option><option>USD</option><option>EUR</option>
+                </select>
+              </div>
+            </div>
+
             <div className="conv-preview">
               <div className="cp"><span className="cp-k">Spent This Month</span><span className="cp-v">₺{grp(spent, 0)}</span></div>
-              <div className="cp"><span className="cp-k">New Limit</span><span className="cp-v">₺{grp(limitNum, 0)}</span></div>
+              <div className="cp"><span className="cp-k">New Limit</span><span className="cp-v">{sym}{grp(limitNum, 0)}{cur !== 'TRY' ? ' ≈ ₺' + grp(limitTRY, 0) : ''}</span></div>
               <div className="cp"><span className="cp-k">Utilization</span><span className="cp-v" style={{ color: pct > 100 ? 'var(--red)' : pct >= 80 ? 'var(--orange)' : 'var(--green)' }}>{pct}%</span></div>
             </div>
           </div>

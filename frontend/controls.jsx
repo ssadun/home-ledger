@@ -402,8 +402,11 @@
     const tryV = +(amtNum * FX[f.cur].toTRY).toFixed(2);
     const usdV = +(amtNum * FX[f.cur].toUSD).toFixed(2);
 
+    // Every field must be filled before a record can be created/saved.
+    const valid = !!(f.date && f.cat && f.payer && f.payingFor && f.type && f.cur
+      && f.desc.trim() && amtNum && f.paymentMethod);
     function submit() {
-      if (!f.desc.trim() || !amtNum) return;
+      if (!valid) return;
       onSave({ ...initial, date: f.date, payer: f.payer, payingFor: f.payingFor, cat: f.cat, desc: f.desc.trim(), type: f.type, cur: f.cur, amt: amtNum, paymentMethod: f.paymentMethod, tryV, usdV });
     }
     const paymentAccounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type));
@@ -415,7 +418,7 @@
 
     return (
       <div className="backdrop">
-        <div className="modal">
+        <div className="modal tx-modal">
           <div className="modal-head">
             <div className="modal-head-l">
               <span className="modal-title"><Icon name={editing ? 'pencil' : 'plus-circle'} size={16} />{editing ? 'Edit Transaction' : 'Add Spending'}</span>
@@ -445,41 +448,34 @@
               );
             })()}
 
-            <div className="form-field full">
-              <span className="field-label">Type</span>
-              <div className="seg">
-                <button id="tx-modal-type-income-btn" className={f.type === 'income' ? 'on-income' : ''} onClick={() => set('type', 'income')}><Icon name="arrow-down-left" size={13} />Income</button>
-                <button id="tx-modal-type-expense-btn" className={f.type === 'expense' ? 'on-expense' : ''} onClick={() => set('type', 'expense')}><Icon name="arrow-up-right" size={13} />Expense</button>
-              </div>
-            </div>
-
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Date</span>
                 <DateInput id="tx-modal-date-input" className="field-input" value={f.date} onChange={(e) => set('date', e.target.value)} />
               </div>
               <div className="form-field">
+                <span className="field-label">Category</span>
+                <select id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+                  {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <div className="form-field">
                 <span className="field-label">Payer</span>
                 <select id="tx-modal-payer-select" className="field-input" value={f.payer} onChange={(e) => set('payer', e.target.value)}>
                   {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-            </div>
-
-            <div className="form-field full">
-              <span className="field-label">Paying For</span>
-              <select id="tx-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={(e) => set('payingFor', e.target.value)}>
-                <option value="Shared">Shared</option>
-                {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
-                <option value="–">Other</option>
-              </select>
-            </div>
-
-            <div className="form-field full">
-              <span className="field-label">Category</span>
-              <select id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
-                {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
-              </select>
+              <div className="form-field">
+                <span className="field-label">Paying For</span>
+                <select id="tx-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={(e) => set('payingFor', e.target.value)}>
+                  <option value="Shared">Shared</option>
+                  {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                  <option value="–">Other</option>
+                </select>
+              </div>
             </div>
 
             <div className="form-field full">
@@ -487,33 +483,28 @@
               <input id="tx-modal-desc-input" className="field-input" placeholder="e.g. Migros weekly shop" value={f.desc} onChange={(e) => set('desc', e.target.value)} />
             </div>
 
-            <div className="form-field full">
-              <span className="field-label">Amount</span>
-              <div className="amount-input-wrap">
-                <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
-                <select id="tx-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
-                  <option>TRY</option><option>USD</option><option>EUR</option>
-                </select>
+            <div className="form-grid">
+              <div className="form-field">
+                <span className="field-label">Amount</span>
+                <div className="amount-input-wrap">
+                  <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
+                  <select id="tx-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
+                    <option>TRY</option><option>USD</option><option>EUR</option>
+                  </select>
+                </div>
               </div>
-            </div>
-
-            <div className="form-field full">
-              <span className="field-label">Payment Method</span>
-              <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
-                groups={pmGroups} accounts={paymentAccounts} />
-            </div>
-
-            <div className="conv-preview">
-              <div className="cp"><span className="cp-k">In TRY</span><span className="cp-v">₺{grp(tryV)}</span></div>
-              <div className="cp"><span className="cp-k">In USD</span><span className="cp-v">${grp(usdV)}</span></div>
-              <div className="cp"><span className="cp-k">Rate</span><span className="cp-v">{f.cur === 'TRY' ? 'base' : '1 ' + f.cur + ' = ₺' + grp(FX[f.cur].toTRY)}</span></div>
+              <div className="form-field">
+                <span className="field-label">Payment Method</span>
+                <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
+                  groups={pmGroups} accounts={paymentAccounts} />
+              </div>
             </div>
           </div>
 
           <div className="modal-foot">
             {editing && <button id="tx-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
             <button id="tx-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button id="tx-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Spending'}</button>
+            <button id="tx-modal-save-btn" className="amb ok" onClick={submit} disabled={!valid} title={valid ? '' : 'Fill in all fields to continue'}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Spending'}</button>
           </div>
         </div>
       </div>
@@ -547,5 +538,5 @@
     );
   }
 
-  Object.assign(window, { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, DateInput });
+  Object.assign(window, { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, DateInput, CurrencyInput });
 })();

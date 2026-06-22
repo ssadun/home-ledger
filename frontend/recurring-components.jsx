@@ -252,6 +252,44 @@
     );
   }
 
+  // ── Generic colored dropdown (Status, Weekend rule) ───────────────────
+  // Reuses the pm-* dropdown chrome; each option carries its own accent color
+  // so the trigger + options echo the old segmented-button colors.
+  function ColorSelect({ value, onChange, options, id }) {
+    const [open, setOpen] = React.useState(false);
+    const ref = React.useRef();
+    React.useEffect(() => {
+      if (!open) return;
+      function handle(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+      document.addEventListener('mousedown', handle);
+      return () => document.removeEventListener('mousedown', handle);
+    }, [open]);
+    const sel = options.find(o => o.value === value) || options[0];
+    return (
+      <div className="pm-select" ref={ref}>
+        <button type="button" id={id + '-trigger-btn'} className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+          <span className="pm-trigger-inner">
+            <span className="pm-icon" style={{ color: sel.color }}><Icon name={sel.icon} size={14} /></span>
+            <span className="pm-name" style={{ color: sel.color }}>{sel.label}</span>
+          </span>
+          <Icon name="chevron-down" size={14} />
+        </button>
+        {open && (
+          <div className="pm-dropdown">
+            {options.map(o => (
+              <div key={o.value} id={o.id} className={'pm-option' + (o.value === value ? ' selected' : '')}
+                onClick={() => { onChange(o.value); setOpen(false); }}>
+                <span className="pm-icon" style={{ color: o.color }}><Icon name={o.icon} size={13} /></span>
+                <span className="pm-name" style={{ color: o.color }}>{o.label}</span>
+                {o.value === value && <Icon name="check" size={12} color={o.color} />}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── Linked Transactions list (inside RecModal) ─────────────────────────
   function LinkedTransactionsList({ recId }) {
     const linkedTxs = (window.RECURRING_DATA && window.RECURRING_DATA.REC_TX_MAP && window.RECURRING_DATA.REC_TX_MAP[recId]) || [];
@@ -374,19 +412,37 @@
           {/* Details tab */}
           {(tab === 'details' || !editing) && (
             <div className="modal-body">
-              {/* Row 1: Name */}
-              <div className="form-field full">
-                <span className="field-label">Name</span>
-                <input id="rec-modal-name-input" className="field-input" placeholder="e.g. Netflix, Rent, Gym" value={f.name} onChange={e => set('name', e.target.value)} />
+              {/* Row 1: Name + Category */}
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Name</span>
+                  <input id="rec-modal-name-input" className="field-input" placeholder="e.g. Netflix, Rent, Gym" value={f.name} onChange={e => set('name', e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Category</span>
+                  <select id="rec-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
+                    {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => (
+                      <option key={k} value={k}>{CATS[k].label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Row 2: Status */}
-              <div className="form-field full">
-                <span className="field-label">Status</span>
-                <div className="seg seg-3">
-                  <button id="rec-modal-status-active-btn" className={f.status === 'active' ? 'on-active' : ''} onClick={() => set('status', 'active')}><Icon name="circle-check" size={13} />Active</button>
-                  <button id="rec-modal-status-paused-btn" className={f.status === 'paused' ? 'on-paused' : ''} onClick={() => set('status', 'paused')}><Icon name="pause-circle" size={13} />Paused</button>
-                  <button id="rec-modal-status-ended-btn" className={f.status === 'ended' ? 'on-ended' : ''} onClick={() => set('status', 'ended')}><Icon name="circle-x" size={13} />Ended</button>
+              {/* Row 2: Payer + Paying For */}
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Payer</span>
+                  <select id="rec-modal-payer-select" className="field-input" value={f.payer} onChange={e => set('payer', e.target.value)}>
+                    {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Paying For</span>
+                  <select id="rec-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={e => set('payingFor', e.target.value)}>
+                    <option value="Shared">Shared</option>
+                    {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                    <option value="–">Other</option>
+                  </select>
                 </div>
               </div>
 
@@ -412,13 +468,23 @@
                 )}
               </div>
 
-              {/* Row 4: Weekend/Holiday Rule */}
-              <div className="form-field full">
-                <span className="field-label">If Payment Day Is Weekend / Holiday</span>
-                <div className="seg seg-3">
-                  <button id="rec-modal-weekend-defer-btn" className={f.weekendRule === 'defer' ? 'on-defer' : ''} onClick={() => set('weekendRule', 'defer')}><Icon name="arrow-right" size={13} />Defer</button>
-                  <button id="rec-modal-weekend-advance-btn" className={f.weekendRule === 'advance' ? 'on-advance' : ''} onClick={() => set('weekendRule', 'advance')}><Icon name="arrow-left" size={13} />Advance</button>
-                  <button id="rec-modal-weekend-none-btn" className={f.weekendRule === 'none' ? 'on-none' : ''} onClick={() => set('weekendRule', 'none')}><Icon name="minus" size={13} />No Change</button>
+              {/* Row 4: Status + Weekend/Holiday Rule */}
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Status</span>
+                  <ColorSelect id="rec-modal-status" value={f.status} onChange={v => set('status', v)} options={[
+                    { value: 'active', label: 'Active', icon: 'circle-check', color: 'var(--green)',  id: 'rec-modal-status-active-btn' },
+                    { value: 'paused', label: 'Paused', icon: 'pause-circle', color: 'var(--yellow)', id: 'rec-modal-status-paused-btn' },
+                    { value: 'ended',  label: 'Ended',  icon: 'circle-x',     color: 'var(--slate)',  id: 'rec-modal-status-ended-btn' },
+                  ]} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">On Weekend / Holiday</span>
+                  <ColorSelect id="rec-modal-weekend" value={f.weekendRule} onChange={v => set('weekendRule', v)} options={[
+                    { value: 'defer',   label: 'Defer',     icon: 'arrow-right', color: 'var(--orange)', id: 'rec-modal-weekend-defer-btn' },
+                    { value: 'advance', label: 'Advance',   icon: 'arrow-left',  color: 'var(--sky)',    id: 'rec-modal-weekend-advance-btn' },
+                    { value: 'none',    label: 'No Change', icon: 'minus',       color: 'var(--slate)',  id: 'rec-modal-weekend-none-btn' },
+                  ]} />
                 </div>
               </div>
 
@@ -434,55 +500,21 @@
                 </div>
               </div>
 
-              {/* Row 6: Category */}
-              <div className="form-field full">
-                <span className="field-label">Category</span>
-                <select id="rec-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
-                  {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => (
-                    <option key={k} value={k}>{CATS[k].label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Row 7: Payer + Paying For */}
+              {/* Row 6: Amount + Payment Method */}
               <div className="form-grid">
                 <div className="form-field">
-                  <span className="field-label">Payer</span>
-                  <select id="rec-modal-payer-select" className="field-input" value={f.payer} onChange={e => set('payer', e.target.value)}>
-                    {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <span className="field-label">Amount</span>
+                  <div className="amount-input-wrap">
+                    <input id="rec-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
+                    <select id="rec-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
+                      <option>TRY</option><option>USD</option><option>EUR</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="form-field">
-                  <span className="field-label">Paying For</span>
-                  <select id="rec-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={e => set('payingFor', e.target.value)}>
-                    <option value="Shared">Shared</option>
-                    {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
-                    <option value="–">Other</option>
-                  </select>
+                  <span className="field-label">Payment Method</span>
+                  <RecPaymentMethodSelect value={f.paymentMethod} onChange={v => set('paymentMethod', v)} />
                 </div>
-              </div>
-
-              {/* Row 8: Description */}
-              <div className="form-field full">
-                <span className="field-label">Description</span>
-                <input id="rec-modal-desc-input" className="field-input" placeholder="e.g. Netflix Standard plan, monthly" value={f.desc} onChange={e => set('desc', e.target.value)} />
-              </div>
-
-              {/* Row 9: Amount */}
-              <div className="form-field full">
-                <span className="field-label">Amount</span>
-                <div className="amount-input-wrap">
-                  <input id="rec-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
-                  <select id="rec-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
-                    <option>TRY</option><option>USD</option><option>EUR</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 10: Payment Method */}
-              <div className="form-field full">
-                <span className="field-label">Payment Method</span>
-                <RecPaymentMethodSelect value={f.paymentMethod} onChange={v => set('paymentMethod', v)} />
               </div>
 
               {/* Conversion preview */}

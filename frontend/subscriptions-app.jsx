@@ -307,10 +307,22 @@
     const [items, setItems] = React.useState([]);
 
     // Load subscriptions from the backend on mount (recurring table, kind=subscription).
+    // Accounts hydrate ACCOUNTS_DATA.ACCOUNTS in place so the modal's Payment Method
+    // picker has options to show (it reads window.ACCOUNTS_DATA.ACCOUNTS).
     React.useEffect(() => {
       if (!window.HL_SUBSCRIPTIONS_API) return;
       let alive = true;
-      window.HL_SUBSCRIPTIONS_API.list()
+      const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
+        ? window.HL_ACCOUNTS_API.list()
+            .then(accts => {
+              const arr = window.ACCOUNTS_DATA.ACCOUNTS;
+              arr.length = 0;
+              (accts || []).forEach(a => arr.push(a));
+            })
+            .catch(() => { /* picker just stays empty if accounts fail to load */ })
+        : Promise.resolve();
+      loadAccounts
+        .then(() => window.HL_SUBSCRIPTIONS_API.list())
         .then(data => { if (alive) setItems(data); })
         .catch(() => {});
       return () => { alive = false; };

@@ -8,6 +8,7 @@ CLAUDE.md
 PROGRESS.md
 OCR_TODO.md
 ID_TODO.md
+MOBILE_360_REMAINING.md
 
 # ── Live data (never commit — contains real accounts/financial data) ──
 data/*.db
@@ -15,6 +16,7 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 uploads/*
+preview/*
 !uploads/.gitkeep
 
 # ── Secrets / env ──

@@ -106,17 +106,17 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 .pm-num{color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.3px;font-size:11px}
 
 /* ── Week-of-month group header ── */
-.week-group-row td{padding:9px 12px 5px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.week-group-row td{padding:9px 12px 7px;background:rgba(79,142,247,.06);border-bottom:1px solid var(--border);box-shadow:inset 3px 0 0 var(--accent)}
 .week-group-row .week-group-label,.week-group-row .week-group-range{vertical-align:middle}
-.week-group-label{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--slate);line-height:1}
-.week-group-label svg{color:var(--muted);flex-shrink:0}
+.week-group-label{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);line-height:1}
+.week-group-label svg{color:var(--accent);flex-shrink:0}
 .week-group-range{margin-left:9px;padding-left:10px;border-left:1px solid var(--border2);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1}
 
 /* ── Week-grouped table — flat on desktop (cards are mobile-only) ── */
 .ledger-table.week-cards .week-spacer td{height:0;padding:0;border:none !important;background:transparent !important}
 /* Row zebra — parity restarts per week (.row-alt set in JSX) */
 .ledger-table.week-cards.zebra tbody tr:nth-child(even of .tx-row){background:none}
-.ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:rgba(42,47,74,.32)}
+.ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:rgba(42,47,74,.12)}
 .ledger-table.week-cards.zebra tbody tr.tx-row:hover{background:var(--bg4)}
 
 /* ── Pagination ── */
@@ -156,10 +156,10 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
            padding:9px 13px;margin:0 0 6px}
   .ledger-table tbody tr.tx-row:last-child{border-bottom:1px solid var(--border)}
   .ledger-table tbody tr:hover{background:var(--bg2)}
-  .ledger-table.zebra tbody tr:nth-child(even of .tx-row){background:rgba(42,47,74,.35)}
+  .ledger-table.zebra tbody tr:nth-child(even of .tx-row){background:rgba(42,47,74,.12)}
   /* grouped mode: card zebra restarts per week via .row-alt */
   .ledger-table.week-cards.zebra tbody tr:nth-child(even of .tx-row){background:var(--bg2)}
-  .ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:rgba(42,47,74,.35)}
+  .ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:rgba(42,47,74,.12)}
   .ledger-table.week-cards.zebra .tx-row.row-alt td{background:none}
   .ledger-table.week-cards tbody tr.tx-row:hover td{background:none}
   .ledger-table td,
@@ -196,12 +196,12 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
   /* week-group-row: bordered strip card (matches tx cards) */
   .ledger-table tbody tr.week-group-row,
   .ledger-table.week-cards tbody tr.week-group-row{display:flex;align-items:center;grid-template-columns:none;
-           background:none;border:1px solid var(--border);border-radius:10px;padding:0;margin:12px 0 8px}
+           background:rgba(79,142,247,.06);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:0;margin:12px 0 8px}
   .ledger-table tbody tr.week-group-row:first-child,
   .ledger-table.week-cards tbody tr.week-group-row:first-child{margin-top:0}
   .ledger-table tbody tr.week-group-row td,
   .ledger-table.week-cards tbody tr.week-group-row td{flex:1;display:flex;align-items:center;
-           padding:10px 13px;border:none;background:none;border-radius:0}
+           padding:10px 13px;border:none;background:none;border-radius:0;box-shadow:none}
   /* Reset week-card borders on mobile */
   .ledger-table.week-cards .week-spacer{display:none}
   .ledger-table.week-cards .tx-row td:first-child{border-left:none}

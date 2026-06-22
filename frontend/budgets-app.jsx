@@ -1,7 +1,7 @@
 // budgets-app.jsx — Home Ledger Budgets page.
 (function () {
   const Icon = window.Icon;
-  const { CATS, TX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;
+  const { CATS, TX, FX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;
   const { MONTHS } = window.LEDGER_FMT;
   const { BUDGETS } = window.BUDGETS_DATA;
   const { statusOf } = window.BUDGET_STATUS;
@@ -181,7 +181,9 @@
       const viewIdx = year * 12 + month;
       const arr = Object.keys(budgets).map(cat => {
         const b = budgets[cat];
-        const limit = b.limit;
+        // Spending is tracked in TRY, so convert the limit to TRY for status/math.
+        const rate = (FX[b.currency] || FX.TRY).toTRY;
+        const limit = +((b.limit || 0) * rate).toFixed(2);
         const spent = +(spendByCat[cat] || 0).toFixed(2);
         // month index helpers from ISO date (YYYY-MM-DD)
         const idxOf = (iso) => { const [y, m] = iso.split('-'); return (+y) * 12 + (+m - 1); };
@@ -191,7 +193,7 @@
         else if (viewIdx < startIdx) { periodState = 'upcoming'; monthsLeft = startIdx - viewIdx; }
         else if (viewIdx > endIdx) { periodState = 'ended'; monthsLeft = 0; }
         else { periodState = 'active'; monthsLeft = endIdx - viewIdx; }
-        return { cat, limit, spent, start: b.start, end: b.end, periodState, monthsLeft, status: statusOf(spent, limit) };
+        return { cat, limit, limitOrig: b.limit, currency: b.currency || 'TRY', spent, start: b.start, end: b.end, periodState, monthsLeft, status: statusOf(spent, limit) };
       });
       const order = { over: 0, warn: 1, under: 2, none: 3 };
       arr.sort((a, b) => {
@@ -213,9 +215,9 @@
 
     function flash(cat) { setFlashCat(cat); setTimeout(() => setFlashCat(null), 1500); }
 
-    async function handleSave({ cat, limit, start, end }) {
+    async function handleSave({ cat, limit, currency, start, end }) {
       try {
-        const entry = await window.HL_BUDGETS_API.save(cat, { limit, start, end });
+        const entry = await window.HL_BUDGETS_API.save(cat, { limit, currency, start, end });
         setBudgets(prev => ({ ...prev, [cat]: entry }));
         setModal(null);
         flash(cat);
@@ -274,7 +276,7 @@
               <div className={'card-grid bgt-grid' + (layout === 'list' ? ' card-grid--list bgt-list' : '')}>
                 {filtered.map(r => (
                   <BudgetCard key={r.cat} row={r} flash={r.cat === flashCat}
-                    onClick={(row) => setModal({ cat: row.cat, limit: row.limit, spent: row.spent, start: row.start, end: row.end })} />
+                    onClick={(row) => setModal({ cat: row.cat, limit: row.limitOrig, currency: row.currency, spent: row.spent, start: row.start, end: row.end })} />
                 ))}
               </div>
             )}

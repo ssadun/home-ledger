@@ -1,7 +1,7 @@
 // accounts-components.jsx — Home Ledger Accounts page components.
 (function () {
   const Icon = window.Icon;
-  const { ACCOUNT_TYPES, ACCOUNT_ACTIVITY, FX } = window.ACCOUNTS_DATA;
+  const { ACCOUNT_TYPES, ACCOUNT_ACTIVITY, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
 
   function grp(v, dec = 2) {
     return Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -391,7 +391,7 @@
 
     return (
       <div className="backdrop" onMouseDown={(e) => {if (e.target.classList.contains('backdrop')) onClose();}}>
-        <div className="modal">
+        <div className="modal acct-form-modal">
           <div className="modal-head">
             <div className="modal-head-l">
               <span className="modal-title">
@@ -426,7 +426,16 @@
               </div>
               <div className="form-field">
                 <span className="field-label">Institution</span>
-                <input id="acct-form-institution-input" className="field-input" placeholder="e.g. Garanti BBVA" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
+                <select id="acct-form-institution-input" className="field-input" value={f.institution || ''} onChange={(e) => set('institution', e.target.value)}>
+                  <option value="">— Select Institution —</option>
+                  {Object.keys(FINANCIAL_INSTITUTIONS || {}).map((k) => {
+                    const fi = FINANCIAL_INSTITUTIONS[k];
+                    return <option key={k} value={fi.name}>{fi.swift ? fi.name + ' (' + fi.swift + ')' : fi.name}</option>;
+                  })}
+                  {f.institution && f.institution !== '–' &&
+                    !Object.values(FINANCIAL_INSTITUTIONS || {}).some((fi) => fi.name === f.institution) &&
+                    <option value={f.institution}>{f.institution}</option>}
+                </select>
               </div>
             </div>
 
@@ -439,6 +448,14 @@
                   <option value="Shared">Shared</option>
                 </select>
               </div>
+              <div className="form-field">
+                <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}</span>
+                <input id="acct-form-number-input" className="field-input" placeholder="e.g. ****3847" value={f.number} onChange={(e) => set('number', e.target.value)} />
+              </div>
+            </div>
+
+            {(isCredit || f.type === 'debit') &&
+            <div className="form-grid">
               {isCredit &&
               <div className="form-field">
                   <span className="field-label">CC Type</span>
@@ -459,13 +476,6 @@
                   </select>
                 </div>
               }
-            </div>
-
-            <div className="form-grid">
-              <div className="form-field">
-                <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}</span>
-                <input id="acct-form-number-input" className="field-input" placeholder="e.g. ****3847" value={f.number} onChange={(e) => set('number', e.target.value)} />
-              </div>
               {(isCredit || f.type === 'debit') &&
               <div className="form-field">
                 <span className="field-label">Currency</span>
@@ -477,6 +487,7 @@
               </div>
               }
             </div>
+            }
 
             {(isCredit || f.type === 'debit') &&
             <div className="form-field full">
@@ -542,12 +553,18 @@
             )}
 
             {f.type === 'bank' &&
-            <div className="form-field full">
-              <label className="acct-check-label">
-                <input id="acct-form-primary-checkbox" type="checkbox" checked={f.primary} onChange={(e) => set('primary', e.target.checked)} />
-                <Icon name="star" size={12} />Mark As Primary Account
-              </label>
-            </div>
+            <React.Fragment>
+              <div className="form-field full">
+                <span className="field-label">Current Balance</span>
+                <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+              </div>
+              <div className="form-field full">
+                <label className="acct-check-label">
+                  <input id="acct-form-primary-checkbox" type="checkbox" checked={f.primary} onChange={(e) => set('primary', e.target.checked)} />
+                  <Icon name="star" size={12} />Mark As Primary Account
+                </label>
+              </div>
+            </React.Fragment>
             }
           </div>
 

@@ -177,8 +177,10 @@
   .search-wrap,.search-input{width:100%;min-width:0}
 
   /* single-column handled by .card-grid in grid.css */
-  .acct-card-row{gap:11px}
-  .acct-card-end{gap:10px}
+  /* At 360px the icon + name + badges + balance can't share one row without the
+     name collapsing, so wrap the badges/balance onto their own full-width line. */
+  .acct-card-row{gap:11px;flex-wrap:wrap}
+  .acct-card-end{gap:10px;flex-basis:100%;margin-left:0;justify-content:flex-end}
 
   .acct-detail-modal{max-height:92vh}
   .detail-info-grid{grid-template-columns:1fr}

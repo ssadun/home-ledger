@@ -12,7 +12,7 @@
   let idByCat = {};
 
   function rowToEntry(row) {
-    return { limit: row.amount, start: row.start_date || '', end: row.end_date || '', id: row.id };
+    return { limit: row.amount, currency: row.currency || 'TRY', start: row.start_date || '', end: row.end_date || '', id: row.id };
   }
 
   async function list() {
@@ -29,12 +29,13 @@
     return dict;
   }
 
-  // Upsert a budget for a category. Returns the new entry { limit, start, end, id }.
-  async function save(cat, { limit, start, end }) {
+  // Upsert a budget for a category. Returns the new entry { limit, currency, start, end, id }.
+  async function save(cat, { limit, currency, start, end }) {
     const payload = {
       category_key: cat,
       name: cat,
       amount: Number(limit) || 0,
+      currency: currency || 'TRY',
       start_date: start || null,
       end_date: end || null,
     };

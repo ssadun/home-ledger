@@ -305,10 +305,22 @@
     const [items, setItems] = React.useState([]);
 
     // Load recurring bills from the backend on mount (replaces the static seed).
+    // Accounts hydrate ACCOUNTS_DATA.ACCOUNTS in place so the modal's Payment Method
+    // picker has options to show (it reads window.ACCOUNTS_DATA.ACCOUNTS).
     React.useEffect(() => {
       if (!window.HL_RECURRING_API) return;
       let alive = true;
-      window.HL_RECURRING_API.list()
+      const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
+        ? window.HL_ACCOUNTS_API.list()
+            .then(accts => {
+              const arr = window.ACCOUNTS_DATA.ACCOUNTS;
+              arr.length = 0;
+              (accts || []).forEach(a => arr.push(a));
+            })
+            .catch(() => { /* picker just stays empty if accounts fail to load */ })
+        : Promise.resolve();
+      loadAccounts
+        .then(() => window.HL_RECURRING_API.list())
         .then(data => { if (alive) setItems(data); })
         .catch(() => {});
       return () => { alive = false; };

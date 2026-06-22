@@ -204,7 +204,7 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .seg button.on-income{background:rgba(34,197,94,.16);color:var(--green)}
 .seg button.on-expense{background:rgba(239,68,68,.16);color:var(--red)}
 .amount-input-wrap{display:flex;gap:0}
-.amount-input-wrap .field-input{border-top-right-radius:0;border-bottom-right-radius:0}
+.amount-input-wrap .field-input:not(select){border-top-right-radius:0;border-bottom-right-radius:0}
 .amount-input-wrap select{width:90px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
 
 /* ── Payment Method custom dropdown ── */
@@ -215,7 +215,10 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .pm-icon{display:flex;align-items:center;flex-shrink:0}
 .pm-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--text)}
 .pm-placeholder{color:var(--muted);font-size:13px}
-.pm-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:300;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:260px;overflow-y:auto}
+/* Opens upward so the menu overlays the form fields above the trigger instead
+   of being clipped by .modal-body's overflow (which made it look hidden behind
+   the footer). Payment Method sits at the bottom of every modal that uses it. */
+.pm-dropdown{position:absolute;bottom:calc(100% + 4px);left:0;right:0;z-index:300;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:260px;overflow-y:auto}
 .pm-group-label{display:flex;align-items:center;gap:6px;padding:7px 12px 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);background:var(--bg3)}
 .pm-option{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s}
 .pm-option:hover{background:var(--bg3)}
@@ -226,7 +229,7 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .amt-num{position:relative;flex:1;display:flex;align-items:stretch}
 .amt-num .field-input{flex:1;width:100%;padding-right:34px}
 .field-currency-prefix{display:flex;align-items:center;padding:0 0 0 12px;font-size:15px;font-weight:600;color:var(--slate);background:var(--bg3);border:1px solid var(--border);border-right:none;border-radius:var(--radius) 0 0 var(--radius);user-select:none}
-.field-currency-prefix+.field-input-currency{border-radius:0;border-left:none}
+.field-currency-prefix+.field-input-currency{border-radius:0 var(--radius) var(--radius) 0;border-left:none}
 .amt-num input[type=number]{-moz-appearance:textfield}
 .amt-num input[type=number]::-webkit-outer-spin-button,
 .amt-num input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;opacity:0.6;color:var(--slate);width:22px;height:100%;padding:0 2px;background:var(--bg2);border-left:1px solid var(--border);cursor:pointer}
@@ -276,6 +279,8 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 .modal-foot{display:flex;gap:9px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg3)}
 .amb{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--border2);border-radius:var(--radius);padding:8px 15px;cursor:pointer;font-size:13px;font-weight:600;transition:var(--transition)}
 .amb svg{width:14px;height:14px}
+.amb:disabled{opacity:.4;cursor:not-allowed}
+.amb.ok:disabled:hover{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.45)}
 .amb.ok{color:var(--green);border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.10)}
 .amb.ok:hover{background:rgba(34,197,94,.20);border-color:var(--green)}
 .amb.cancel{color:var(--slate);border-color:var(--border2)}
@@ -428,6 +433,12 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   /* modal: single-column form, scrollable */
   .modal{max-height:92vh}
   .form-grid{grid-template-columns:1fr}
+  /* Add Spending modal keeps its paired rows on mobile, matching desktop */
+  .tx-modal .form-grid{grid-template-columns:1fr 1fr}
+  /* Budget modal keeps Start/End dates on one row on mobile, matching desktop */
+  .budget-modal .form-grid{grid-template-columns:1fr 1fr}
+  /* Account modal keeps its paired rows on mobile, matching desktop */
+  .acct-form-modal .form-grid{grid-template-columns:1fr 1fr}
   .modal-body{gap:14px}
 }
 

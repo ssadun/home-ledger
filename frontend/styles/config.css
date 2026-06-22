@@ -52,6 +52,7 @@
 .cfg-badge-admin{color:var(--gold)}
 .cfg-badge-user{color:var(--accent)}
 .cfg-pw-mask{color:var(--muted);letter-spacing:2px;font-size:11px}
+.cfg-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.5px;color:var(--steel)}
 .cfg-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600}
 .cfg-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:currentColor}
 .cfg-status-active{color:var(--green)}

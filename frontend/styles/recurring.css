@@ -196,7 +196,8 @@
 
   /* Modal */
   .rec-modal{max-height:92vh}
-  .rec-modal .form-grid{grid-template-columns:1fr}
+  /* Keep paired rows two-up on mobile, matching the Add Spending modal */
+  .rec-modal .form-grid{grid-template-columns:1fr 1fr}
   .rec-history-modal{max-height:80vh}
 }
 

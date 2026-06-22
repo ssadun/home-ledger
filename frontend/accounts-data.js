@@ -26,6 +26,21 @@
     troy:      { label: 'Troy', icon: 'wallet-cards' },
   };
 
+  // Financial institutions — drives the Accounts "Institution" picker.
+  // Managed via Configuration → Financial Institutions; each has a name + SWIFT/BIC code.
+  const FINANCIAL_INSTITUTIONS = {
+    garanti:     { name: 'Garanti BBVA',      swift: 'TGBATRIS' },
+    isbank:      { name: 'İş Bankası',         swift: 'ISBKTRIS' },
+    ziraat:      { name: 'Ziraat Bankası',     swift: 'TCZBTR2A' },
+    vakifbank:   { name: 'VakıfBank',          swift: 'TVBATR2A' },
+    yapikredi:   { name: 'Yapı Kredi',         swift: 'YAPITRIS' },
+    akbank:      { name: 'Akbank',             swift: 'AKBKTRIS' },
+    qnb:         { name: 'QNB Finansbank',     swift: 'FNNBTRIS' },
+    denizbank:   { name: 'DenizBank',          swift: 'DENITRIS' },
+    halkbank:    { name: 'Halkbank',           swift: 'TRHBTR2A' },
+    burgan:      { name: 'Burgan Bank',        swift: 'TEKFTRIS' },
+  };
+
   // FX rates (same as data.js)
   const FX = window.LEDGER ? window.LEDGER.FX : { TRY: { toTRY: 1 }, USD: { toTRY: 39.2 }, EUR: { toTRY: 42.6 } };
 
@@ -109,6 +124,6 @@
   // ACCOUNTS starts empty and is hydrated by the page via list(); ACCOUNT_ACTIVITY
   // kept empty (per-account mini-activity will derive from real transactions in the
   // Dashboard/Reports pass). Guarded reads across other pages get [] / {} for now.
-  window.ACCOUNTS_DATA = { ACCOUNT_TYPES, CC_TYPES, DEBIT_TYPES, ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX };
+  window.ACCOUNTS_DATA = { ACCOUNT_TYPES, CC_TYPES, DEBIT_TYPES, FINANCIAL_INSTITUTIONS, ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX };
   window.HL_ACCOUNTS_API = { list, create, update, remove, fromApi, toApi };
 })();

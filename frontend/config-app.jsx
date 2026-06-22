@@ -424,6 +424,10 @@
         const at = A.ACCOUNT_TYPES || {};
         return Object.entries(at).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon, color: v.color }));
       }
+      case 'financial-institutions': {
+        const fi = A.FINANCIAL_INSTITUTIONS || {};
+        return Object.entries(fi).map(([key, v]) => ({ id: key, key, name: v.name, swift: v.swift }));
+      }
       default: return [];
     }
   }
@@ -527,6 +531,19 @@
         { key: 'key',   label: 'Key',   type: 'text',  required: true, placeholder: 'e.g. savings', hint: 'Lowercase identifier' },
         { key: 'icon',  label: 'Icon',  type: 'icon',  placeholder: 'e.g. landmark' },
         { key: 'color', label: 'Color', type: 'color' },
+      ],
+    },
+    {
+      id: 'financial-institutions', label: 'Financial Institutions', icon: 'building-2', color: 'var(--steel)', addLabel: 'Add Institution',
+      desc: 'Banks and providers for the account picker',
+      columns: [
+        { key: 'name',  label: 'Name' },
+        { key: 'swift', label: 'SWIFT / BIC', render: v => v ? <span className="cfg-mono">{v}</span> : <span style={{ color: 'var(--muted)' }}>—</span> },
+      ],
+      fields: [
+        { key: 'name',  label: 'Name',       type: 'text', required: true, placeholder: 'e.g. Garanti BBVA' },
+        { key: 'key',   label: 'Key',        type: 'text', required: true, placeholder: 'e.g. garanti', hint: 'Lowercase identifier' },
+        { key: 'swift', label: 'SWIFT / BIC', type: 'text', placeholder: 'e.g. TGBATRIS', hint: '8 or 11-character bank code' },
       ],
     },
   ];

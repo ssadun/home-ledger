@@ -24,7 +24,10 @@
 /* List mode → single column (two classes beats the page's single-class vars) */
 .card-grid.card-grid--list{grid-template-columns:1fr}
 
-/* Mobile (≤660px): always a single column */
+/* Mobile (≤660px): always a single column. minmax(0,1fr) — not 1fr (= minmax(auto,1fr)) —
+   so the track can shrink below the cards' content min-width instead of overflowing the
+   viewport; cards then rely on their own min-width:0 / ellipsis to fit. */
 @media (max-width:660px){
-  .card-grid{grid-template-columns:1fr}
+  .card-grid,
+  .card-grid.card-grid--list{grid-template-columns:minmax(0,1fr)}
 }
