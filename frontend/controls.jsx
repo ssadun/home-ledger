@@ -484,7 +484,15 @@
             </div>
 
             <div className="form-grid">
-              <div className="form-field">
+              <div className="form-field full">
+                <span className="field-label">Payment Method</span>
+                <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
+                  groups={pmGroups} accounts={paymentAccounts} />
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <div className="form-field full">
                 <span className="field-label">Amount</span>
                 <div className="amount-input-wrap">
                   <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
@@ -493,18 +501,13 @@
                   </select>
                 </div>
               </div>
-              <div className="form-field">
-                <span className="field-label">Payment Method</span>
-                <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
-                  groups={pmGroups} accounts={paymentAccounts} />
-              </div>
             </div>
           </div>
 
           <div className="modal-foot">
             {editing && <button id="tx-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
             <button id="tx-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button id="tx-modal-save-btn" className="amb ok" onClick={submit} disabled={!valid} title={valid ? '' : 'Fill in all fields to continue'}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Spending'}</button>
+            <button id="tx-modal-save-btn" className="amb ok" onClick={submit} disabled={!valid} title={valid ? '' : 'Fill in all fields to continue'}><Icon name="save" size={14} />Save</button>
           </div>
         </div>
       </div>

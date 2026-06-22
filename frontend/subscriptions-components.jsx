@@ -502,9 +502,17 @@
                 </div>
               </div>
 
-              {/* Row 6: Amount + Payment Method */}
+              {/* Row 6: Payment Method */}
               <div className="form-grid">
-                <div className="form-field">
+                <div className="form-field full">
+                  <span className="field-label">Payment Method</span>
+                  <RecPaymentMethodSelect value={f.paymentMethod} onChange={v => set('paymentMethod', v)} />
+                </div>
+              </div>
+
+              {/* Row 7: Amount */}
+              <div className="form-grid">
+                <div className="form-field full">
                   <span className="field-label">Amount</span>
                   <div className="amount-input-wrap">
                     <input id="sub-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
@@ -512,10 +520,6 @@
                       <option>TRY</option><option>USD</option><option>EUR</option>
                     </select>
                   </div>
-                </div>
-                <div className="form-field">
-                  <span className="field-label">Payment Method</span>
-                  <RecPaymentMethodSelect value={f.paymentMethod} onChange={v => set('paymentMethod', v)} />
                 </div>
               </div>
 
@@ -537,7 +541,7 @@
           <div className="modal-foot">
             {editing && <button id="sub-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
             <button id="sub-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            {(tab === 'details' || !editing) && <button id="sub-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Subscription'}</button>}
+            {(tab === 'details' || !editing) && <button id="sub-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />Save</button>}
           </div>
         </div>
       </div>
