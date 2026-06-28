@@ -38,3 +38,6 @@ node_modules/
 # ── Runtime artifacts ──
 *.pid
 logs/
+
+# ── Generated knowledge-graph output (graphify) ──
+graphify-out/
