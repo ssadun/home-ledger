@@ -113,21 +113,6 @@
 @media (max-width:660px){
   html,body{overflow:auto;height:auto}
 
-  /* sidebar → bottom tab bar */
-  .sidebar{top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;
-           border-right:none;border-top:1px solid var(--border);z-index:200}
-  body.sidebar-expanded .sidebar{width:100%}
-  .sidebar-toggle,.sidebar-float-btn{display:none}
-  .sidebar-nav{flex-direction:row;flex:1;overflow:visible;padding:0}
-  .sidebar-section{display:contents}
-  .sidebar-section.bottom{margin-top:0;border-top:none;padding:0}
-  .sidebar-item,
-  body:not(.sidebar-expanded) .sidebar-item{flex-direction:column;gap:3px;width:auto;flex:1;
-           margin:0;padding:8px 4px;min-height:52px;justify-content:center;border-radius:0}
-  .sidebar-item-text,
-  body:not(.sidebar-expanded) .sidebar-item-text{display:block;font-size:9px;letter-spacing:.2px}
-  .sidebar-section.bottom .sidebar-item-text{display:block}
-
   .main,body.sidebar-expanded .main{margin-left:0;height:auto;min-height:100vh;padding-bottom:66px}
 
   .page-head{padding:12px}

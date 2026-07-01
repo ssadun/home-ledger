@@ -241,18 +241,21 @@
       setImportWiz({ preAccId: preAccId || null });
     }
 
-    // Apply approved import rows: adjust each related account's balance by net delta
-    // and persist the new balance to the backend.
+    // Apply approved import rows: re-hydrate the list from the backend first so any
+    // accounts created inside the wizard (create-from-statement) show up, then adjust
+    // each related account's balance by its net delta and persist the new balance.
     function handleImport(rows, byAcc) {
-      const affected = accounts.filter(a => byAcc[a.id]);
-      Promise.all(affected.map(a => {
-        const updated = { ...a, balance: +(a.balance + byAcc[a.id].delta).toFixed(2) };
-        return window.HL_ACCOUNTS_API.update(a._dbId, updated);
-      })).then(saved => {
-        const byDb = {};
-        saved.forEach(s => { byDb[s._dbId] = s; });
-        setAccounts(prev => prev.map(a => byDb[a._dbId] || a));
-        if (saved.length) flash(saved[0].id);
+      window.HL_ACCOUNTS_API.list().then(fresh => {
+        const affected = fresh.filter(a => byAcc[a.id]);
+        return Promise.all(affected.map(a => {
+          const updated = { ...a, balance: +(a.balance + byAcc[a.id].delta).toFixed(2) };
+          return window.HL_ACCOUNTS_API.update(a._dbId, updated);
+        })).then(saved => {
+          const byDb = {};
+          saved.forEach(s => { byDb[s._dbId] = s; });
+          setAccounts(fresh.map(a => byDb[a._dbId] || a));
+          if (saved.length) flash(saved[0].id);
+        });
       }).catch(err => setLoadError(err.message));
     }
 
@@ -306,7 +309,7 @@
 
         {detail && <AccountDetail account={detail} onClose={() => setDetail(null)}
           onEdit={openEdit} onDelete={openDeleteFromDetail} onImport={openImport} />}
-        {formModal && <AccountFormModal initial={formModal.account}
+        {formModal && <AccountFormModal initial={formModal.account} accounts={accounts}
           onClose={() => setFormModal(null)} onSave={handleSave} />}
         {del && <DeleteAccountConfirm account={del}
           onClose={() => setDel(null)} onConfirm={handleDelete} />}

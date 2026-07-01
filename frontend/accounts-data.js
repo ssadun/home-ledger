@@ -63,9 +63,11 @@
       ccType: row.cc_type || undefined,
       debitType: row.debit_type || undefined,
       cardName: row.card_name || undefined,
+      cardMedium: row.card_medium || undefined,
       validityMonth: row.validity_month || undefined,
       validityYear: row.validity_year || undefined,
       statementCutoff: row.statement_cutoff != null ? row.statement_cutoff : undefined,
+      paymentDue: row.payment_due || undefined,
     };
   }
 
@@ -85,9 +87,11 @@
       cc_type: item.ccType || null,
       debit_type: item.debitType || null,
       card_name: item.cardName || null,
+      card_medium: item.cardMedium || null,
       validity_month: item.validityMonth || null,
       validity_year: item.validityYear || null,
       statement_cutoff: item.statementCutoff != null ? Number(item.statementCutoff) : null,
+      payment_due: item.paymentDue || null,
     };
   }
 

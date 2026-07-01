@@ -32,6 +32,20 @@ uvicorn app.main:app --reload --port 8000
 SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db` in container).
 **No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`.
 
+9 tables, one per ORM model in `backend/app/models.py`:
+
+| Table | Model |
+|---|---|
+| `users` | User (also household members) |
+| `transactions` | Transaction |
+| `categories` | Category |
+| `accounts` | Account |
+| `investments` | Investment |
+| `budgets` | Budget |
+| `recurring_expenses` | RecurringExpense |
+| `exchange_rates` | ExchangeRate |
+| `currency_rates` | CurrencyRate |
+
 ### Environment variables
 | Variable | Default | Notes |
 |---|---|---|
@@ -77,17 +91,17 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 
 ## Data Models
 
-| Model | Key fields | Notes |
-|---|---|---|
-| `User` | email, full_name, hashed_password | Owner of all other records |
-| `Transaction` | type, amount, currency, amount_try, amount_usd, exchange_rate, date, payer, category_id, receipt_path | Core entity; `payer` tracks who paid (e.g. "Sadun" / "Handan") |
-| `Category` | name, name_tr, type (income/expense), icon, color, is_default | Shared/default categories (not user-scoped); seeded at startup |
-| `ExchangeRate` | date, usd_try, eur_try, source | Populated from TCMB; one row per calendar day |
-| `CurrencyRate` | code, to_try, to_usd, as_of, source, history (JSON), is_default | Per-currency rate config behind `/api/currencies`; seeded at startup |
-| `Investment` | name, platform, asset_type, currency, amount, purchase_price, purchase_date | Tracks stocks, funds, crypto, deposits, gold |
-| `Budget` | name, amount, currency, period (monthly/yearly), year, month, category_id | Budget limits per category or global |
-| `RecurringExpense` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
-| `Account` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name | Household accounts & cards; drives the "Payment Method" picker |
+| Model | Table | Key fields | Notes |
+|---|---|---|---|
+| `User` | `users` | email, full_name, hashed_password | Owner of all other records |
+| `Transaction` | `transactions` | type, amount, currency, amount_try, amount_usd, exchange_rate, date, payer, category_id, receipt_path | Core entity; `payer` tracks who paid (e.g. "Sadun" / "Handan") |
+| `Category` | `categories` | name, name_tr, type (income/expense), icon, color, is_default | Shared/default categories (not user-scoped); seeded at startup |
+| `ExchangeRate` | `exchange_rates` | date, usd_try, eur_try, source | Populated from TCMB; one row per calendar day |
+| `CurrencyRate` | `currency_rates` | code, to_try, to_usd, as_of, source, history (JSON), is_default | Per-currency rate config behind `/api/currencies`; seeded at startup |
+| `Investment` | `investments` | name, platform, asset_type, currency, amount, purchase_price, purchase_date | Tracks stocks, funds, crypto, deposits, gold |
+| `Budget` | `budgets` | name, amount, currency, period (monthly/yearly), year, month, category_id | Budget limits per category or global |
+| `RecurringExpense` | `recurring_expenses` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
+| `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name | Household accounts & cards; drives the "Payment Method" picker |
 
 **Members** have no dedicated model — household members are `User` rows, exposed via `/api/members` (`MemberCreate/Update/Out` schemas).
 
@@ -223,7 +237,7 @@ Import is two-step: `/preview` returns parsed rows for user review; `/confirm` w
 
 ## After any changes
 
-**Development phase: do NOT rebuild/restart `home-ledger-web`.** Frontend files are served live by nginx/the Python dev-server, so edits appear on refresh with no rebuild. Verify at `http://nas-docker:8088` (see _Local Environment & Dev Workflow_).
+**Development phase: do NOT rebuild/restart `home-ledger-web`.** Frontend files are served live by nginx/the Python dev-server, so edits appear on refresh with no rebuild. Verify at `http://nas:8088` (see _Local Environment & Dev Workflow_).
 
 Only run a rebuild when you change `nginx.conf` or the `Dockerfile`:
 ```bash

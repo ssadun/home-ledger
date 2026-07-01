@@ -278,7 +278,7 @@
 }
 
 .date-input-wrap:focus-within .date-input-icon {
-  color: var(--accent);
+  color: var(--muted);
 }
 
 input.flatpickr-input { cursor: pointer !important; }

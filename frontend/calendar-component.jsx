@@ -8,10 +8,11 @@
 
   /* ── Transaction-type legend ────────────────────────────────────────── */
   const CAL_TYPES = {
-    income:    { label: 'Income',           color: 'var(--green)',    icon: 'arrow-down-left' },
-    expense:   { label: 'Spending',         color: 'var(--coral)',    icon: 'arrow-up-right' },
-    account:   { label: 'Account Activity', color: 'var(--accent)',   icon: 'landmark' },
-    recurring: { label: 'Upcoming Due',     color: 'var(--lavender)', icon: 'repeat' },
+    income:        { label: 'Income',           color: 'var(--green)',    icon: 'arrow-down-left' },
+    expense:       { label: 'Spending',         color: 'var(--coral)',    icon: 'arrow-up-right' },
+    account:       { label: 'Account Activity', color: 'var(--accent)',   icon: 'landmark' },
+    recurring:     { label: 'Upcoming Due',     color: 'var(--lavender)', icon: 'repeat' },
+    creditPayment: { label: 'Card Payment',     color: 'var(--orange)',   icon: 'credit-card' },
   };
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -69,6 +70,21 @@
           paymentMethod: pmAcct ? pmAcct.name : null,
           paymentMethodType: pmAcct ? pmAcct.type : null,
           href: 'Subscriptions.html?highlight=' + rec.id,
+        });
+      });
+    }
+
+    // 4. Credit-card statement payment due dates
+    // Data source: credit-payments-data.js → window.CREDIT_PAYMENTS_DATA
+    if (window.CREDIT_PAYMENTS_DATA) {
+      window.CREDIT_PAYMENTS_DATA.RECORDS.forEach(rec => {
+        if (!rec.paymentDate || !rec.paymentDate.startsWith(pfx)) return;
+        add(rec.paymentDate, {
+          source: 'creditPayment', id: rec.id, desc: (rec.name || 'Card Payment') + ' — Due',
+          amount: rec.total, cur: rec.cur, rawAmt: rec.total,
+          catLabel: rec.cardLabel || 'Credit Card', catIcon: 'credit-card', catColor: 'var(--orange)',
+          paymentMethod: rec.cardLabel || null,
+          href: 'Credit Payments.html?highlight=' + rec.id,
         });
       });
     }
@@ -182,7 +198,7 @@
                 <div className="cal-events-list">
                   {selEvts.map((ev, i) => (
                     <a key={i} className="cal-event-row" href={ev.href}
-                      title={'View in ' + (ev.source === 'account' ? 'Account Activity' : ev.source === 'recurring' ? 'Subscriptions' : 'Spending')}>
+                      title={'View in ' + (ev.source === 'account' ? 'Account Activity' : ev.source === 'recurring' ? 'Subscriptions' : ev.source === 'creditPayment' ? 'Credit Payments' : 'Spending')}>
                       <span className="cal-ev-icon" style={{
                         color: CAL_TYPES[ev.source].color,
                         background: 'color-mix(in srgb, ' + CAL_TYPES[ev.source].color + ' 12%, transparent)',

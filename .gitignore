@@ -5,12 +5,10 @@ Thumbs.db
 .idea/
 .vscode/
 CLAUDE.md
-PROGRESS.md
-OCR_TODO.md
-ID_TODO.md
-MOBILE_360_REMAINING.md
 
 # ── Live data (never commit — contains real accounts/financial data) ──
+data/
+import/
 data/*.db
 data/*.db-journal
 data/*.db-wal
@@ -41,3 +39,9 @@ logs/
 
 # ── Generated knowledge-graph output (graphify) ──
 graphify-out/
+
+# ── Local planning notes (not committed) ──
+plans/
+
+# ── Design system reference (local only) ──
+DESIGN.md

@@ -35,6 +35,19 @@
     return d;
   }
 
+  // Inverse of the cutoff→payment model above: estimate the statement cutoff week
+  // (1–4) from a payment date. Payment ≈ cutoff + 10 days, so step back 10 days and
+  // bucket the resulting day-of-month into a 7-day week (clamped to 1–4).
+  function weekFromPaymentDate(iso) {
+    if (!iso) return '';
+    const p = String(iso).split('-');
+    if (p.length !== 3) return '';
+    const d = new Date(+p[0], +p[1] - 1, +p[2]);
+    if (isNaN(d.getTime())) return '';
+    d.setDate(d.getDate() - 10);
+    return Math.min(Math.max(Math.ceil(d.getDate() / 7), 1), 4);
+  }
+
   // Get next statement cutoff and payment dates for a credit card
   function getCCDates(statementCutoff) {
     if (!statementCutoff) return null;
@@ -173,13 +186,15 @@
           </div>
         </div>
         {isCredit && account.limit && <UtilBar used={account.balance} limit={account.limit} />}
-        {isCredit && account.statementCutoff && (() => {
-          const dates = getCCDates(account.statementCutoff);
-          if (!dates) return null;
+        {isCredit && (account.statementCutoff || account.paymentDue) && (() => {
+          const dates = account.statementCutoff ? getCCDates(account.statementCutoff) : null;
+          // Prefer the actual statement date (Son Ödeme Tarihi) when stored; else computed.
+          const paymentStr = account.paymentDue ? fmtDate(account.paymentDue) : (dates ? dates.paymentStr : null);
+          if (!dates && !paymentStr) return null;
           return (
             <div className="cc-dates-row">
-              <span className="cc-date-item"><Icon name="calendar" size={11} /><span className="cc-date-k">Cutoff</span><span className="cc-date-v">{dates.cutoffStr}</span></span>
-              <span className="cc-date-item"><Icon name="clock" size={11} /><span className="cc-date-k">Payment</span><span className="cc-date-v">{dates.paymentStr}</span></span>
+              {dates && <span className="cc-date-item"><Icon name="calendar" size={11} /><span className="cc-date-k">Cutoff</span><span className="cc-date-v">{dates.cutoffStr}</span></span>}
+              {paymentStr && <span className="cc-date-item"><Icon name="clock" size={11} /><span className="cc-date-k">Payment</span><span className="cc-date-v">{paymentStr}</span></span>}
             </div>
           );
         })()}
@@ -271,16 +286,22 @@
                 const dates = getCCDates(account.statementCutoff);
                 if (!dates) return null;
                 return (
-                  <React.Fragment>
-                    <div className="detail-info-item">
-                      <span className="detail-info-k">Next Cutoff Date</span>
-                      <span className="detail-info-v">{dates.cutoffStr}</span>
-                    </div>
-                    <div className="detail-info-item">
-                      <span className="detail-info-k">Last Payment Date</span>
-                      <span className="detail-info-v cc-payment-date">{dates.paymentStr}</span>
-                    </div>
-                  </React.Fragment>
+                  <div className="detail-info-item">
+                    <span className="detail-info-k">Next Cutoff Date</span>
+                    <span className="detail-info-v">{dates.cutoffStr}</span>
+                  </div>
+                );
+              })()}
+              {isCredit && (account.paymentDue || account.statementCutoff) && (() => {
+                // Prefer the actual statement date (Son Ödeme Tarihi) when stored; else computed.
+                const paymentStr = account.paymentDue ? fmtDate(account.paymentDue)
+                  : (account.statementCutoff ? (getCCDates(account.statementCutoff) || {}).paymentStr : null);
+                if (!paymentStr) return null;
+                return (
+                  <div className="detail-info-item">
+                    <span className="detail-info-k">Last Payment Date</span>
+                    <span className="detail-info-v cc-payment-date">{paymentStr}</span>
+                  </div>
                 );
               })()}
               {account.iban &&
@@ -339,7 +360,7 @@
   }
 
   // ── Add / Edit Account modal ──
-  function AccountFormModal({ initial, onClose, onSave }) {
+  function AccountFormModal({ initial, accounts = [], onClose, onSave }) {
     const editing = !!initial.id;
     const [f, setF] = React.useState({
       name: initial.name || '',
@@ -355,13 +376,19 @@
       ccType: initial.ccType || 'visa',
       debitType: initial.debitType || 'visa',
       cardName: initial.cardName || '',
+      cardMedium: initial.cardMedium || 'physical',
       validityMonth: initial.validityMonth || '',
       validityYear: initial.validityYear || '',
-      statementCutoff: initial.statementCutoff || ''
+      statementCutoff: initial.statementCutoff || (initial.paymentDue ? weekFromPaymentDate(initial.paymentDue) : ''),
+      paymentDue: initial.paymentDue || '',
+      linked: initial.linked || ''
     });
     const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
     const isCredit = f.type === 'credit';
     const isOverdraft = f.type === 'overdraft';
+    // Other credit-card accounts that a supplementary/virtual card can hang off of
+    // (excludes self when editing). Picked value is stored in `linked` (linked_key).
+    const parentCardOptions = accounts.filter((a) => a.type === 'credit' && a.id !== initial.id);
 
     function submit() {
       if (!f.name.trim() || !f.institution.trim()) return;
@@ -382,7 +409,10 @@
         cardName: (isCredit || f.type === 'debit') && f.cardName.trim() ? f.cardName.trim() : undefined,
         validityMonth: (isCredit || f.type === 'debit') && f.validityMonth ? String(f.validityMonth).padStart(2, '0') : undefined,
         validityYear: (isCredit || f.type === 'debit') && f.validityYear ? String(f.validityYear) : undefined,
-        statementCutoff: isCredit && f.statementCutoff ? Number(f.statementCutoff) : undefined
+        statementCutoff: isCredit && f.statementCutoff ? Number(f.statementCutoff) : undefined,
+        paymentDue: isCredit && f.paymentDue ? f.paymentDue : undefined,
+        linked: isCredit && f.linked ? f.linked : undefined,
+        cardMedium: isCredit ? f.cardMedium : undefined
       };
       if (isCredit || isOverdraft) result.limit = parseFloat(f.limit) || 0;else
       delete result.limit;
@@ -489,6 +519,37 @@
             </div>
             }
 
+            {isCredit &&
+            <div className="form-field full">
+                <span className="field-label">Card Medium</span>
+                <div className="seg acct-medium-seg">
+                  {[{ k: 'physical', label: 'Physical', icon: 'credit-card' }, { k: 'virtual', label: 'Virtual', icon: 'smartphone' }].map((m) =>
+                  <button key={m.k} id={'acct-form-medium-' + m.k + '-btn'} className={f.cardMedium === m.k ? 'on-acct-medium' : ''} onClick={() => set('cardMedium', m.k)}>
+                      <Icon name={m.icon} size={13} />{m.label}
+                    </button>
+                  )}
+                </div>
+              </div>
+            }
+
+            {isCredit &&
+            <div className="form-field full">
+                <span className="field-label">Parent Credit Card</span>
+                <select id="acct-form-parent-card-select" className="field-input" value={f.linked} onChange={(e) => {
+                  const id = e.target.value;
+                  const parent = parentCardOptions.find((a) => a.id === id);
+                  // A supplementary/virtual card shares its parent's billing cycle —
+                  // inherit the statement cutoff (Calculated Dates derive from it).
+                  setF((p) => ({ ...p, linked: id, statementCutoff: parent && parent.statementCutoff != null ? parent.statementCutoff : p.statementCutoff }));
+                }}>
+                  <option value="">None — main card</option>
+                  {parentCardOptions.map((a) =>
+                  <option key={a.id} value={a.id}>{a.name + ' · ' + a.number}</option>
+                  )}
+                </select>
+              </div>
+            }
+
             {(isCredit || f.type === 'debit') &&
             <div className="form-field full">
                 <span className="field-label">Name On Card</span>
@@ -516,13 +577,15 @@
             <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Statement Cutoff Week</span>
-                  <select id="acct-form-cutoff-select" className="field-input" value={f.statementCutoff} onChange={(e) => set('statementCutoff', e.target.value ? Number(e.target.value) : '')}>
+                  <select id="acct-form-cutoff-select" className="field-input" value={f.statementCutoff} disabled={!!f.linked}
+                    onChange={(e) => set('statementCutoff', e.target.value ? Number(e.target.value) : '')}>
                     <option value="">— Select Week —</option>
                     <option value="1">1st Week (Days 1–7)</option>
                     <option value="2">2nd Week (Days 8–14)</option>
                     <option value="3">3rd Week (Days 15–21)</option>
                     <option value="4">4th Week (Days 22–28)</option>
                   </select>
+                  {f.linked && <span className="field-hint"><Icon name="link" size={11} /> Inherited from parent card</span>}
                 </div>
                 <div className="form-field">
                   <span className="field-label">Calculated Dates</span>
@@ -539,21 +602,44 @@
               </div>
             }
 
+            {isCredit &&
+            <div className="form-field full">
+                <span className="field-label">Last Payment Date</span>
+                <input id="acct-form-payment-due-input" className="field-input" type="date" value={f.paymentDue}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // Derive the cutoff week from the payment date (unless inherited from a parent card).
+                    setF((p) => ({ ...p, paymentDue: v, statementCutoff: v && !p.linked ? weekFromPaymentDate(v) : p.statementCutoff }));
+                  }} />
+                <span className="field-hint"><Icon name="info" size={11} /> Auto-filled from imported statements (Son Ödeme Tarihi); sets the Statement Cutoff Week.</span>
+              </div>
+            }
+
             {f.type === 'overdraft' && (
-            <div className="form-grid">
-              <div className="form-field">
-                <span className="field-label">Current Balance</span>
-                <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+            <React.Fragment>
+              <div className="form-field full">
+                <span className="field-label">IBAN</span>
+                <input id="acct-form-iban-input" className="field-input" placeholder="e.g. TR00 0000 0000 0000 0000 0000 00" value={f.iban} onChange={(e) => set('iban', e.target.value)} />
               </div>
-              <div className="form-field">
-                <span className="field-label">Overdraft Limit</span>
-                <CurrencyInput id="acct-form-limit-input" value={f.limit} currency={f.cur} placeholder={f.cur === 'TRY' ? 'örn. 50.000,00' : 'e.g. 50,000.00'} onChange={(v) => set('limit', v)} />
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Current Balance</span>
+                  <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Overdraft Limit</span>
+                  <CurrencyInput id="acct-form-limit-input" value={f.limit} currency={f.cur} placeholder={f.cur === 'TRY' ? 'örn. 50.000,00' : 'e.g. 50,000.00'} onChange={(v) => set('limit', v)} />
+                </div>
               </div>
-            </div>
+            </React.Fragment>
             )}
 
             {f.type === 'bank' &&
             <React.Fragment>
+              <div className="form-field full">
+                <span className="field-label">IBAN</span>
+                <input id="acct-form-iban-input" className="field-input" placeholder="e.g. TR00 0000 0000 0000 0000 0000 00" value={f.iban} onChange={(e) => set('iban', e.target.value)} />
+              </div>
               <div className="form-field full">
                 <span className="field-label">Current Balance</span>
                 <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />

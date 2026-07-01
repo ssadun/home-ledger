@@ -78,6 +78,19 @@
 .imp-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
 .imp-hint svg{flex-shrink:0}
 
+/* ── Detected accounts list (per-source create/pick) ── */
+.imp-src-list{display:flex;flex-direction:column;gap:8px}
+.imp-src-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card-bg)}
+.imp-src-row.matched{border-color:color-mix(in srgb, var(--green) 35%, transparent)}
+.imp-src-row .acct-type-ico{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid;border-radius:var(--radius-sm)}
+.imp-src-meta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.imp-src-id{font-size:13px;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imp-src-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imp-src-sel{flex:0 0 200px;max-width:200px}
+.imp-src-flag{flex-shrink:0;display:inline-flex}
+.imp-src-flag.ok{color:var(--green)}
+.imp-src-flag.warn{color:var(--orange)}
+
 /* ── Review step ── */
 .imp-review{gap:12px}
 .imp-rev-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -151,6 +164,10 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
   .imp-step-label{display:none}
   .imp-step-bar{margin:0 6px}
   .imp-detect-grid{grid-template-columns:1fr}
+  /* Detected-accounts rows → wrap the picker under the identity */
+  .imp-src-row{flex-wrap:wrap}
+  .imp-src-sel{flex:1 1 100%;max-width:none;order:3}
+  .imp-src-flag{order:2}
   /* Review table → stacked cards */
   .imp-rev-thead{display:none}
   .imp-rev-table{border:none}

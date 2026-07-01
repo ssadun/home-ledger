@@ -6,7 +6,7 @@
 //
 // `active` is the id of the current page. Valid ids:
 //   Top level : dashboard | transactions | recurring | accounts | budgets | configuration
-//   Tx sub    : spending | account-activity | subscriptions
+//   Tx sub    : spending | account-activity | credit-payments | subscriptions | recurring
 //   Config sub: members | categories | currencies | cc-types | debit-types | account-types | financial-institutions | backup-export
 //
 // To change a menu item's COLOR / LABEL / ICON / ORDER, edit the arrays below — once.
@@ -58,6 +58,7 @@
   const NAV_TX_SUB = [
     { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: '#22c55e', href: 'Spending.html' },
     { id: 'account-activity', icon: 'landmark',     label: 'Account Activity', color: '#4f8ef7', href: 'Account Activity.html' },
+    { id: 'credit-payments',  icon: 'credit-card',  label: 'Credit Payments',  color: '#ef4444', href: 'Credit Payments.html' },
     { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--coral)', href: 'Subscriptions.html' },
     { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: '#d946ef',      href: 'Recurring.html' },
   ];

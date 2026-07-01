@@ -92,6 +92,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+    # Default backlog is 5; over a higher-latency link (e.g. Tailscale via
+    # nas-docker) the burst of parallel asset requests this app makes can fill
+    # it and get a SYN dropped, surfacing as ERR_CONNECTION_TIMED_OUT on a
+    # random asset. A deeper queue absorbs the burst.
+    request_queue_size = 128
 
 
 if __name__ == "__main__":

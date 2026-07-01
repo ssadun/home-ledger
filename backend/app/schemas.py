@@ -117,6 +117,7 @@ class TransactionOut(BaseModel):
     payment_method: Optional[str]
     category: Optional[CategoryOut]
     receipt_path: Optional[str]
+    credit_payment_id: Optional[int]
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -134,6 +135,7 @@ class TransactionUpdate(BaseModel):
     payment_method: Optional[str] = None
     amount_try: Optional[float] = None
     amount_usd: Optional[float] = None
+    credit_payment_id: Optional[int] = None
 
 
 # ── Budget ────────────────────────────────────────────────────────────────────
@@ -319,9 +321,11 @@ class AccountCreate(BaseModel):
     cc_type: Optional[str] = None
     debit_type: Optional[str] = None
     card_name: Optional[str] = None
+    card_medium: Optional[str] = None
     validity_month: Optional[str] = None
     validity_year: Optional[str] = None
     statement_cutoff: Optional[int] = None
+    payment_due: Optional[str] = None
 
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
@@ -338,11 +342,55 @@ class AccountUpdate(BaseModel):
     cc_type: Optional[str] = None
     debit_type: Optional[str] = None
     card_name: Optional[str] = None
+    card_medium: Optional[str] = None
     validity_month: Optional[str] = None
     validity_year: Optional[str] = None
     statement_cutoff: Optional[int] = None
+    payment_due: Optional[str] = None
 
 class AccountOut(AccountCreate):
     id: int
     account_key: Optional[str]
+    model_config = {"from_attributes": True}
+
+
+# ── Credit Payment (credit-card statement) ──────────────────────────────────────
+
+class CreditPaymentCreate(BaseModel):
+    account_id: Optional[int] = None
+    account_key: Optional[str] = None
+    period_year: int
+    period_month: int
+    cutover_date: Optional[date] = None
+    payment_date: Optional[date] = None
+    total_amount: float = 0.0
+    minimum_amount: float = 0.0
+    currency: Currency = Currency.TRY
+
+class CreditPaymentUpdate(BaseModel):
+    account_id: Optional[int] = None
+    account_key: Optional[str] = None
+    period_year: Optional[int] = None
+    period_month: Optional[int] = None
+    cutover_date: Optional[date] = None
+    payment_date: Optional[date] = None
+    total_amount: Optional[float] = None
+    minimum_amount: Optional[float] = None
+    currency: Optional[Currency] = None
+
+class CreditPaymentOut(BaseModel):
+    id: int
+    account_id: Optional[int]
+    account_key: Optional[str]
+    name: Optional[str]
+    period_year: Optional[int]
+    period_month: Optional[int]
+    cutover_date: Optional[date]
+    payment_date: Optional[date]
+    total_amount: Optional[float]
+    minimum_amount: Optional[float]
+    currency: Currency
+    statement_filename: Optional[str]
+    linked_count: int = 0
+    created_at: datetime
     model_config = {"from_attributes": True}

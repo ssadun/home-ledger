@@ -4,7 +4,7 @@
 // Static sample statements remain as an offline demo path.
 (function () {
   const Icon = window.Icon;
-  const { ACCOUNT_TYPES, FX } = window.ACCOUNTS_DATA;          // static config maps
+  const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;   // static config maps
   const { CATS } = window.LEDGER;
   const { DOCUMENTS, guessCategory, tidyDesc } = window.IMPORT_DATA;
 
@@ -43,6 +43,61 @@
   function accLabel(a) { return a.name + ' · ' + a.number; }
   function findByNumber(accounts, num) { return num ? accounts.find(a => a.number === num) : null; }
 
+  // Match a statement "source" ref (account/card number, e.g. "440 - 9059576 USD"
+  // or "4870 **** **** 1011") to an account by its last 4 digits.
+  function matchBySource(accounts, source) {
+    const d = String(source || '').replace(/\D/g, '');
+    if (d.length < 4) return null;
+    const l4 = d.slice(-4);
+    return accounts.find(a => String(a.number || '').replace(/\D/g, '').slice(-4) === l4) || null;
+  }
+
+  // Match a parsed statement identity record (from /preview `accounts`) to an
+  // existing account: IBAN exact first (bank/overdraft), then card/number last-4.
+  function matchStatementAccount(accounts, rec) {
+    if (!rec) return null;
+    const ibn = String(rec.iban || '').replace(/\s+/g, '').toUpperCase();
+    if (ibn) {
+      const m = accounts.find(a => String(a.iban || '').replace(/\s+/g, '').toUpperCase() === ibn);
+      if (m) return m;
+    }
+    return matchBySource(accounts, rec.card_number || rec.number || rec.source);
+  }
+
+  // Turkish-safe title case: lower-case the dotted/dotless I correctly, then
+  // capitalize only the first letter of each space-separated word (JS \w treats
+  // ç/ö/ş/İ as word boundaries, which would wrongly upper-case mid-word letters).
+  function titleCase(s) {
+    const lower = String(s || '').replace(/İ/g, 'i').replace(/I/g, 'ı').toLowerCase();
+    return lower.split(/\s+/).map(w => w ? w.charAt(0).toLocaleUpperCase('tr') + w.slice(1) : w).join(' ');
+  }
+
+  // Pre-fill an AccountFormModal `initial` from a parsed statement identity record,
+  // so the user only confirms/edits before the account is created.
+  function accountDraftFromRecord(rec) {
+    const isCard = rec.type === 'credit' || rec.type === 'debit';
+    const inst = (FINANCIAL_INSTITUTIONS || {})[rec.institution];
+    const instName = inst ? inst.name : '';
+    const holder = rec.holder ? titleCase(rec.holder) : '';
+    const last4 = String(rec.card_number || rec.number || '').replace(/\D/g, '').slice(-4);
+    const name = isCard
+      ? (instName || 'Card') + (last4 ? ' ••' + last4 : '')
+      : (instName || 'Bank') + (holder ? ' · ' + holder : '');
+    return {
+      type: rec.type || 'bank',
+      name,
+      owner: 'Sadun',
+      cur: rec.currency || 'TRY',
+      number: rec.number || rec.card_number || '',
+      iban: rec.iban || '',
+      institution: instName,
+      cardName: isCard ? (rec.holder ? rec.holder.trim() : '') : undefined,
+      // Statement's actual last payment date (Son Ödeme Tarihi); the form derives the
+      // Statement Cutoff Week from it when no week is otherwise set.
+      paymentDue: rec.type === 'credit' ? (rec.payment_due || undefined) : undefined,
+    };
+  }
+
   // Infer the FMT bucket from a picked file's extension.
   function formatOf(name) {
     const ext = (name.split('.').pop() || '').toLowerCase();
@@ -55,20 +110,40 @@
   // so the Detect/Review steps render identically for real and demo statements.
   function normalizePreview(file, res) {
     const dr = res.date_range || {};
+    // Row tuple: [date, description, amount(signed), currency, etiket, source]
+    // The API returns a positive `amount` plus a `type` ('income'|'expense');
+    // re-apply the sign so the wizard's signed-amount slot is correct.
+    const rows = (res.rows || []).map(r => {
+      const signed = (Number(r.amount) || 0) * (r.type === 'expense' ? -1 : 1);
+      return [r.date, r.description || '', signed, r.currency || 'TRY', r.etiket || null, r.source || null];
+    });
+    // Distinct source refs (cards/accounts) present in the file.
+    const sources = [...new Set(rows.map(r => r[5]).filter(Boolean))];
+    // Parsed account identities (type/IBAN/card/holder/branch) — one per source.
+    // Backfill a minimal record for any source the parser saw rows for but did not
+    // surface an identity for, so every distinct source is still resolvable.
+    const bySource = {};
+    (res.accounts || []).forEach(a => { if (a && a.source) bySource[a.source] = a; });
+    const statementAccounts = sources.map(s => bySource[s] || {
+      source: s, type: null, number: s, card_number: null, iban: null,
+      branch: null, holder: null, currency: (rows.find(r => r[5] === s) || [])[3] || 'TRY',
+      institution: null,
+    });
     return {
       fileName: file.name,
       format: formatOf(file.name),
       institution: res.bank_detected || 'Bank',
-      accountNumber: null,                       // not exposed by the parsers yet
+      accountNumber: sources[0] || null,         // first card/account ref (display + match)
+      sources,
+      statementAccounts,
       period: (dr.from || '?') + ' → ' + (dr.to || '?'),
-      rows: (res.rows || []).map(r => [r.date, r.description || '', Number(r.amount) || 0, r.currency || 'TRY']),
+      rows,
     };
   }
 
   // ═══════════════ STEP 1 — Choose file ═══════════════
-  function ChooseStep({ format, setFormat, selected, setSelected, pickedFile, setPickedFile, accounts }) {
+  function ChooseStep({ format, setFormat, setSelected, pickedFile, setPickedFile }) {
     const fileRef = React.useRef(null);
-    const docs = DOCUMENTS.filter(d => d.format === format);
 
     function onFile(file) {
       if (!file) return;
@@ -111,42 +186,49 @@
           <input id="imp-file-input" ref={fileRef} type="file" hidden accept=".csv,.xls,.xlsx,.pdf"
             onChange={(e) => onFile(e.target.files[0])} />
         </div>
+      </div>
+    );
+  }
 
-        <div className="imp-field">
-          <span className="field-label">Sample {FMT[format].label} Statements <i className="imp-demo-tag">demo</i></span>
-          <div className="imp-doc-list">
-            {docs.map(d => {
-              const acc = findByNumber(accounts, d.accountNumber);
-              return (
-                <button key={d.id} id={'imp-doc-' + d.id + '-btn'} className={'imp-doc-row' + (selected === d.id ? ' sel' : '')}
-                  onClick={() => { setSelected(d.id); setPickedFile(null); }}>
-                  <span className="imp-doc-ico" style={{ color: FMT[d.format].color }}><Icon name={FMT[d.format].icon} size={17} /></span>
-                  <span className="imp-doc-meta">
-                    <span className="imp-doc-name">{d.fileName}</span>
-                    <span className="imp-doc-sub">{d.institution} · {d.accountNumber} · {d.rows.length} rows · {d.size}</span>
-                  </span>
-                  {acc
-                    ? <span className="imp-doc-match"><Icon name="link" size={11} />Matches {acc.name}</span>
-                    : <span className="imp-doc-nomatch"><Icon name="link-2-off" size={11} />No match</span>}
-                  <span className="imp-doc-check">{selected === d.id && <Icon name="check-circle-2" size={17} />}</span>
-                </button>
-              );
-            })}
-          </div>
+  // One detected statement identity (bank account / card) → its resolved account,
+  // with a "Create from statement…" option that pre-fills the Add-Account modal.
+  function SourceRow({ rec, accounts, value, onPick, onCreate }) {
+    const t = ACCOUNT_TYPES[rec.type] || ACCOUNT_TYPES.bank;
+    const ident = rec.iban || rec.card_number || rec.number || rec.source;
+    const sub = [t.label, rec.holder ? titleCase(rec.holder) : null, rec.branch ? titleCase(rec.branch) : null, rec.currency]
+      .filter(Boolean).join(' · ');
+    return (
+      <div className={'imp-src-row' + (value ? ' matched' : '')}>
+        <span className="acct-type-ico" style={{ width: 32, height: 32, color: t.color,
+          background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
+          borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)' }}><Icon name={t.icon} size={15} /></span>
+        <div className="imp-src-meta">
+          <span className="imp-src-id mono">{ident}</span>
+          <span className="imp-src-sub">{sub}</span>
         </div>
+        <select className="field-input imp-src-sel" value={value || ''}
+          onChange={(e) => { e.target.value === '__create__' ? onCreate(rec) : onPick(rec.source, e.target.value); }}>
+          <option value="" disabled>Select account…</option>
+          <option value="__create__">＋ Create from statement…</option>
+          {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)}</option>)}
+        </select>
+        {value
+          ? <span className="imp-src-flag ok" title="Resolved"><Icon name="badge-check" size={15} /></span>
+          : <span className="imp-src-flag warn" title="No matching account"><Icon name="alert-triangle" size={15} /></span>}
       </div>
     );
   }
 
   // ═══════════════ STEP 2 — Detect account ═══════════════
-  function DetectStep({ doc, accId, setAccId, accounts }) {
-    const matched = findByNumber(accounts, doc.accountNumber);
+  function DetectStep({ doc, accId, setAccId, accounts, sourceMap, resolveSource, onPick, onCreate }) {
+    const detected = doc.statementAccounts || [];
     const cur = doc.rows.length ? doc.rows[0][3] : 'TRY';
     const totals = doc.rows.reduce((s, r) => { r[2] >= 0 ? s.in += r[2] : s.out += -r[2]; return s; },
       { in: 0, out: 0 });
     const dates = doc.rows.map(r => r[0]).sort();
     const acc = accounts.find(a => a.id === accId);
     const t = acc ? ACCOUNT_TYPES[acc.type] : null;
+    const unresolved = detected.filter(rec => !resolveSource(rec.source)).length;
 
     return (
       <div className="imp-pane">
@@ -167,22 +249,38 @@
           </div>
         </div>
 
-        <div className="imp-field">
-          <span className="field-label">Related Account</span>
-          {matched
-            ? <div className="imp-match-banner"><Icon name="badge-check" size={14} />Auto-matched by account number <b>{doc.accountNumber}</b> → <b>{matched.name}</b></div>
-            : <div className="imp-nomatch-banner"><Icon name="alert-triangle" size={14} />No account matched automatically. Pick the destination account below.</div>}
-          <div className="imp-acc-select">
-            {t && <span className="acct-type-ico" style={{ width: 30, height: 30, color: t.color,
-              background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
-              borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)' }}><Icon name={t.icon} size={15} /></span>}
-            <select id="imp-detect-account-select" className="field-input" value={accId || ''} onChange={(e) => setAccId(e.target.value)}>
-              <option value="" disabled>Select account…</option>
-              {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)} ({a.owner})</option>)}
-            </select>
+        {detected.length ? (
+          <div className="imp-field">
+            <span className="field-label">Detected Account{detected.length > 1 ? 's' : ''} ({detected.length})</span>
+            {unresolved
+              ? <div className="imp-nomatch-banner"><Icon name="alert-triangle" size={14} />{unresolved} of {detected.length} not matched to an account. Create each from the statement (or pick an existing one) before continuing.</div>
+              : <div className="imp-match-banner"><Icon name="badge-check" size={14} />All detected accounts are mapped — each row will be assigned to its own account.</div>}
+            <div className="imp-src-list">
+              {detected.map(rec => (
+                <SourceRow key={rec.source} rec={rec} accounts={accounts}
+                  value={resolveSource(rec.source)} onPick={onPick} onCreate={onCreate} />
+              ))}
+            </div>
+            <span className="imp-hint"><Icon name="info" size={11} />Bank accounts are keyed by IBAN, cards by card number — pick a matching account or create it pre-filled from the statement.</span>
           </div>
-          <span className="imp-hint"><Icon name="info" size={11} />This becomes the default account for every row — you can still change individual rows in the next step.</span>
-        </div>
+        ) : (
+          <div className="imp-field">
+            <span className="field-label">Related Account</span>
+            {matchBySource(accounts, doc.accountNumber)
+              ? <div className="imp-match-banner"><Icon name="badge-check" size={14} />Auto-matched by account number <b>{doc.accountNumber}</b> → <b>{matchBySource(accounts, doc.accountNumber).name}</b></div>
+              : <div className="imp-nomatch-banner"><Icon name="alert-triangle" size={14} />No account matched automatically. Pick the destination account below.</div>}
+            <div className="imp-acc-select">
+              {t && <span className="acct-type-ico" style={{ width: 30, height: 30, color: t.color,
+                background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
+                borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)' }}><Icon name={t.icon} size={15} /></span>}
+              <select id="imp-detect-account-select" className="field-input" value={accId || ''} onChange={(e) => setAccId(e.target.value)}>
+                <option value="" disabled>Select account…</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)} ({a.owner})</option>)}
+              </select>
+            </div>
+            <span className="imp-hint"><Icon name="info" size={11} />This becomes the default account for every row — you can still change individual rows in the next step.</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -278,6 +376,9 @@
     const [result, setResult] = React.useState(null);
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState(null);
+    const [sourceMap, setSourceMap] = React.useState({});     // statement source → chosen account id
+    const [createDraft, setCreateDraft] = React.useState(null); // AccountFormModal initial (pre-filled)
+    const createSrcRef = React.useRef(null);                  // source the draft is being created for
 
     // Hydrate accounts from the backend (the static placeholder is empty).
     const seed = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
@@ -290,6 +391,42 @@
 
     const ownerOf = (id) => { const a = accounts.find(x => x.id === id); return a ? a.owner : null; };
     const canContinue = !!pickedFile || !!selected;
+
+    // Resolve a statement source to an account id: an explicit pick wins, otherwise
+    // auto-match by IBAN / card number. Returns null when still unmapped.
+    function resolveSource(source) {
+      if (sourceMap[source]) return sourceMap[source];
+      const rec = (doc && doc.statementAccounts || []).find(r => r.source === source);
+      const m = rec ? matchStatementAccount(accounts, rec) : matchBySource(accounts, source);
+      return m ? m.id : null;
+    }
+
+    // Detect step is satisfied when every detected source resolves to an account
+    // (the "create the account first" gate). Falls back to the doc-level account
+    // for statements that surfaced no identities (sample/simple-parser path).
+    const detected = (doc && doc.statementAccounts) || [];
+    const allResolved = detected.length ? detected.every(rec => !!resolveSource(rec.source)) : !!accId;
+
+    const pickSource = (source, id) => setSourceMap(prev => ({ ...prev, [source]: id }));
+    const openCreate = (rec) => { createSrcRef.current = rec.source; setCreateDraft(accountDraftFromRecord(rec)); };
+
+    // Persist a brand-new account created from a statement identity, then map its
+    // source to it so the row auto-resolves.
+    async function saveNewAccount(formResult) {
+      if (!window.HL_ACCOUNTS_API) { setError('Accounts API unavailable — cannot create the account.'); return; }
+      setError(null);
+      try {
+        const created = await window.HL_ACCOUNTS_API.create(formResult);
+        setAccounts(prev => [...prev, created]);
+        const src = createSrcRef.current;
+        if (src) setSourceMap(prev => ({ ...prev, [src]: created.id }));
+      } catch (e) {
+        setError(e.message || 'Could not create the account.');
+        return;
+      }
+      createSrcRef.current = null;
+      setCreateDraft(null);
+    }
 
     async function goDetect() {
       setError(null);
@@ -304,7 +441,7 @@
           }
           const norm = normalizePreview(pickedFile, res);
           setDoc(norm);
-          const matched = findByNumber(accounts, norm.accountNumber);
+          const matched = matchBySource(accounts, norm.accountNumber);
           setAccId(preAccId || (matched ? matched.id : null));
           setStep('detect');
         } catch (e) {
@@ -321,17 +458,27 @@
     }
 
     function goReview() {
-      // Build editable rows; each row defaults to the document-level account
-      const built = doc.rows.map((r, i) => ({
-        key: 'r' + i,
-        include: true,
-        date: r[0],
-        desc: tidyDesc(r[1]),
-        cat: guessCategory(r[1], r[2] >= 0),
-        amount: r[2],
-        cur: r[3],
-        accId: accId,
-      }));
+      // Build editable rows. Category is taken from the Turkish "Etiket" tag when
+      // mappable (falling back to keyword guessing); the account is auto-mapped per
+      // card/source, falling back to the document-level account when unmatched.
+      // Credit-card statements keep the bank's original description casing as-is
+      // (no Title-casing); other sources are still tidied.
+      const creditSources = new Set(
+        (doc.statementAccounts || []).filter(a => a.type === 'credit').map(a => a.source));
+      const built = doc.rows.map((r, i) => {
+        const etiket = r[4];
+        const fromCredit = creditSources.has(r[5]);
+        return {
+          key: 'r' + i,
+          include: true,
+          date: r[0],
+          desc: fromCredit ? r[1] : tidyDesc(r[1]),
+          cat: guessCategory(r[1], r[2] >= 0, etiket),
+          amount: r[2],
+          cur: r[3],
+          accId: resolveSource(r[5]) || accId,
+        };
+      });
       setRows(built);
       setStep('review');
     }
@@ -362,6 +509,38 @@
         return;
       }
       setBusy(false);
+
+      // Credit-card statement summary → (1) store the actual Last Payment Date
+      // (Son Ödeme Tarihi) on the card, (2) add ONE budget-exempt "Credit Card
+      // Payment" record (Dönem Borcunuz, dated on that day) so it shows on the
+      // calendar as a single expense item. Non-fatal: the rows are already saved.
+      const stmts = (doc.statementAccounts || []).filter(
+        rec => rec.type === 'credit' && rec.payment_due && rec.total);
+      for (const rec of stmts) {
+        const accId = resolveSource(rec.source);
+        const acct = accounts.find(a => a.id === accId);
+        if (!acct) continue;
+        try {
+          await window.HL_ACCOUNTS_API.update(acct._dbId, { ...acct, paymentDue: rec.payment_due });
+          if (window.HL_SPENDING_API) {
+            const cur = rec.currency || 'TRY';
+            await window.HL_SPENDING_API.create({
+              date: rec.payment_due,
+              amt: rec.total,
+              cur,
+              type: 'expense',
+              cat: 'credit-card-payment',
+              desc: 'Credit Card Payment — ' + (acct.name || rec.source),
+              payingFor: '–',
+              paymentMethod: accId,
+              payer: ownerOf(accId),
+              // TRY statements are 1:1; provide the TRY value as the client fallback so
+              // calendar/summary totals are correct even when no TCMB rate row exists yet.
+              tryV: cur === 'TRY' ? rec.total : null,
+            });
+          }
+        } catch (e) { /* card already imported; surfacing this would confuse the Done screen */ }
+      }
 
       // Per-account summary for the Done screen + the host's balance sync.
       const byAcc = {};
@@ -394,7 +573,7 @@
       if (step === 'detect') return (
         <React.Fragment>
           <button id="imp-detect-back-btn" className="amb cancel" onClick={() => setStep('choose')}><Icon name="arrow-left" size={14} />Back</button>
-          <button id="imp-detect-review-btn" className="amb ok" disabled={!accId} onClick={goReview}><Icon name="arrow-right" size={14} />Review</button>
+          <button id="imp-detect-review-btn" className="amb ok" disabled={!allResolved} onClick={goReview}><Icon name="arrow-right" size={14} />Review</button>
         </React.Fragment>
       );
       if (step === 'review') return (
@@ -423,15 +602,21 @@
 
           <div className="modal-body imp-body">
             {error && <div className="imp-error-banner"><Icon name="alert-triangle" size={14} />{error}</div>}
-            {step === 'choose' && <ChooseStep format={format} setFormat={setFormat} selected={selected} setSelected={setSelected}
-              pickedFile={pickedFile} setPickedFile={setPickedFile} accounts={accounts} />}
-            {step === 'detect' && doc && <DetectStep doc={doc} accId={accId} setAccId={setAccId} accounts={accounts} />}
+            {step === 'choose' && <ChooseStep format={format} setFormat={setFormat} setSelected={setSelected}
+              pickedFile={pickedFile} setPickedFile={setPickedFile} />}
+            {step === 'detect' && doc && <DetectStep doc={doc} accId={accId} setAccId={setAccId} accounts={accounts}
+              sourceMap={sourceMap} resolveSource={resolveSource} onPick={pickSource} onCreate={openCreate} />}
             {step === 'review' && <ReviewStep rows={rows} setRows={setRows} accounts={accounts} />}
             {step === 'done' && result && <DoneStep result={result} />}
           </div>
 
           <div className="modal-foot"><Footer /></div>
         </div>
+
+        {createDraft && window.AccountFormModal &&
+          <window.AccountFormModal initial={createDraft} accounts={accounts}
+            onClose={() => { createSrcRef.current = null; setCreateDraft(null); }}
+            onSave={saveNewAccount} />}
       </div>
     );
   }

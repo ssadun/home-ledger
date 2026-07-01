@@ -27,6 +27,11 @@ DEFAULT_CATEGORIES = [
     ("education",     "Education",     "expense",  "graduation-cap",   "var(--steel)"),
     ("gifts",         "Gifts",         "expense",  "gift",             "var(--rose)"),
     ("wire-transfer", "Wire Transfer", "transfer", "send",             "var(--sky)"),
+    # Budget-exempt by design (kind=transfer, no budget targets it): one record per
+    # imported credit-card statement total, dated on the statement's last payment date.
+    ("credit-card-payment", "Credit Card Payment", "transfer", "credit-card", "var(--orange)"),
+    # Carried-over credit-card balance (previous period) — money owed.
+    ("debt",          "Debt",          "expense",  "trending-down",    "var(--red)"),
 ]
 
 
@@ -44,6 +49,18 @@ def seed_default_categories(db: Session) -> None:
             key=key, name=name, kind=kind, type=_type_from_kind(kind),
             icon=icon, color=color, is_default=True,
         ))
+    db.commit()
+
+
+def ensure_category(db: Session, key: str, name: str, kind: str, icon: str, color: str) -> None:
+    """Idempotently insert a default category so existing (non-empty) DBs gain it
+    without a full reseed. No-op when a category with the key already exists."""
+    if db.query(Category).filter(Category.key == key).first():
+        return
+    db.add(Category(
+        key=key, name=name, kind=kind, type=_type_from_kind(kind),
+        icon=icon, color=color, is_default=True,
+    ))
     db.commit()
 
 

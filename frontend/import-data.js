@@ -90,7 +90,26 @@
     [/wire|havale|eft|transfer|swift|bank transfer/i, 'wire-transfer'],
   ];
 
-  function guessCategory(desc, isIncome) {
+  // ── Garanti "Etiket" (Turkish category tag) → CATS key ──
+  // Unmapped/ambiguous tags (Emeklilik/Sigorta, Kurum Ödemesi, Kart Ödemesi,
+  // Diğer …) fall through to the keyword guesser below.
+  const ETIKET_MAP = {
+    'Maaş': 'salary',
+    'Para Transferi': 'wire-transfer',
+    'Market': 'groceries',
+    'Yeme / İçme': 'dining',
+    'Akaryakıt': 'transport',
+    'Ulaşım': 'transport',
+    'Giyim / Aksesuar': 'shopping',
+    'Eğlence / Hobi': 'entertainment',
+    'Sağlık / Bakım': 'health',
+    'Elektronik': 'shopping',
+    'Ev / Dekorasyon': 'shopping',
+    'Kişisel Hizmet': 'shopping',
+  };
+
+  function guessCategory(desc, isIncome, etiket) {
+    if (etiket && ETIKET_MAP[etiket]) return ETIKET_MAP[etiket];
     for (const [re, key] of RULES) if (re.test(desc)) return key;
     return isIncome ? 'salary' : 'shopping';
   }

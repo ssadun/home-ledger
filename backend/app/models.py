@@ -87,10 +87,14 @@ class Transaction(Base):
     receipt_path = Column(String)
     ocr_raw = Column(Text)
 
+    # Credit card statement this spending belongs to (auto-linked by card + cutover window)
+    credit_payment_id = Column(Integer, ForeignKey("credit_payments.id"), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     owner = relationship("User", back_populates="transactions")
     category = relationship("Category", back_populates="transactions")
+    credit_payment = relationship("CreditPayment", back_populates="transactions")
 
 
 class ExchangeRate(Base):
@@ -218,6 +222,41 @@ class Account(Base):
     cc_type = Column(String)                    # visa | mastercard | troy
     debit_type = Column(String)                 # electron | maestro | troy
     card_name = Column(String)                  # name printed on card
+    card_medium = Column(String, default="physical")  # physical | virtual (credit cards)
     validity_month = Column(String)
     validity_year = Column(String)
     statement_cutoff = Column(Integer)          # credit-card statement cutoff day
+    payment_due = Column(String)                # ISO date of last credit-card statement payment (Son Ödeme Tarihi)
+
+
+class CreditPayment(Base):
+    """One uploaded credit-card statement → one record per card per month.
+    Holds the statement totals and the original document as an attachment, and
+    groups the spendings that fall inside its cutover window (transactions.credit_payment_id)."""
+    __tablename__ = "credit_payments"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # The credit-card Account this statement belongs to. account_key mirrors the
+    # transactions.payment_method convention so the frontend can resolve it directly.
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    account_key = Column(String, index=True)
+
+    name = Column(String)                       # auto-generated "YYYY.MM - Card Name"
+    period_year = Column(Integer)
+    period_month = Column(Integer)
+
+    cutover_date = Column(Date)                 # statement closing date
+    payment_date = Column(Date)                 # payment due date (calendar event)
+    total_amount = Column(Float, default=0.0)   # total payment due
+    minimum_amount = Column(Float, default=0.0) # minimum payment due
+    currency = Column(SAEnum(Currency), default=Currency.TRY)
+
+    # Uploaded statement document (served via GET /{id}/statement — no static mount).
+    statement_path = Column(String)
+    statement_filename = Column(String)
+    statement_mime = Column(String)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    transactions = relationship("Transaction", back_populates="credit_payment")

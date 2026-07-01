@@ -72,6 +72,21 @@
     fillArray(window.RECURRING_DATA.RECURRING, bills.concat(subs));
   }
 
+  async function hydrateCreditPayments() {
+    if (!(window.HL_CREDIT_PAYMENTS_API && window.CREDIT_PAYMENTS_DATA)) return;
+    const recs = await window.HL_CREDIT_PAYMENTS_API.list();
+    // Attach a card label from the (already-hydrated) accounts list for calendar display.
+    const accts = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
+    const byId = {};
+    accts.forEach(a => { byId[a._dbId] = a; byId[a.id] = a; });
+    const labeled = recs.map(r => {
+      const c = byId[r.accountId] || byId[r.accountKey];
+      const label = c ? (c.name + (c.number && c.number !== '–' ? ' ' + c.number : '')) : null;
+      return Object.assign({}, r, { cardLabel: label });
+    });
+    fillArray(window.CREDIT_PAYMENTS_DATA.RECORDS, labeled);
+  }
+
   // Run every available hydrator. CATS + FX go first because recurring rows
   // derive their TRY/USD amounts from LEDGER.FX at map time. Individual failures
   // are logged but never block the others or the mount — the page still renders
@@ -86,9 +101,12 @@
       guard('accounts', hydrateAccounts),
       guard('recurring', hydrateRecurring),
     ]);
+    // After accounts so credit-payment rows can resolve their card label.
+    await guard('credit-payments', hydrateCreditPayments);
   }
 
   window.HL_HYDRATE = {
     all, hydrateCats, hydrateFx, hydrateTx, hydrateBudgets, hydrateAccounts, hydrateRecurring,
+    hydrateCreditPayments,
   };
 })();
