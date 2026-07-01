@@ -110,12 +110,15 @@
   // so the Detect/Review steps render identically for real and demo statements.
   function normalizePreview(file, res) {
     const dr = res.date_range || {};
-    // Row tuple: [date, description, amount(signed), currency, etiket, source]
+    // Row tuple: [date, description, amount(signed), currency, etiket, source, category_key]
     // The API returns a positive `amount` plus a `type` ('income'|'expense');
     // re-apply the sign so the wizard's signed-amount slot is correct.
+    // category_key carries the backend's classification (e.g. credit-card-payment
+    // for "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ") so the review step can prefer it over
+    // keyword guessing.
     const rows = (res.rows || []).map(r => {
       const signed = (Number(r.amount) || 0) * (r.type === 'expense' ? -1 : 1);
-      return [r.date, r.description || '', signed, r.currency || 'TRY', r.etiket || null, r.source || null];
+      return [r.date, r.description || '', signed, r.currency || 'TRY', r.etiket || null, r.source || null, r.category_key || null];
     });
     // Distinct source refs (cards/accounts) present in the file.
     const sources = [...new Set(rows.map(r => r[5]).filter(Boolean))];
@@ -473,7 +476,7 @@
           include: true,
           date: r[0],
           desc: fromCredit ? r[1] : tidyDesc(r[1]),
-          cat: guessCategory(r[1], r[2] >= 0, etiket),
+          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket),
           amount: r[2],
           cur: r[3],
           accId: resolveSource(r[5]) || accId,
