@@ -135,15 +135,15 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
     """Credit-card statement lines whose meaning the sign-based rule gets wrong.
     Returns (type_override, category_key_override).
 
-    - "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ" (your payment) → expense, category "Credit Card Payment"
+    - "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ" (your payment) → income, category "Credit Card Payment"
+      A payment credits the card (reduces the debt), so it is booked as income.
     - "ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR" (balance carried over) → expense, category "Debt"
-    Forcing `expense` keeps a payment from ever being booked as salary/income.
     """
     # Strip everything but letters/digits so interleaved spaces or stray
     # watermark punctuation ("TE ŞE-KKÜR") can't break the keyword match.
     f = re.sub(r"[^A-Z0-9]", "", _fold(description))
     if "TESEKKUR" in f:
-        return "expense", "credit-card-payment"
+        return "income", "credit-card-payment"
     if "DEVIR" in f:
         return "expense", "debt"
     return None, None
