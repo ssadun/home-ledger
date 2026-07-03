@@ -442,7 +442,7 @@
       }
       case 'financial-institutions': {
         const fi = A.FINANCIAL_INSTITUTIONS || {};
-        return Object.entries(fi).map(([key, v]) => ({ id: key, key, name: v.name, swift: v.swift }));
+        return Object.entries(fi).map(([key, v]) => ({ id: key, key, name: v.name, swift: v.swift, logo: v.logo || '' }));
       }
       default: return [];
     }
@@ -564,6 +564,7 @@
       id: 'financial-institutions', label: 'Financial Institutions', icon: 'building-2', color: 'var(--steel)', addLabel: 'Add Institution',
       desc: 'Banks and providers for the account picker',
       columns: [
+        { key: 'logo',  label: 'Logo', render: v => v ? <span className="cfg-logo-cell"><img src={v} alt="" /></span> : <span className="cfg-logo-cell cfg-logo-empty"><Icon name="building-2" size={14} /></span> },
         { key: 'name',  label: 'Name' },
         { key: 'swift', label: 'SWIFT / BIC', render: v => v ? <span className="cfg-mono">{v}</span> : <span style={{ color: 'var(--muted)' }}>—</span> },
       ],
@@ -571,12 +572,38 @@
         { key: 'name',  label: 'Name',       type: 'text', required: true, placeholder: 'e.g. Garanti BBVA' },
         { key: 'key',   label: 'Key',        type: 'text', required: true, placeholder: 'e.g. garanti', hint: 'Lowercase identifier' },
         { key: 'swift', label: 'SWIFT / BIC', type: 'text', placeholder: 'e.g. TGBATRIS', hint: '8 or 11-character bank code' },
+        { key: 'logo',  label: 'Logo',        type: 'image', placeholder: 'Paste image URL (https://…)', hint: 'Paste an internet image URL or upload one from your computer' },
       ],
     },
   ];
 
   // ── Sidebar ──────────────────────────────────────────────────────────────
   // Sidebar is provided by the shared single-source module (nav.jsx → window.HL_NAV).
+
+  // Read an image File, downscale it to a small logo, and return a PNG data URL.
+  // Institutions are a client-persist (localStorage) section, so logos must stay
+  // tiny — cap the longest edge at 96px to keep the serialized map well under quota.
+  function fileToLogoDataURL(file, max = 96) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('read failed'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('invalid image'));
+        img.onload = () => {
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   // ── Item Modal ───────────────────────────────────────────────────────────
   function ItemModal({ section, item, onSave, onDelete, onHistory, onClose }) {
@@ -661,6 +688,38 @@
                           placeholder={fd.placeholder || 'or type any Lucide icon name'}
                           value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
                         {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color="var(--accent)" /></span>}
+                      </div>
+                    </div>
+                  ) : fd.type === 'image' ? (
+                    <div className="cfg-image-field">
+                      <span className="cfg-image-preview">
+                        {f[fd.key]
+                          ? <img src={f[fd.key]} alt="Logo preview" />
+                          : <Icon name="image" size={20} />}
+                      </span>
+                      <div className="cfg-image-controls">
+                        <input className="field-input" id={'cfg-field-' + fd.key} type="text"
+                          placeholder={fd.placeholder || 'Paste image URL (https://…)'}
+                          value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
+                        <div className="cfg-image-btns">
+                          <label id={'cfg-field-' + fd.key + '-upload-btn'} className="list-btn blue cfg-image-upload" htmlFor={'cfg-field-' + fd.key + '-file'}>
+                            <Icon name="upload" size={12} />Upload
+                          </label>
+                          <input id={'cfg-field-' + fd.key + '-file'} type="file" accept="image/*" className="cfg-image-file"
+                            onChange={async e => {
+                              const file = e.target.files && e.target.files[0];
+                              if (file) {
+                                try { set(fd.key, await fileToLogoDataURL(file)); }
+                                catch (err) { alert('Could not read image: ' + err.message); }
+                              }
+                              e.target.value = '';
+                            }} />
+                          {f[fd.key] && (
+                            <button type="button" id={'cfg-field-' + fd.key + '-remove-btn'} className="list-btn red" onClick={() => set(fd.key, '')}>
+                              <Icon name="x" size={12} />Remove
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : fd.type === 'date' ? (

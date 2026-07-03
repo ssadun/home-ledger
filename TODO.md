@@ -43,7 +43,7 @@ loop the per-row API (no bulk endpoint → no backend rebuild).
 - [x] On accounts screen on table there is "0" after div class="acct-card-row" also same on account modal after span class="bal-display bal-positive bal-lg"
 
 ## 4. Table imporevements
-- [ ] Can we assign Institude logo from internet or from local computer?
+- [x] Can we assign Institude logo from internet or from local computer? — per-institution logo (Config → Financial Institutions gains a Logo `image` field: paste a URL or upload a local file, downscaled to a ≤96px PNG data-URI, persisted in the localStorage institutions map). Accounts match by institution name and render the logo in place of the type icon on cards + detail modal (desktop + mobile).
 - [ ] Account Activity screen is empty however imported bank account transactions should be here. Can you fix it. 
 - [ ] Also add group by Bank Accounts and make them collapsible
 - [ ] First find how many tables are using week-group-row. Then one by one make them collapsible in week-group-row. if you have any questions please ask.

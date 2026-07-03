@@ -10,6 +10,16 @@
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
   const fmtDate = (iso) => {const [y, m, d] = iso.split('-');return `${d}.${m}.${y}`;};
 
+  // Resolve an account's institution logo (set per-institution on the Config →
+  // Financial Institutions screen). Returns a URL / data-URI, or null to fall back
+  // to the generic account-type icon. Matched by institution name.
+  function instLogo(institution) {
+    if (!institution || institution === '–') return null;
+    const map = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS) || {};
+    const hit = Object.values(map).find((fi) => fi && fi.name === institution);
+    return hit && hit.logo ? hit.logo : null;
+  }
+
   // ── Statement cutoff & payment date helpers ──
   const WEEK_LABELS = { 1: '1st Week', 2: '2nd Week', 3: '3rd Week', 4: '4th Week' };
 
@@ -167,13 +177,22 @@
     return (
       <button id={'acct-card-' + account.id} className={'acct-card' + (isCredit ? ' is-credit' : '') + (flash ? ' acct-flash' : '')} onClick={() => onClick(account)}>
         <div className="acct-card-row">
-          <span className="acct-type-ico" style={{
-            color: t.color,
-            background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
-            borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)'
-          }}>
-            <Icon name={t.icon} size={16} />
-          </span>
+          {(() => {
+            const logo = instLogo(account.institution);
+            return logo ? (
+              <span className="acct-type-ico acct-inst-logo">
+                <img src={logo} alt={account.institution} />
+              </span>
+            ) : (
+              <span className="acct-type-ico" style={{
+                color: t.color,
+                background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
+                borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)'
+              }}>
+                <Icon name={t.icon} size={16} />
+              </span>
+            );
+          })()}
           <div className="acct-card-meta">
             <span className="acct-card-name">{account.name}</span>
             <span className="acct-card-inst">
@@ -234,13 +253,22 @@
           <div className="modal-head">
             <div className="modal-head-l">
               <span className="modal-title">
-                <span className="acct-type-ico" style={{
-                  color: t.color, width: 28, height: 28,
-                  background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
-                  borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)'
-                }}>
-                  <Icon name={t.icon} size={14} />
-                </span>
+                {(() => {
+                  const logo = instLogo(account.institution);
+                  return logo ? (
+                    <span className="acct-type-ico acct-inst-logo" style={{ width: 28, height: 28 }}>
+                      <img src={logo} alt={account.institution} />
+                    </span>
+                  ) : (
+                    <span className="acct-type-ico" style={{
+                      color: t.color, width: 28, height: 28,
+                      background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
+                      borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)'
+                    }}>
+                      <Icon name={t.icon} size={14} />
+                    </span>
+                  );
+                })()}
                 {account.name}
               </span>
               <span className="modal-sub">{account.institution} · {account.number} · {account.owner}</span>

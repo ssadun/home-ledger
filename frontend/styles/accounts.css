@@ -31,6 +31,9 @@
 .acct-card-row{display:flex;align-items:center;gap:13px}
 .acct-type-ico{width:34px;height:34px;border-radius:var(--radius);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
 .acct-type-ico svg{width:16px;height:16px}
+/* Per-institution logo, shown in place of the type icon when set (Config → Financial Institutions) */
+.acct-inst-logo{background:var(--bg4);border-color:var(--border2);overflow:hidden;padding:3px}
+.acct-inst-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .acct-card-meta{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
 .acct-card-name{font-size:13px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acct-card-inst{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -47,6 +47,17 @@
 
 /* ── Cell helpers ── */
 .cfg-icon-preview{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--slate)}
+/* Institution logo cell + modal image picker */
+.cfg-logo-cell{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border2);border-radius:6px;background:var(--bg4);overflow:hidden;flex-shrink:0}
+.cfg-logo-cell img{width:100%;height:100%;object-fit:contain}
+.cfg-logo-cell.cfg-logo-empty{background:var(--bg3);border-color:var(--border);color:var(--muted)}
+.cfg-image-field{display:flex;gap:12px;align-items:flex-start}
+.cfg-image-preview{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border:1px solid var(--border2);border-radius:8px;background:var(--bg4);color:var(--muted);overflow:hidden;flex-shrink:0}
+.cfg-image-preview img{width:100%;height:100%;object-fit:contain}
+.cfg-image-controls{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.cfg-image-btns{display:flex;gap:8px}
+.cfg-image-upload{cursor:pointer}
+.cfg-image-file{display:none}
 .cfg-color-dot{display:inline-block;width:14px;height:14px;border-radius:50%;flex-shrink:0}
 .cfg-badge{display:inline-flex;align-items:center;border-radius:10px;font-size:11px;font-weight:600;text-transform:capitalize}
 .cfg-badge-income{color:var(--green)}
