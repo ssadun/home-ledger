@@ -7,6 +7,7 @@
 // Reuses window.HL_EXPORT (CSV helper) + the shared dark-theme component classes.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { Sidebar } = window.HL_NAV;
   const L = window.LEDGER || {};
   const A = window.ACCOUNTS_DATA || {};
@@ -237,7 +238,7 @@
       ],
     },
     {
-      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: '#f97316',
+      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: (A.ACCOUNT_TYPES && A.ACCOUNT_TYPES.credit && A.ACCOUNT_TYPES.credit.color) || '#f97316',
       group: 'Configuration', desc: 'Card networks for credit cards', dateKey: null,
       getRows: () => typeRows(A.CC_TYPES),
       columns: [{ key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }],
@@ -464,11 +465,10 @@
                     <div className="bx-period-field">
                       <span className="field-label">Year</span>
                       <div className="select-wrap bx-year-sel">
-                        <select id="bx-period-year-select" className="sel" value={period.year} data-table="transactions" data-col="date"
+                        <StyledSelect id="bx-period-year-select" className="sel" value={period.year}
                           onChange={e => setPeriod(p => ({ ...p, year: e.target.value }))}>
                           {AVAILABLE_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                        </select>
-                        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                        </StyledSelect>
                       </div>
                     </div>
                   )}

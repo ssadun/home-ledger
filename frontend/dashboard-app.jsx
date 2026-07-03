@@ -1,6 +1,7 @@
 // dashboard-app.jsx — Home Ledger Dashboard + Reports (merged)
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { CATS, TX } = window.LEDGER;
   const { grp, MONTHS } = window.LEDGER_FMT;
   const { BUDGETS } = window.BUDGETS_DATA;
@@ -240,12 +241,11 @@
               <div className="filter-field ff-tabs">
                 <span className="filter-label"><Icon name="layout-grid" size={11} />View</span>
                 <div className="select-wrap">
-                  <select id="dash-view-select" className="sel" value={tab} onChange={(e) => setTab(e.target.value)}>
+                  <StyledSelect id="dash-view-select" className="sel" value={tab} onChange={(e) => setTab(e.target.value)}>
                     {TABS.map(tb => (
                       <option key={tb.key} value={tb.key}>{tb.label}</option>
                     ))}
-                  </select>
-                  <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                  </StyledSelect>
                 </div>
               </div>
             </div>
@@ -349,7 +349,7 @@
             )}
 
             {/* Calendar */}
-            {tab === 'calendar' && <CalendarWidget initialYear={CURRENT_YEAR} initialMonth={CURRENT_MONTH} />}
+            {tab === 'calendar' && <CalendarWidget />}
 
             {/* Annual Summary — full-year charts */}
             {tab === 'annual' && (

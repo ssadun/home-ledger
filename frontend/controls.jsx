@@ -1,6 +1,7 @@
 // controls.jsx — filter bar, summary strip, pagination, add/edit modal, delete confirm.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { CATS, PAYERS, FX } = window.LEDGER;
   const { grp, SYM, MONTHS } = window.LEDGER_FMT;
 
@@ -192,8 +193,7 @@
       <div className="filter-field">
         <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
         <div className="select-wrap">
-          <select id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
-          <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+          <StyledSelect id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</StyledSelect>
         </div>
       </div>
     );
@@ -365,10 +365,9 @@
           <span className="pager-rows">
             <span className="pager-rows-label">Rows</span>
             <div className="select-wrap">
-              <select id="pagination-rows-select" className="sel" style={{ minWidth: 62, padding: '4px 28px 4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
+              <StyledSelect id="pagination-rows-select" className="sel" style={{ minWidth: 62, padding: '4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
                 <option>10</option><option>20</option><option>30</option><option>40</option><option>50</option><option>100</option>
-              </select>
-              <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </StyledSelect>
             </div>
           </span>
         </span>
@@ -455,26 +454,26 @@
               </div>
               <div className="form-field">
                 <span className="field-label">Category</span>
-                <select id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+                <StyledSelect id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
                   {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
-                </select>
+                </StyledSelect>
               </div>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Payer</span>
-                <select id="tx-modal-payer-select" className="field-input" value={f.payer} onChange={(e) => set('payer', e.target.value)}>
+                <StyledSelect id="tx-modal-payer-select" className="field-input" value={f.payer} onChange={(e) => set('payer', e.target.value)}>
                   {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                </StyledSelect>
               </div>
               <div className="form-field">
                 <span className="field-label">Paying For</span>
-                <select id="tx-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={(e) => set('payingFor', e.target.value)}>
+                <StyledSelect id="tx-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={(e) => set('payingFor', e.target.value)}>
                   <option value="Shared">Shared</option>
                   {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                   <option value="–">Other</option>
-                </select>
+                </StyledSelect>
               </div>
             </div>
 
@@ -496,9 +495,9 @@
                 <span className="field-label">Amount</span>
                 <div className="amount-input-wrap">
                   <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
-                  <select id="tx-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
+                  <StyledSelect id="tx-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
                     <option>TRY</option><option>USD</option><option>EUR</option>
-                  </select>
+                  </StyledSelect>
                 </div>
               </div>
             </div>
@@ -515,20 +514,23 @@
   }
 
   // ── Delete confirm ──────────────────────────────────────────────────────
-  function DeleteConfirm({ tx, onClose, onConfirm }) {
+  function DeleteConfirm({ tx, count, onClose, onConfirm }) {
+    const batch = typeof count === 'number';
     return (
       <div className="backdrop">
         <div className="modal confirm-modal">
           <div className="modal-head">
             <div className="modal-head-l">
-              <span className="modal-title"><Icon name="trash-2" size={16} />Delete Transaction</span>
+              <span className="modal-title"><Icon name="trash-2" size={16} />{batch ? 'Delete Selected' : 'Delete Transaction'}</span>
             </div>
             <button id="delete-confirm-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
           <div className="confirm-body">
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
             <div className="confirm-text">
-              Delete <b>{tx.desc}</b> ({SYM[tx.cur]}{grp(tx.amt)})?
+              {batch
+                ? <>Delete <b>{count}</b> selected {count === 1 ? 'record' : 'records'}?</>
+                : <>Delete <b>{tx.desc}</b> ({SYM[tx.cur]}{grp(tx.amt)})?</>}
               <span className="warn">⚠ This cannot be undone.</span>
             </div>
           </div>

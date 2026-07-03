@@ -1,6 +1,7 @@
 // accounts-app.jsx — Home Ledger Accounts page.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { ACCOUNT_TYPES, ACCOUNTS: INITIAL_ACCOUNTS, FX } = window.ACCOUNTS_DATA;
   const { AccountCard, AccountGroupHeader, AccountDetail, AccountsSummary,
           AccountFormModal, DeleteAccountConfirm } = window;
@@ -50,26 +51,24 @@
           <div className="filter-field acct-ff-inline">
             <span className="filter-label"><Icon name="user" size={11} />Owner</span>
             <div className="select-wrap">
-              <select id="acct-filter-owner-select" className="sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
+              <StyledSelect id="acct-filter-owner-select" className="sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
                 <option value="all">All Owners</option>
                 <option value="Sadun">Sadun</option>
                 <option value="Handan">Handan</option>
                 <option value="Shared">Shared</option>
-              </select>
-              <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </StyledSelect>
             </div>
           </div>
           {/* Desktop: inline Type select */}
           <div className="filter-field acct-ff-inline">
             <span className="filter-label"><Icon name="layers" size={11} />Type</span>
             <div className="select-wrap">
-              <select id="acct-filter-type-select" className="sel" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <StyledSelect id="acct-filter-type-select" className="sel" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                 <option value="all">All Types</option>
                 {Object.keys(ACCOUNT_TYPES).map(k => (
                   <option key={k} value={k}>{ACCOUNT_TYPES[k].label}</option>
                 ))}
-              </select>
-              <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </StyledSelect>
             </div>
           </div>
 
@@ -102,25 +101,23 @@
                   <div className="filter-field" style={{width:'100%'}}>
                     <span className="filter-label" style={{display:'flex'}}><Icon name="user" size={11} />Owner</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <select id="acct-filter-owner-mobile-select" className="sel" style={{width:'100%'}} value={owner} onChange={(e) => setOwner(e.target.value)}>
+                      <StyledSelect id="acct-filter-owner-mobile-select" className="sel" style={{width:'100%'}} value={owner} onChange={(e) => setOwner(e.target.value)}>
                         <option value="all">All Owners</option>
                         <option value="Sadun">Sadun</option>
                         <option value="Handan">Handan</option>
                         <option value="Shared">Shared</option>
-                      </select>
-                      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                      </StyledSelect>
                     </div>
                   </div>
                   <div className="filter-field" style={{width:'100%'}}>
                     <span className="filter-label" style={{display:'flex'}}><Icon name="layers" size={11} />Type</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <select id="acct-filter-type-mobile-select" className="sel" style={{width:'100%'}} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                      <StyledSelect id="acct-filter-type-mobile-select" className="sel" style={{width:'100%'}} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                         <option value="all">All Types</option>
                         {Object.keys(ACCOUNT_TYPES).map(k => (
                           <option key={k} value={k}>{ACCOUNT_TYPES[k].label}</option>
                         ))}
-                      </select>
-                      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                      </StyledSelect>
                     </div>
                   </div>
                 </div>

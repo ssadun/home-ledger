@@ -1,6 +1,7 @@
 // recurring-app.jsx — Home Ledger Recurring Transactions page.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { CATS, PAYERS } = window.LEDGER;
   const { grp, SYM, fmtDate, dowOf } = window.LEDGER_FMT;
   const { Pagination, DeleteConfirm } = window;
@@ -218,8 +219,7 @@
         <div className="filter-field">
           <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
           <div className="select-wrap">
-            <select id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
-            <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+            <StyledSelect id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</StyledSelect>
           </div>
         </div>
       );
@@ -312,6 +312,13 @@
     React.useEffect(() => {
       if (!window.HL_SUBSCRIPTIONS_API) return;
       let alive = true;
+      // Category colors/icons/labels live in the DB (edited on the Configuration
+      // page). Rehydrate LEDGER.CATS in place so rows reflect the current colors
+      // instead of the static data.js seed. Runs before setItems so the first
+      // meaningful render already reads the fresh values.
+      const loadCats = (window.HL_CATEGORIES_API && window.HL_CATEGORIES_API.hydrateLedgerCats)
+        ? window.HL_CATEGORIES_API.hydrateLedgerCats().catch(() => { /* keep static fallback */ })
+        : Promise.resolve();
       const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
         ? window.HL_ACCOUNTS_API.list()
             .then(accts => {
@@ -321,7 +328,7 @@
             })
             .catch(() => { /* picker just stays empty if accounts fail to load */ })
         : Promise.resolve();
-      loadAccounts
+      Promise.all([loadCats, loadAccounts])
         .then(() => window.HL_SUBSCRIPTIONS_API.list())
         .then(data => { if (alive) setItems(data); })
         .catch(() => {});
@@ -340,6 +347,12 @@
     const [historyRec, setHistoryRec] = React.useState(null);
     const [del, setDel] = React.useState(null);
     const [flashId, setFlashId] = React.useState(null);
+    // Mass-delete: ids of checkbox-selected rows + the batch-confirm dialog toggle.
+    const [selected, setSelected] = React.useState(() => new Set());
+    const [batchDel, setBatchDel] = React.useState(false);
+    const toggleSelect = React.useCallback((id) => setSelected(s => {
+      const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+    }), []);
     const rz = useResizableColumns({ columns: COLS, storageKey: 'hl-subscriptions-colwidths' });
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
 
@@ -386,7 +399,7 @@
     const end = Math.min(start + perPage, total);
     const pageRows = sorted.slice(start, end);
 
-    React.useEffect(() => { setPage(1); }, [status, cat, search, payer, frequency, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [status, cat, search, payer, frequency, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -417,6 +430,29 @@
         alert('Could not delete subscription: ' + (err.message || err));
       }
     }
+    // Mass delete — loops the per-row API (no bulk endpoint needed); keeps rows that
+    // failed so the user sees exactly what remains, and never silently drops errors.
+    async function confirmBatchDelete() {
+      const ids = [...selected];
+      const results = await Promise.allSettled(ids.map(id => window.HL_SUBSCRIPTIONS_API.remove(id)));
+      const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));
+      setItems(rs => rs.filter(r => !okIds.has(r.id)));
+      setSelected(s => new Set([...s].filter(id => !okIds.has(id))));
+      setBatchDel(false);
+      const failed = ids.length - okIds.size;
+      if (failed) alert(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.');
+    }
+
+    // Select-all reflects only the rows on the current page.
+    const pageIds = pageRows.map(r => r.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+    const someSelected = !allSelected && pageIds.some(id => selected.has(id));
+    const toggleSelectAll = () => setSelected(s => {
+      const n = new Set(s);
+      if (allSelected) pageIds.forEach(id => n.delete(id));
+      else pageIds.forEach(id => n.add(id));
+      return n;
+    });
 
     return (
       <div className="app">
@@ -444,13 +480,28 @@
           {/* Layout: table */}
           {t.layout === 'table' && (
             <div className="table-card">
+              {selected.size > 0 && (
+                <div className="bulk-bar" id="sub-bulk-bar">
+                  <span className="bulk-count"><Icon name="check-square" size={14} />{selected.size} selected</span>
+                  <div className="bulk-actions">
+                    <button id="sub-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
+                    <button id="sub-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
+                  </div>
+                </div>
+              )}
               <div className="table-scroll">
-                <table ref={rz.tableRef} className={'ledger-table rec-table resizable' + (t.zebra ? ' zebra' : '') + (t.groupByWeek && sort.col === 'nextDue' ? ' week-cards' : '')} style={rz.colSizeVars}>
+                <table ref={rz.tableRef} className={'ledger-table rec-table resizable selectable' + (t.zebra ? ' zebra' : '') + (t.groupByWeek && sort.col === 'nextDue' ? ' week-cards' : '')} style={rz.colSizeVars}>
                   <colgroup>
+                    <col className="col-select" />
                     {rz.orderedColumns.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
                   </colgroup>
                   <thead>
                     <tr>
+                      <th className="th-select" title="Select all on this page">
+                        <input id="sub-select-all" type="checkbox" className="row-select-box" checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = someSelected; }}
+                          onChange={toggleSelectAll} aria-label="Select all rows on this page" />
+                      </th>
                       {rz.orderedColumns.map(c => (
                         <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key ? 'sorted' : '')} title="Drag To Reorder · Click To Sort" {...rz.getReorderProps(c.key)} onClick={() => toggleSort(c.key)}>
                           <span className="th-inner">
@@ -464,7 +515,7 @@
                   </thead>
                   <tbody>
                     {pageRows.length === 0 ? (
-                      <tr className="empty-row"><td colSpan={COLS.length}>
+                      <tr className="empty-row"><td colSpan={COLS.length + 1}>
                         <div className="empty-state">
                           <Icon name="repeat" size={32} />
                           <span className="et">No recurring items match</span>
@@ -475,7 +526,8 @@
                       pageRows.map(rec => (
                         <RecRow key={rec.id} rec={rec} flash={rec.id === flashId} order={orderKeys}
                           onEdit={r => setModal({ mode: 'edit', rec: r })}
-                          onHistory={r => setHistoryRec(r)} />
+                          onHistory={r => setHistoryRec(r)}
+                          selectable selected={selected.has(rec.id)} onToggleSelect={toggleSelect} />
                       ))
                     ) : (() => {
                       const groups = [];
@@ -508,6 +560,7 @@
                             <RecRow key={rec.id} rec={rec} flash={rec.id === flashId} order={orderKeys}
                               onEdit={r => setModal({ mode: 'edit', rec: r })}
                               onHistory={r => setHistoryRec(r)}
+                              selectable selected={selected.has(rec.id)} onToggleSelect={toggleSelect}
                               extraClass={(ri % 2 === 1 ? 'row-alt' : '') + (isLast ? ' week-last' : '')} />
                           );
                         });
@@ -540,6 +593,7 @@
         {modal && <RecModal initial={modal.rec} onClose={() => setModal(null)} onSave={saveRec} onDelete={rec => { setModal(null); setDel(rec); }} />}
         {historyRec && <HistoryPanel rec={historyRec} onClose={() => setHistoryRec(null)} />}
         {del && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDelete} />}
+        {batchDel && <DeleteConfirm count={selected.size} onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Layout" />

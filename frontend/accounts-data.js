@@ -66,7 +66,7 @@
       cardMedium: row.card_medium || undefined,
       validityMonth: row.validity_month || undefined,
       validityYear: row.validity_year || undefined,
-      statementCutoff: row.statement_cutoff != null ? row.statement_cutoff : undefined,
+      statementCutoff: row.statement_cutoff ? row.statement_cutoff : undefined,  // treat 0/null as "no cutoff"
       paymentDue: row.payment_due || undefined,
     };
   }
@@ -81,7 +81,7 @@
       number: item.number || null,
       institution: item.institution || null,
       is_primary: !!item.primary,
-      credit_limit: item.limit != null ? Number(item.limit) : null,
+      credit_limit: item.limit ? Number(item.limit) : null,   // empty/0 → null, never a stray 0
       iban: item.iban || null,
       linked_key: item.linked || null,
       cc_type: item.ccType || null,
@@ -90,7 +90,7 @@
       card_medium: item.cardMedium || null,
       validity_month: item.validityMonth || null,
       validity_year: item.validityYear || null,
-      statement_cutoff: item.statementCutoff != null ? Number(item.statementCutoff) : null,
+      statement_cutoff: item.statementCutoff ? Number(item.statementCutoff) : null,   // empty/0 → null
       payment_due: item.paymentDue || null,
     };
   }
@@ -125,9 +125,27 @@
     return true;
   }
 
+  // These four maps have no backend table; edits from the Configuration screens
+  // persist to localStorage (see config-app.jsx persistClientSection). Apply any
+  // saved override here so edits survive reload and propagate to every page that
+  // reads window.ACCOUNTS_DATA (Accounts, pickers, …).
+  function withOverrides(sectionId, base) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('hl-cfg-' + sectionId + '-data') || 'null');
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved;
+    } catch (e) { /* corrupt/absent override → fall back to defaults */ }
+    return base;
+  }
+
   // ACCOUNTS starts empty and is hydrated by the page via list(); ACCOUNT_ACTIVITY
   // kept empty (per-account mini-activity will derive from real transactions in the
   // Dashboard/Reports pass). Guarded reads across other pages get [] / {} for now.
-  window.ACCOUNTS_DATA = { ACCOUNT_TYPES, CC_TYPES, DEBIT_TYPES, FINANCIAL_INSTITUTIONS, ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX };
+  window.ACCOUNTS_DATA = {
+    ACCOUNT_TYPES:          withOverrides('account-types', ACCOUNT_TYPES),
+    CC_TYPES:               withOverrides('cc-types', CC_TYPES),
+    DEBIT_TYPES:            withOverrides('debit-types', DEBIT_TYPES),
+    FINANCIAL_INSTITUTIONS: withOverrides('financial-institutions', FINANCIAL_INSTITUTIONS),
+    ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX,
+  };
   window.HL_ACCOUNTS_API = { list, create, update, remove, fromApi, toApi };
 })();

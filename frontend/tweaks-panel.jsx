@@ -408,13 +408,13 @@ function TweakRadio({ label, value, options, onChange }) {
 function TweakSelect({ label, value, options, onChange }) {
   return (
     <TweakRow label={label}>
-      <select id={'twk-select-' + __twkSlug(label)} className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+      <window.StyledSelect id={'twk-select-' + __twkSlug(label)} className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => {
           const v = typeof o === 'object' ? o.value : o;
           const l = typeof o === 'object' ? o.label : o;
           return <option key={v} value={v}>{l}</option>;
         })}
-      </select>
+      </window.StyledSelect>
     </TweakRow>
   );
 }

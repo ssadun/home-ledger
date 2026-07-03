@@ -1,6 +1,7 @@
 // budgets-app.jsx — Home Ledger Budgets page.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { CATS, TX, FX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;
   const { MONTHS } = window.LEDGER_FMT;
   const { BUDGETS } = window.BUDGETS_DATA;
@@ -70,13 +71,12 @@
           <div className="filter-field ff-sort bgt-ff-inline">
             <span className="filter-label"><Icon name="arrow-up-down" size={11} />Sort By</span>
             <div className="select-wrap">
-              <select id="bgt-sort-select" className="sel" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <StyledSelect id="bgt-sort-select" className="sel" value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="usage">Utilization</option>
                 <option value="name">Name</option>
                 <option value="limit">Limit</option>
                 <option value="spent">Spent</option>
-              </select>
-              <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </StyledSelect>
             </div>
           </div>
 
@@ -98,13 +98,12 @@
                   <div className="filter-field" style={{width:'100%'}}>
                     <span className="filter-label" style={{display:'flex'}}><Icon name="arrow-up-down" size={11} />Sort By</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <select id="bgt-sort-mobile-select" className="sel" style={{width:'100%'}} value={sort} onChange={(e) => setSort(e.target.value)}>
+                      <StyledSelect id="bgt-sort-mobile-select" className="sel" style={{width:'100%'}} value={sort} onChange={(e) => setSort(e.target.value)}>
                         <option value="usage">Utilization</option>
                         <option value="name">Name</option>
                         <option value="limit">Limit</option>
                         <option value="spent">Spent</option>
-                      </select>
-                      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                      </StyledSelect>
                     </div>
                   </div>
                 </div>

@@ -116,17 +116,12 @@
 /* compact inline cells */
 .imp-cell{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;color:var(--text);font-family:var(--font-sans);font-size:12px;outline:none;transition:border-color .15s;width:100%;min-width:0}
 .imp-cell:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,142,247,.15)}
-.imp-date{font-variant-numeric:tabular-nums;color-scheme:dark}
-.imp-date::-webkit-calendar-picker-indicator{filter:invert(1) brightness(.75);opacity:.6;cursor:pointer;border-radius:3px;padding:2px;transition:opacity .15s,filter .15s}
-.imp-date::-webkit-calendar-picker-indicator:hover{opacity:1;filter:invert(1) brightness(1) sepia(1) saturate(5) hue-rotate(190deg)}
-.imp-date::-webkit-datetime-edit{color:var(--text)}
-.imp-date::-webkit-datetime-edit-text{color:var(--muted)}
-.imp-date::-webkit-datetime-edit-month-field,
-.imp-date::-webkit-datetime-edit-day-field,
-.imp-date::-webkit-datetime-edit-year-field{color:var(--text)}
-.imp-date::-webkit-datetime-edit-month-field:focus,
-.imp-date::-webkit-datetime-edit-day-field:focus,
-.imp-date::-webkit-datetime-edit-year-field:focus{background:var(--accent);color:var(--white);border-radius:2px}
+/* Date cell = the shared flatpickr DateInput (readonly text + calendar icon),
+   matching the "Add Spending" modal. The .date-input-wrap holds the grid area;
+   the inner input keeps the compact .imp-cell look with room for the icon. */
+.imp-date-wrap{min-width:0}
+.imp-date{font-variant-numeric:tabular-nums;cursor:pointer;padding-right:26px;box-sizing:border-box}
+.imp-date-wrap .date-input-icon{right:8px}
 .imp-desc{width:100%;min-width:0;box-sizing:border-box}
 .imp-cell-cat{min-width:0}
 select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23545b7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 6px center}
@@ -142,6 +137,27 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
 .imp-amt-flip:hover{color:var(--accent);background:var(--bg4)}
 .imp-rev-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:36px;color:var(--muted);font-size:12px}
 
+/* ── Investment (broker portfolio) review ── */
+.imp-inv-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.imp-inv-summary .imp-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.imp-inv-thead,.imp-inv-row{display:grid;grid-template-columns:32px 92px 1fr 118px 92px 122px 104px 30px;align-items:center;gap:8px}
+.imp-inv-thead{padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.imp-inv-thead span{font-size:var(--fs-label);font-weight:700;letter-spacing:1px;color:var(--muted)}
+.imp-inv-thead span.ar{text-align:right}
+.imp-inv-row{padding:6px 12px;border-bottom:1px solid var(--border);transition:var(--transition)}
+.imp-inv-row:last-child{border-bottom:none}
+.imp-inv-row.excluded{opacity:.4}
+.imp-inv-ticker{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imp-inv-qty,.imp-inv-cost{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;-moz-appearance:textfield}
+.imp-inv-qty::-webkit-outer-spin-button,.imp-inv-qty::-webkit-inner-spin-button,
+.imp-inv-cost::-webkit-outer-spin-button,.imp-inv-cost::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.imp-inv-cost-wrap{display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg3);overflow:hidden}
+.imp-inv-cost-wrap:focus-within{border-color:var(--accent)}
+.imp-inv-cost-wrap .imp-amt-sign{color:var(--slate)}
+.imp-inv-cost{border:none;border-radius:0;padding:6px 6px}
+.imp-inv-cost:focus{box-shadow:none}
+.imp-inv-value{text-align:right;font-size:12px;font-weight:600;color:var(--slate);font-variant-numeric:tabular-nums}
+
 /* ── Done step ── */
 .imp-done{align-items:center;text-align:center;gap:8px;padding:14px 0}
 .imp-done-ico{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--green);background:color-mix(in srgb, var(--green) 13%, transparent);border:1px solid color-mix(in srgb, var(--green) 35%, transparent);margin-bottom:4px}
@@ -155,6 +171,10 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
 .imp-done-delta{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;min-width:90px;text-align:right}
 .imp-done-delta.pos{color:var(--green)}
 .imp-done-delta.neg{color:var(--red)}
+.imp-done-cp{display:flex;align-items:center;gap:7px;width:100%;margin-top:10px;padding:10px 14px;
+  font-size:12.5px;color:var(--orange);background:rgba(249,115,22,.10);
+  border:1px solid rgba(249,115,22,.35);border-radius:var(--radius)}
+.imp-done-cp svg{flex-shrink:0}
 
 /* ============================================================================
    RESPONSIVE — two views only: computer (>660px) & mobile (500–660px)
@@ -175,9 +195,21 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
   .imp-rev-row{grid-template-columns:auto 1fr;grid-template-areas:'inc desc' 'date date' 'cat cat' 'amt amt' 'acc acc' 'del del';gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;background:var(--bg3)}
   .imp-inc{grid-area:inc}
   .imp-desc{grid-area:desc}
-  .imp-date{grid-area:date}
+  .imp-date-wrap{grid-area:date}
   .imp-cell-cat{grid-area:cat}
   .imp-amt-wrap{grid-area:amt}
   .imp-acc{grid-area:acc}
   .imp-del{grid-area:del;justify-self:end}
+  /* Investment review → stacked cards */
+  .imp-inv-summary{grid-template-columns:1fr}
+  .imp-inv-thead{display:none}
+  .imp-inv-row{grid-template-columns:auto 1fr;grid-template-areas:'inc tkr' 'name name' 'type type' 'qty cost' 'val val' 'del del';gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;background:var(--bg3)}
+  .imp-inv-row .imp-inc{grid-area:inc}
+  .imp-inv-ticker{grid-area:tkr;align-self:center}
+  .imp-inv-name{grid-area:name}
+  .imp-inv-type{grid-area:type}
+  .imp-inv-qty{grid-area:qty}
+  .imp-inv-cost-wrap{grid-area:cost}
+  .imp-inv-value{grid-area:val;text-align:left}
+  .imp-inv-row .imp-del{grid-area:del;justify-self:end}
 }

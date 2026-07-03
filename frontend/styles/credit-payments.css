@@ -39,7 +39,7 @@
 .cp-row:hover { background: var(--bg4); }
 
 .cp-name { display: inline-flex; align-items: center; gap: 7px; color: var(--white); font-weight: 600; }
-.cp-name svg { color: var(--orange); }
+.cp-name svg { color: var(--muted); }
 .cp-due { color: var(--white); font-weight: 600; }
 .cp-chip {
   display: inline-flex; align-items: center; justify-content: center;
@@ -49,6 +49,12 @@
 
 .cp-td-actions { text-align: right; white-space: nowrap; }
 .cp-td-actions .list-btn { margin-left: 6px; }
+
+/* ── Mass-delete checkbox column ─────────────────────────────────────────── */
+.cp-table th.cp-th-select,
+.cp-table td.cp-td-select { width: 40px; padding-right: 0; text-align: left; cursor: default; }
+.cp-table tbody tr.cp-row.row-selected td       { background: rgba(79, 142, 247, .10); }
+.cp-table tbody tr.cp-row.row-selected:hover td { background: rgba(79, 142, 247, .14); }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .cp-empty {
@@ -133,6 +139,11 @@
   .cp-table td.num { text-align: right; }
   .cp-td-actions { justify-content: flex-end; }
   .cp-td-actions::before { content: none; }
+  /* Checkbox sits at the top-left of the stacked card; no label prefix. */
+  .cp-td-select { justify-content: flex-start; }
+  .cp-td-select::before { content: none; }
+  .cp-table tbody tr.cp-row.row-selected { border-color: var(--accent); background: rgba(79, 142, 247, .08); }
+  .cp-table tbody tr.cp-row.row-selected td { background: none; }
   .cp-detail-grid { grid-template-columns: repeat(2, 1fr); }
 }
 

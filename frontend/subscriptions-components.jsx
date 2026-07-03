@@ -1,6 +1,7 @@
 // subscriptions-components.jsx — Presentational components for Subscriptions.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { CATS, FX, PAYERS } = window.LEDGER;
   const { grp, SYM, fmtDate, dowOf } = window.LEDGER_FMT;
   const { DateInput } = window;
@@ -127,10 +128,16 @@
       </td>
     ),
   };
-  function RecRow({ rec, flash, onEdit, onHistory, extraClass, order }) {
+  function RecRow({ rec, flash, onEdit, onHistory, extraClass, order, selectable, selected, onToggleSelect }) {
     const keys = order && order.length ? order : REC_DEFAULT_ORDER;
     return (
-      <tr className={'tx-row rec-row' + (flash ? ' row-flash' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(rec)} title="Edit recurring item">
+      <tr className={'tx-row rec-row' + (flash ? ' row-flash' : '') + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(rec)} title="Edit recurring item">
+        {selectable && (
+          <td className="td-select" data-label="" onClick={(e) => { e.stopPropagation(); onToggleSelect(rec.id); }}>
+            <input id={'row-select-' + rec.id} type="checkbox" className="row-select-box" checked={!!selected}
+              onChange={() => {}} aria-label="Select row" />
+          </td>
+        )}
         {keys.map(k => REC_CELLS[k] && REC_CELLS[k](rec))}
         {/* Mobile meta */}
         <td className="td-meta-mobile" data-label="Meta">
@@ -422,11 +429,11 @@
                 </div>
                 <div className="form-field">
                   <span className="field-label">Category</span>
-                  <select id="sub-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
+                  <StyledSelect id="sub-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
                     {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => (
                       <option key={k} value={k}>{CATS[k].label}</option>
                     ))}
-                  </select>
+                  </StyledSelect>
                 </div>
               </div>
 
@@ -434,17 +441,17 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Payer</span>
-                  <select id="sub-modal-payer-select" className="field-input" value={f.payer} onChange={e => set('payer', e.target.value)}>
+                  <StyledSelect id="sub-modal-payer-select" className="field-input" value={f.payer} onChange={e => set('payer', e.target.value)}>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  </StyledSelect>
                 </div>
                 <div className="form-field">
                   <span className="field-label">Paying For</span>
-                  <select id="sub-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={e => set('payingFor', e.target.value)}>
+                  <StyledSelect id="sub-modal-payingfor-select" className="field-input" value={f.payingFor} onChange={e => set('payingFor', e.target.value)}>
                     <option value="Shared">Shared</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                     <option value="–">Other</option>
-                  </select>
+                  </StyledSelect>
                 </div>
               </div>
 
@@ -452,20 +459,20 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Frequency</span>
-                  <select id="sub-modal-frequency-select" className="field-input" value={f.frequency} onChange={e => set('frequency', e.target.value)}>
+                  <StyledSelect id="sub-modal-frequency-select" className="field-input" value={f.frequency} onChange={e => set('frequency', e.target.value)}>
                     <option value="daily">Daily</option>
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
-                  </select>
+                  </StyledSelect>
                 </div>
                 {f.frequency === 'monthly' && (
                   <div className="form-field">
                     <span className="field-label">Payment Day</span>
-                    <select id="sub-modal-paymentday-select" className="field-input" value={f.paymentDay} onChange={e => set('paymentDay', e.target.value)}>
+                    <StyledSelect id="sub-modal-paymentday-select" className="field-input" value={f.paymentDay} onChange={e => set('paymentDay', e.target.value)}>
                       {dayOptions.map(d => (
                         <option key={d} value={d}>{d === -1 ? 'Last Day of Month' : d === 1 ? '1st Day of Month' : 'Day ' + d}</option>
                       ))}
-                    </select>
+                    </StyledSelect>
                   </div>
                 )}
               </div>
@@ -516,9 +523,9 @@
                   <span className="field-label">Amount</span>
                   <div className="amount-input-wrap">
                     <input id="sub-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
-                    <select id="sub-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
+                    <StyledSelect id="sub-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
                       <option>TRY</option><option>USD</option><option>EUR</option>
-                    </select>
+                    </StyledSelect>
                   </div>
                 </div>
               </div>

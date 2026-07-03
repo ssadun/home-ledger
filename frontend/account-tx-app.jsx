@@ -1,10 +1,11 @@
 // account-tx-app.jsx — Home Ledger Account Activity page.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { FX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;
   const { ACCOUNTS } = window.ACCOUNTS_DATA;
   const { ACCT_TX, ACCT_TX_TYPES } = window.ACCT_TX_DATA;
-  const { Pagination } = window;
+  const { Pagination, DeleteConfirm } = window;
   const ExportData = window.ExportData;
   const { grp, SYM, MONTHS, fmtDate, dowOf } = window.LEDGER_FMT;
   const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakToggle, TweakRadio } = window;
@@ -108,8 +109,7 @@
         <div className="filter-field">
           <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
           <div className="select-wrap">
-            <select id={id} className="sel" value={value} onChange={e => onChange(e.target.value)}>{children}</select>
-            <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+            <StyledSelect id={id} className="sel" value={value} onChange={e => onChange(e.target.value)}>{children}</StyledSelect>
           </div>
         </div>
       );
@@ -209,10 +209,16 @@
       );
     },
   };
-  function AtxRow({ tx, extraClass, order }) {
+  function AtxRow({ tx, extraClass, order, selectable, selected, onToggleSelect }) {
     const keys = order && order.length ? order : ATX_DEFAULT_ORDER;
     return (
-      <tr className={'tx-row' + (extraClass ? ' ' + extraClass : '')}>
+      <tr className={'tx-row' + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')}>
+        {selectable && (
+          <td className="td-select" data-label="" onClick={(e) => { e.stopPropagation(); onToggleSelect(tx.id); }}>
+            <input id={'row-select-' + tx.id} type="checkbox" className="row-select-box" checked={!!selected}
+              onChange={() => {}} aria-label="Select row" />
+          </td>
+        )}
         {keys.map(k => ATX_CELLS[k] && ATX_CELLS[k](tx))}
         {/* Mobile meta row */}
         <td className="td-meta-mobile" data-label="Meta">
@@ -252,7 +258,9 @@
   // ══════════════════════════════════════════════════════════════════════════
   function App() {
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-    const [rows] = React.useState(ACCT_TX);
+    // NOTE: Account Activity has no backend — rows are client-side seed data. Mass-delete
+    // here mutates local state only; removals do not persist across a reload.
+    const [rows, setRows] = React.useState(ACCT_TX);
     const [month, setMonth] = React.useState(CURRENT_MONTH);
     const [year, setYear] = React.useState(CURRENT_YEAR);
     const [account, setAccount] = React.useState('all');
@@ -263,6 +271,12 @@
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(() => { const v = +localStorage.getItem('hl-rows-per-page'); return [10, 20, 30, 40, 50, 100].includes(v) ? v : 10; });
     React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
+    // Mass-delete: ids of checkbox-selected rows + the batch-confirm dialog toggle.
+    const [selected, setSelected] = React.useState(() => new Set());
+    const [batchDel, setBatchDel] = React.useState(false);
+    const toggleSelect = React.useCallback((id) => setSelected(s => {
+      const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+    }), []);
 
     React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
 
@@ -305,7 +319,7 @@
     const end = Math.min(start + perPage, total);
     const pageRows = sorted.slice(start, end);
 
-    React.useEffect(() => { setPage(1); }, [month, year, account, txType, direction, search, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [month, year, account, txType, direction, search, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -316,6 +330,26 @@
     const rz = useResizableColumns({ columns: COLS, storageKey: 'hl-acct-tx-colwidths' });
     // Stable list of keys in the user's column order — drives <colgroup>, <thead>, and row cells.
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
+
+    // Mass delete — local-only (no backend for account activity); drops selected rows
+    // from client state. Removals do not persist across a reload.
+    function confirmBatchDelete() {
+      const ids = selected;
+      setRows(rs => rs.filter(r => !ids.has(r.id)));
+      setSelected(new Set());
+      setBatchDel(false);
+    }
+
+    // Select-all reflects only the rows on the current page.
+    const pageIds = pageRows.map(r => r.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+    const someSelected = !allSelected && pageIds.some(id => selected.has(id));
+    const toggleSelectAll = () => setSelected(s => {
+      const n = new Set(s);
+      if (allSelected) pageIds.forEach(id => n.delete(id));
+      else pageIds.forEach(id => n.add(id));
+      return n;
+    });
 
     return (
       <div className="app">
@@ -348,14 +382,29 @@
 
 
           <div className="table-card">
+            {selected.size > 0 && (
+              <div className="bulk-bar" id="atx-bulk-bar">
+                <span className="bulk-count"><Icon name="check-square" size={14} />{selected.size} selected</span>
+                <div className="bulk-actions">
+                  <button id="atx-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
+                  <button id="atx-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
+                </div>
+              </div>
+            )}
             <div className="table-scroll">
-              <table ref={rz.tableRef} className={'ledger-table resizable' + (t.zebra ? ' zebra' : '') + (t.colorAmounts ? '' : ' mono-amt') + ' dens-' + t.density + (t.groupByWeek && sort.col === 'date' ? ' week-cards' : '')}
+              <table ref={rz.tableRef} className={'ledger-table resizable selectable' + (t.zebra ? ' zebra' : '') + (t.colorAmounts ? '' : ' mono-amt') + ' dens-' + t.density + (t.groupByWeek && sort.col === 'date' ? ' week-cards' : '')}
                   style={rz.colSizeVars}>
                 <colgroup>
+                  <col className="col-select" />
                   {rz.orderedColumns.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
                 </colgroup>
                 <thead>
                   <tr>
+                    <th className="th-select" title="Select all on this page">
+                      <input id="atx-select-all" type="checkbox" className="row-select-box" checked={allSelected}
+                        ref={el => { if (el) el.indeterminate = someSelected; }}
+                        onChange={toggleSelectAll} aria-label="Select all rows on this page" />
+                    </th>
                     {rz.orderedColumns.map(c => (
                       <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key ? 'sorted' : '')}
                         title="Drag To Reorder · Click To Sort"
@@ -372,7 +421,7 @@
                 </thead>
                 <tbody>
                   {pageRows.length === 0 ? (
-                    <tr className="empty-row"><td colSpan={COLS.length}>
+                    <tr className="empty-row"><td colSpan={COLS.length + 1}>
                       <div className="empty-state">
                         <Icon name="landmark" size={32} />
                         <span className="et">No account activity matches</span>
@@ -380,7 +429,8 @@
                       </div>
                     </td></tr>
                   ) : !t.groupByWeek || sort.col !== 'date' ? (
-                    pageRows.map(tx => <AtxRow key={tx.id} tx={tx} order={orderKeys} />)
+                    pageRows.map(tx => <AtxRow key={tx.id} tx={tx} order={orderKeys}
+                      selectable selected={selected.has(tx.id)} onToggleSelect={toggleSelect} />)
                   ) : (() => {
                     const groups = [];
                     let cur = null;
@@ -404,6 +454,7 @@
                         const isLast = ri === g.rows.length - 1;
                         out.push(
                           <AtxRow key={tx.id} tx={tx} order={orderKeys}
+                            selectable selected={selected.has(tx.id)} onToggleSelect={toggleSelect}
                             extraClass={(ri % 2 === 1 ? 'row-alt' : '') + (isLast ? ' week-last' : '')} />
                         );
                       });
@@ -417,6 +468,8 @@
               perPage={perPage} setPage={setPage} setPerPage={setPerPage} />
           </div>
         </div>
+
+        {batchDel && <DeleteConfirm count={selected.size} onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />

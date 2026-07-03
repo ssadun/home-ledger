@@ -110,24 +110,11 @@
     const accts = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
     return accts.find(a => a.id === value) || null;
   }
-  function PaymentMethodCell({ value, payer }) {
-    const TYPES = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES) || {};
+  function PaymentMethodCell({ value }) {
     const acct = !PM_MAP[value] ? accountById(value) : null;
-    let pm, num;
-    if (acct) {
-      const t = TYPES[acct.type] || {};
-      pm = { label: acct.name, icon: t.icon || 'circle', color: t.color || 'var(--slate)' };
-      num = acct.number && acct.number !== '–' ? acct.number : null;
-    } else {
-      pm = PM_MAP[value] || { label: value || '–', icon: 'circle', color: 'var(--slate)' };
-      num = cardNumberFor(value, payer);
-    }
-    return (
-      <span className="pm-plain">
-        <Icon name={pm.icon} size={13} style={{ color: pm.color }} />{pm.label}
-        {num && <span className="pm-num">{num}</span>}
-      </span>
-    );
+    // Show only the account name (fixed label for legacy keys) — no icon or card number.
+    const label = acct ? acct.name : ((PM_MAP[value] || {}).label || value || '–');
+    return <span className="pm-plain">{label}</span>;
   }
 
   // ── Transaction row ────────────────────────────────────────────────────
@@ -154,13 +141,19 @@
   };
   const TX_DEFAULT_ORDER = ['date', 'desc', 'cat', 'payingFor', 'paymentMethod', 'amt'];
 
-  function TxRow({ tx, flash, onEdit, extraClass, order }) {
+  function TxRow({ tx, flash, onEdit, extraClass, order, selectable, selected, onToggleSelect }) {
     const c = CATS[tx.cat] || CATS.shopping;
     const recMap = window.RECURRING_DATA && window.RECURRING_DATA.TX_REC_MAP;
     const rec = recMap && recMap[tx.id];
     const keys = order && order.length ? order : TX_DEFAULT_ORDER;
     return (
-      <tr className={'tx-row' + (flash ? ' row-flash' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(tx)} title="Edit transaction">
+      <tr className={'tx-row' + (flash ? ' row-flash' : '') + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(tx)} title="Edit transaction">
+        {selectable && (
+          <td className="td-select" data-label="" onClick={(e) => { e.stopPropagation(); onToggleSelect(tx.id); }}>
+            <input id={'row-select-' + tx.id} type="checkbox" className="row-select-box" checked={!!selected}
+              onChange={() => {}} aria-label="Select row" />
+          </td>
+        )}
         {keys.map(k => TX_CELLS[k] && TX_CELLS[k](tx, rec))}
         <td className="td-meta-mobile" data-label="Meta">
           <span className="meta-date">{fmtDate(tx.date)} {dowOf(tx.date)}</span>

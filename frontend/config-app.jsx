@@ -1,6 +1,12 @@
 // config-app.jsx — Home Ledger Configuration Screen
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
+
+  // "Credit Card Types" section icon follows the user's Account Types → Credit
+  // Card colour, not a hardcoded orange. Falls back to orange when unset.
+  const CREDIT_COLOR = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES
+    && window.ACCOUNTS_DATA.ACCOUNT_TYPES.credit && window.ACCOUNTS_DATA.ACCOUNT_TYPES.credit.color) || 'var(--orange)';
 
   // ── DateInput — flatpickr wrapper, dark theme, .date-input-wrap shell ────
   // Project rule: every date field renders through this (never a raw
@@ -147,6 +153,17 @@
     { var: 'var(--gold)',     hex: '#fbbf24', label: 'Gold' },
   ];
 
+  // ── Icon palette (Lucide names) for the category icon picker ─────────────
+  const ICON_OPTIONS = [
+    'utensils', 'coffee', 'wine', 'pizza', 'shopping-cart', 'shopping-bag', 'gift', 'shirt',
+    'car', 'fuel', 'bus', 'plane', 'train-front', 'map-pin', 'ticket', 'luggage',
+    'home', 'building-2', 'bed', 'lightbulb', 'plug', 'wifi', 'flame', 'droplet',
+    'phone', 'smartphone', 'laptop', 'monitor', 'tv', 'gamepad-2', 'music', 'clapperboard',
+    'book', 'graduation-cap', 'briefcase', 'dumbbell', 'heart-pulse', 'stethoscope', 'pill', 'baby',
+    'dog', 'leaf', 'wrench', 'hammer', 'paintbrush', 'scissors', 'tag', 'receipt',
+    'credit-card', 'wallet', 'banknote', 'piggy-bank', 'landmark', 'coins', 'trending-up', 'percent',
+  ];
+
   // ── Sample currency rate history ────────────────────────────────────────
   const CURRENCY_SAMPLE_HISTORY = {
     USD: [
@@ -229,11 +246,10 @@
                 </div>
                 <div className="form-field">
                   <span className="field-label">Source</span>
-                  <select id="currency-history-source-select" className="field-input" value={source} onChange={e => setSource(e.target.value)}
-                    data-table="currency_rates" data-col="source">
+                  <StyledSelect id="currency-history-source-select" className="field-input" value={source} onChange={e => setSource(e.target.value)}>
                     <option value="TCMB">TCMB</option>
                     <option value="Market">Market</option>
-                  </select>
+                  </StyledSelect>
                 </div>
                 <div className="form-field">
                   <span className="field-label">Note</span>
@@ -432,6 +448,17 @@
     }
   }
 
+  // Sections with no backend table: their edits persist to localStorage so they
+  // survive reload (accounts-data.js reads these overrides on load). Serialize the
+  // row list back to the { key: {…rest} } map shape those maps use.
+  const CLIENT_PERSIST_SECTIONS = ['account-types', 'cc-types', 'debit-types', 'financial-institutions'];
+  function persistClientSection(sectionId, rows) {
+    if (!CLIENT_PERSIST_SECTIONS.includes(sectionId)) return;
+    const map = {};
+    rows.forEach(({ id, key, ...rest }) => { if (key) map[key] = rest; });
+    try { localStorage.setItem('hl-cfg-' + sectionId + '-data', JSON.stringify(map)); } catch (e) { /* quota/unavailable */ }
+  }
+
   // ── Sections definition ──────────────────────────────────────────────────
   const SECTIONS = [
     {
@@ -456,7 +483,7 @@
       id: 'categories', label: 'Transaction Categories', icon: 'tag', color: 'var(--lavender)', addLabel: 'Add Category',
       desc: 'Classify income and expenses',
       columns: [
-        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'icon',  label: 'Icon',  render: (v, row) => <span className="cfg-icon-preview"><Icon name={v} size={14} color={row.color} /></span> },
         { key: 'label', label: 'Label' },
         { key: 'kind',  label: 'Kind',  render: v => <span className={'cfg-badge cfg-badge-' + v}>{v}</span> },
         { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
@@ -493,7 +520,7 @@
       ],
     },
     {
-      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: 'var(--orange)', addLabel: 'Add Credit Card Type',
+      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: CREDIT_COLOR, addLabel: 'Add Credit Card Type',
       desc: 'Card networks for credit cards',
       columns: [
         { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
@@ -522,7 +549,7 @@
       id: 'account-types', label: 'Account Types', icon: 'landmark', color: 'var(--accent)', addLabel: 'Add Account Type',
       desc: 'Financial account types',
       columns: [
-        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'icon',  label: 'Icon',  render: (v, row) => <span className="cfg-icon-preview"><Icon name={v} size={14} color={row.color} /></span> },
         { key: 'label', label: 'Label' },
         { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
       ],
@@ -601,12 +628,11 @@
                   <span className="field-label">{fd.label}{(fd.required || (fd.requiredOnCreate && !editing)) ? ' *' : ''}</span>
                   {(editing && fd.editHint ? fd.editHint : fd.hint) && <span className="field-hint">{editing && fd.editHint ? fd.editHint : fd.hint}</span>}
                   {fd.type === 'select' ? (
-                    <select className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
-                      data-table={section.id} data-col={fd.key}
+                    <StyledSelect className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
                       onChange={e => set(fd.key, e.target.value)}>
                       <option value="">— Select —</option>
                       {fd.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    </StyledSelect>
                   ) : fd.type === 'color' ? (
                     <div className="cfg-color-grid">
                       {COLOR_OPTIONS.map(c => (
@@ -618,11 +644,24 @@
                       ))}
                     </div>
                   ) : fd.type === 'icon' ? (
-                    <div className="cfg-icon-field">
-                      <input className="field-input" id={'cfg-field-' + fd.key} type="text"
-                        placeholder={fd.placeholder || 'Lucide icon name'}
-                        value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
-                      {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color="var(--accent)" /></span>}
+                    <div className="cfg-icon-picker">
+                      <div className="cfg-icon-grid">
+                        {ICON_OPTIONS.map(name => (
+                          <button key={name} type="button"
+                            id={'cfg-field-' + fd.key + '-icon-' + name}
+                            className={'cfg-icon-swatch' + (f[fd.key] === name ? ' selected' : '')}
+                            title={name}
+                            onClick={() => set(fd.key, name)}>
+                            <Icon name={name} size={18} />
+                          </button>
+                        ))}
+                      </div>
+                      <div className="cfg-icon-field">
+                        <input className="field-input" id={'cfg-field-' + fd.key} type="text"
+                          placeholder={fd.placeholder || 'or type any Lucide icon name'}
+                          value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
+                        {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color="var(--accent)" /></span>}
+                      </div>
                     </div>
                   ) : fd.type === 'date' ? (
                     <DateInput
@@ -690,9 +729,6 @@
     }));
     const clearAll = () => facetCols.forEach(fc => setFacet(fc.key, 'all'));
     const hasColTools = onResetCols || onResetOrder;
-    const chev = (
-      <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-    );
 
     return (
       <div className="filter-wrap cfg-filter-wrap">
@@ -727,13 +763,11 @@
                     <div className="filter-field" key={fc.key}>
                       <span className="filter-label">{fc.label}</span>
                       <div className="select-wrap">
-                        <select className="sel" id={'cfg-filter-' + fc.key + '-select'} value={facets[fc.key] || 'all'}
-                          data-table={table} data-col={fc.key}
+                        <StyledSelect className="sel" id={'cfg-filter-' + fc.key + '-select'} value={facets[fc.key] || 'all'}
                           onChange={(e) => setFacet(fc.key, e.target.value)}>
                           <option value="all">All</option>
                           {fc.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
-                        {chev}
+                        </StyledSelect>
                       </div>
                     </div>
                   ))}
@@ -765,7 +799,7 @@
   }
 
   // ── Detail section table — sortable, resizable, drag-reorderable; rows open the editor ──
-  function CfgSectionTable({ section, items, onEdit, onAdd, onTcmb }) {
+  function CfgSectionTable({ section, items, onEdit, onAdd, onTcmb, onBatchDelete }) {
     const { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton, ExportData } = window;
     // Map the section's columns to the resizable hook's descriptor shape.
     const cols = React.useMemo(() => section.columns.map(c => ({
@@ -827,6 +861,28 @@
       return arr;
     }, [filteredItems, sort]);
 
+    // ── Mass-delete: checkbox selection over the visible (filtered) rows ──
+    const [selected, setSelected] = React.useState(() => new Set());
+    const [batchDel, setBatchDel] = React.useState(false);
+    const toggleSelect = (id) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    // Clear the selection when the visible set changes via search/facets.
+    React.useEffect(() => { setSelected(new Set()); }, [search, facets]);
+    const selectedItems = React.useMemo(() => items.filter(it => selected.has(it.id)), [items, selected]);
+    const visibleIds = sortedItems.map(it => it.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
+    const someSelected = !allSelected && visibleIds.some(id => selected.has(id));
+    const toggleSelectAll = () => setSelected(s => {
+      const n = new Set(s);
+      if (allSelected) visibleIds.forEach(id => n.delete(id));
+      else visibleIds.forEach(id => n.add(id));
+      return n;
+    });
+    async function runBatchDelete() {
+      await onBatchDelete(selectedItems);
+      setSelected(new Set());
+      setBatchDel(false);
+    }
+
     // On first mount the sidebar may not have applied its width offset yet, so the
     // hook's initial auto-fit can measure a too-wide container. If the user has no
     // saved widths for this section, re-fit once after layout settles.
@@ -877,13 +933,28 @@
         </header>
 
         <div className="table-card">
+          {selectedItems.length > 0 && (
+            <div className="bulk-bar" id="cfg-bulk-bar">
+              <span className="bulk-count"><Icon name="check-square" size={14} />{selectedItems.length} selected</span>
+              <div className="bulk-actions">
+                <button id="cfg-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
+                <button id="cfg-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
+              </div>
+            </div>
+          )}
           <div className="table-scroll">
-            <table ref={rz.tableRef} className="ledger-table cfg-table resizable zebra" style={rz.colSizeVars}>
+            <table ref={rz.tableRef} className="ledger-table cfg-table resizable zebra selectable" style={rz.colSizeVars}>
               <colgroup>
+                <col className="col-select" />
                 {rz.orderedColumns.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
               </colgroup>
               <thead>
                 <tr>
+                  <th className="th-select" title="Select all">
+                    <input id="cfg-select-all" type="checkbox" className="row-select-box" checked={allSelected}
+                      ref={el => { if (el) el.indeterminate = someSelected; }}
+                      onChange={toggleSelectAll} aria-label="Select all rows" />
+                  </th>
                   {rz.orderedColumns.map(c => (
                     <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key ? 'sorted' : '')}
                       title="Drag To Reorder · Click To Sort"
@@ -901,7 +972,7 @@
               <tbody>
                 {sortedItems.length === 0 ? (
                   <tr className="empty-row">
-                    <td colSpan={rz.orderedColumns.length}>
+                    <td colSpan={rz.orderedColumns.length + 1}>
                       <div className="cfg-empty">
                         <Icon name="inbox" size={32} color="var(--muted)" />
                         <span>No items yet — click Add to create one.</span>
@@ -909,11 +980,15 @@
                     </td>
                   </tr>
                 ) : sortedItems.map(item => (
-                  <tr key={item.id} className="cfg-row" onClick={() => onEdit(item)}
+                  <tr key={item.id} className={'cfg-row' + (selected.has(item.id) ? ' row-selected' : '')} onClick={() => onEdit(item)}
                     title={'Edit ' + (item.label || item.name || item.code || 'item')}>
+                    <td className="td-select" onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }}>
+                      <input id={'cfg-row-select-' + item.id} type="checkbox" className="row-select-box" checked={selected.has(item.id)}
+                        onChange={() => {}} aria-label="Select row" />
+                    </td>
                     {rz.orderedColumns.map(c => (
                       <td key={c.key} data-label={c.label} className={c.num ? 'num' : ''}>
-                        {c.render ? c.render(item[c.key]) : (item[c.key] ?? '—')}
+                        {c.render ? c.render(item[c.key], item) : (item[c.key] ?? '—')}
                       </td>
                     ))}
                   </tr>
@@ -922,6 +997,24 @@
             </table>
           </div>
         </div>
+
+        {batchDel && (
+          <div className="backdrop" onMouseDown={e => { if (e.target.classList.contains('backdrop')) setBatchDel(false); }}>
+            <div className="modal cfg-confirm">
+              <div className="modal-head">
+                <span className="modal-title"><Icon name="alert-triangle" size={15} color="var(--red)" />Delete Selected</span>
+                <button id="cfg-batch-del-close-btn" className="m-close" onClick={() => setBatchDel(false)}><Icon name="x" size={16} /></button>
+              </div>
+              <div className="cfg-confirm-body">
+                Delete <b>{selectedItems.length}</b> selected {selectedItems.length === 1 ? 'item' : 'items'} from {section.label}? This cannot be undone.
+              </div>
+              <div className="modal-foot">
+                <button id="cfg-batch-del-cancel-btn" className="amb cancel" onClick={() => setBatchDel(false)}><Icon name="x" size={14} />Cancel</button>
+                <button id="cfg-batch-del-confirm-btn" className="amb danger" onClick={runBatchDelete}><Icon name="trash-2" size={14} />Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
       </React.Fragment>
     );
   }
@@ -1040,6 +1133,7 @@
         const list = prev[view];
         const idx = list.findIndex(x => x.id === item.id);
         const next = idx >= 0 ? list.map((x, i) => i === idx ? item : x) : [...list, item];
+        persistClientSection(view, next);
         return { ...prev, [view]: next };
       });
       setModal(null);
@@ -1079,9 +1173,37 @@
         }
         return;
       }
-      setSectionData(prev => ({ ...prev, [view]: prev[view].filter(x => x.id !== item.id) }));
+      setSectionData(prev => {
+        const next = prev[view].filter(x => x.id !== item.id);
+        persistClientSection(view, next);
+        return { ...prev, [view]: next };
+      });
       setModal(null);
       setConfirmDel(null);
+    }
+
+    // Mass delete — loops the per-row API (backend-backed sections) or updates the
+    // client-persisted store once; keeps rows that failed and reports the count.
+    async function deleteMany(itemsToDelete) {
+      const ids = itemsToDelete.map(i => i.id);
+      if (!ids.length) return;
+      const api = view === 'categories' ? window.HL_CATEGORIES_API
+        : view === 'members' ? window.HL_MEMBERS_API
+        : view === 'currencies' ? window.HL_CURRENCIES_API : null;
+      if (api) {
+        const results = await Promise.allSettled(ids.map(id => api.remove(id)));
+        const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));
+        setSectionData(prev => ({ ...prev, [view]: prev[view].filter(x => !okIds.has(x.id)) }));
+        const failed = ids.length - okIds.size;
+        if (failed) alert(failed + (failed === 1 ? ' item' : ' items') + ' could not be deleted.');
+      } else {
+        const idSet = new Set(ids);
+        setSectionData(prev => {
+          const next = prev[view].filter(x => !idSet.has(x.id));
+          persistClientSection(view, next);
+          return { ...prev, [view]: next };
+        });
+      }
     }
 
     return (
@@ -1093,6 +1215,7 @@
             <CfgSectionTable key={view} section={section} items={items}
               onEdit={(it) => setModal({ item: it })}
               onAdd={() => setModal({ item: null })}
+              onBatchDelete={deleteMany}
               onTcmb={() => setTcmbOpen(true)} />
           )}
 

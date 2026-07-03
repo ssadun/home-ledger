@@ -1,6 +1,7 @@
 // budgets-components.jsx — Home Ledger Budgets presentational components.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const DateInput = window.DateInput;
   const CurrencyInput = window.CurrencyInput;
   const { CATS, FX } = window.LEDGER;
@@ -158,13 +159,13 @@
                   {c.label}
                 </div>
               ) : (
-                <select id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
+                <StyledSelect id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
                   {expenseCats.map(k => (
                     <option key={k} value={k} disabled={existingCats.includes(k)}>
                       {CATS[k].label}{existingCats.includes(k) ? ' — already set' : ''}
                     </option>
                   ))}
-                </select>
+                </StyledSelect>
               )}
             </div>
 
@@ -185,9 +186,9 @@
               <span className="field-label">Monthly Limit</span>
               <div className="amount-input-wrap">
                 <CurrencyInput id="bgt-modal-limit-input" value={limit} currency={cur} onChange={(v) => setLimit(v)} />
-                <select id="bgt-modal-currency-select" className="field-input" value={cur} onChange={(e) => setCur(e.target.value)}>
+                <StyledSelect id="bgt-modal-currency-select" className="field-input" value={cur} onChange={(e) => setCur(e.target.value)}>
                   <option>TRY</option><option>USD</option><option>EUR</option>
-                </select>
+                </StyledSelect>
               </div>
             </div>
 

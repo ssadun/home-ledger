@@ -23,6 +23,8 @@
 @media (min-width:661px){
   .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:rgba(42,47,74,.22)}
   .cfg-table tbody tr.cfg-row:hover{background:var(--bg4)}
+  .cfg-table tbody tr.cfg-row.row-selected td{background:rgba(79,142,247,.10)}
+  .cfg-table tbody tr.cfg-row.row-selected:hover td{background:rgba(79,142,247,.14)}
 }
 .cfg-actions-col{text-align:right;width:200px}
 
@@ -72,6 +74,13 @@
 .cfg-color-swatch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .1s,border-color .1s}
 .cfg-color-swatch:hover{transform:scale(1.2)}
 .cfg-color-swatch.selected{border-color:var(--white);transform:scale(1.15)}
+
+/* ── Icon picker: grid panel + custom-name input ── */
+.cfg-icon-picker{display:flex;flex-direction:column;gap:10px}
+.cfg-icon-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;padding:4px 2px;max-height:180px;overflow-y:auto}
+.cfg-icon-swatch{display:inline-flex;align-items:center;justify-content:center;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--slate);cursor:pointer;transition:all .15s}
+.cfg-icon-swatch:hover{background:var(--card-hover-bg);border-color:var(--border-emphasis);color:var(--white)}
+.cfg-icon-swatch.selected{border-color:var(--accent);color:var(--accent);background:rgba(79,142,247,.12)}
 
 /* ── Icon input with preview ── */
 .cfg-icon-field{position:relative;display:flex;align-items:center}
@@ -157,10 +166,18 @@
            font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
            color:var(--muted);white-space:nowrap;align-self:center;justify-self:start}
 
+  /* Mass-delete: checkbox → full-width strip atop each stacked card (overrides the
+     `td:not([data-label])` hide with higher specificity). */
+  .cfg-table.selectable td.td-select{display:flex;grid-column:1 / -1;align-items:center;justify-content:flex-start;
+           width:auto;padding:0 0 6px;margin:0;border-bottom:1px solid var(--border)}
+  .cfg-table.selectable tbody tr.cfg-row.row-selected{border-color:var(--accent);background:rgba(79,142,247,.08)}
+  .cfg-table.selectable tbody tr.cfg-row.row-selected td{background:none}
+
   /* currency history: "current" row marked by gold border instead of cell tint */
   .cfg-hist-current{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)}
   .cfg-table .cfg-hist-current td{background:none}
   .cfg-hist-current td:first-child{border-left:none}
+  .cfg-icon-grid{grid-template-columns:repeat(6,1fr);max-height:150px}
   .cfg-modal{width:calc(100vw - 32px)}
   .cfg-hist-modal{width:calc(100vw - 32px)}
   .cfg-hist-fields{grid-template-columns:1fr 1fr}

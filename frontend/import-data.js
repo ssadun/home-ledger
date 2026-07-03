@@ -108,7 +108,14 @@
     'Kişisel Hizmet': 'shopping',
   };
 
-  function guessCategory(desc, isIncome, etiket) {
+  function guessCategory(desc, isIncome, etiket, isBank) {
+    // "Virman" (internal account transfer) is ALWAYS a Transfer — this overrides
+    // any Etiket tag and the income/expense fallback. Valid for every import.
+    if (/virman/i.test(desc)) return 'wire-transfer';
+    // BANK-account statements only: a "Diğer"/"Other" line item is a miscellaneous
+    // transfer → Transfer. Scoped to bank because on CARD statements "Diğer" is a
+    // real spending tag (tolls, etc.).
+    if (isBank && /\b(di[ğg]er|other)\b/i.test(desc)) return 'wire-transfer';
     if (etiket && ETIKET_MAP[etiket]) return ETIKET_MAP[etiket];
     for (const [re, key] of RULES) if (re.test(desc)) return key;
     return isIncome ? 'salary' : 'shopping';
@@ -162,6 +169,23 @@
       return res.json();
     }
 
-    window.HL_IMPORT_API = { preview, confirm };
+    // holdings: [{ ticker, name, platform, asset_type, currency, amount,
+    //   purchase_price }]. Upserts by platform+ticker into the Investments table.
+    // Returns { created, updated, errors }.
+    async function confirmInvestments(holdings, upsert) {
+      const res = await api()('/api/import/confirm-investments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ investments: holdings, upsert: upsert !== false }),
+      });
+      if (!res.ok) {
+        let msg = 'Import failed (' + res.status + ')';
+        try { const j = await res.json(); if (j && j.detail) msg = j.detail; } catch (_) {}
+        throw new Error(msg);
+      }
+      return res.json();
+    }
+
+    window.HL_IMPORT_API = { preview, confirm, confirmInvestments };
   })();
 })();

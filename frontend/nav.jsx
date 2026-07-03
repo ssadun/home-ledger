@@ -68,7 +68,7 @@
     { id: 'members',       sectionId: 'members',       icon: 'users',              label: 'Members',       color: '#22c55e', href: 'Members.html' },
     { id: 'categories',    sectionId: 'categories',    icon: 'tag',                label: 'Categories',    color: '#8b5cf6', href: 'Categories.html' },
     { id: 'currencies',    sectionId: 'currencies',    icon: 'circle-dollar-sign', label: 'Currencies',    color: '#fbbf24', href: 'Currencies.html' },
-    { id: 'cc-types',      sectionId: 'cc-types',      icon: 'credit-card',        label: 'Credit Cards',  color: '#f97316', href: 'Credit Cards.html' },
+    { id: 'cc-types',      sectionId: 'cc-types',      icon: 'credit-card',        label: 'Credit Cards',  color: '#bef264', href: 'Credit Cards.html' },
     { id: 'debit-types',   sectionId: 'debit-types',   icon: 'wallet-cards',       label: 'Debit Cards',   color: '#38bdf8', href: 'Debit Cards.html' },
     { id: 'account-types', sectionId: 'account-types', icon: 'landmark',           label: 'Account Types', color: '#4f8ef7', href: 'Account Types.html' },
     { id: 'financial-institutions', sectionId: 'financial-institutions', icon: 'building-2', label: 'Financial Institutions', color: '#94a3b8', href: 'Financial Institutions.html' },
@@ -191,6 +191,7 @@
             <div className="sidebar-version" id="sidebar-version" title={'Home Ledger ' + APP_VERSION}><span className="sidebar-version-name">Home Ledger </span>{APP_VERSION}</div>
           </div>
         </div>
+        <div className="sidebar-resizer" id="sidebar-resizer" title="Drag to resize" />
       </nav>
     );
   }

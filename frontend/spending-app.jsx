@@ -62,7 +62,8 @@
   ];
 
   // ── Table body — memoized so rows do NOT re-render during a column drag ──
-  const TableBody = React.memo(function TableBody({ rows, colCount, flashId, grouped, month, year, onEdit, order }) {
+  const TableBody = React.memo(function TableBody({ rows, colCount, flashId, grouped, month, year, onEdit, order, selectable, selectedSet, onToggleSelect }) {
+    const selProps = (tx) => ({ selectable, selected: selectable && selectedSet.has(tx.id), onToggleSelect });
     if (rows.length === 0) {
       return (
         <tbody>
@@ -79,7 +80,7 @@
     if (!grouped) {
       return (
         <tbody>
-          {rows.map(tx => <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order} />)}
+          {rows.map(tx => <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order} {...selProps(tx)} />)}
         </tbody>
       );
     }
@@ -104,7 +105,7 @@
       g.rows.forEach((tx, ri) => {
         const isLast = ri === g.rows.length - 1;
         out.push(
-          <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order}
+          <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order} {...selProps(tx)}
             extraClass={(ri % 2 === 1 ? 'row-alt' : '') + (isLast ? ' week-last' : '')} />
         );
       });
@@ -123,6 +124,13 @@
     // cell can resolve account ids (e.g. "acc-3") to their real names before rows render.
     React.useEffect(() => {
       let alive = true;
+      // Category colors/icons/labels live in the DB (edited on the Configuration
+      // page). Rehydrate LEDGER.CATS in place so the table reflects the current
+      // colors instead of the static data.js seed. Runs before setRows so the
+      // first meaningful render already reads the fresh values.
+      const loadCats = (window.HL_CATEGORIES_API && window.HL_CATEGORIES_API.hydrateLedgerCats)
+        ? window.HL_CATEGORIES_API.hydrateLedgerCats().catch(() => { /* keep static fallback */ })
+        : Promise.resolve();
       const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
         ? window.HL_ACCOUNTS_API.list()
             .then(accts => {
@@ -132,7 +140,7 @@
             })
             .catch(() => { /* names just fall back to the raw id */ })
         : Promise.resolve();
-      loadAccounts
+      Promise.all([loadCats, loadAccounts])
         .then(() => window.HL_SPENDING_API.list())
         .then(data => { if (alive) { setRows(data); setLoadError(null); } })
         .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })
@@ -157,6 +165,12 @@
     const [scan, setScan] = React.useState(false);
     const [del, setDel] = React.useState(null);
     const [flashId, setFlashId] = React.useState(null);
+    // Mass-delete: ids of checkbox-selected rows + the batch-confirm dialog toggle.
+    const [selected, setSelected] = React.useState(() => new Set());
+    const [batchDel, setBatchDel] = React.useState(false);
+    const toggleSelect = React.useCallback((id) => setSelected(s => {
+      const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+    }), []);
 
     // Highlight a deep-linked transaction on load (reuses the row-flash used for edits/adds)
     React.useEffect(() => {
@@ -219,7 +233,7 @@
     // memoized: stable identity keeps the memoized <TableBody> from re-rendering during column drags
     const pageRows = React.useMemo(() => sorted.slice(start, end), [sorted, start, end]);
 
-    React.useEffect(() => { setPage(1); }, [month, year, type, payer, payingFor, cat, source, search, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [month, year, type, payer, payingFor, cat, source, search, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -256,6 +270,18 @@
         alert('Could not delete transaction: ' + (err.message || err));
       }
     }
+    // Mass delete — loops the per-row API (no bulk endpoint needed); keeps rows that
+    // failed so the user sees exactly what remains, and never silently drops errors.
+    async function confirmBatchDelete() {
+      const ids = [...selected];
+      const results = await Promise.allSettled(ids.map(id => window.HL_SPENDING_API.remove(id)));
+      const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));
+      setRows(rs => rs.filter(r => !okIds.has(r.id)));
+      setSelected(s => new Set([...s].filter(id => !okIds.has(id))));
+      setBatchDel(false);
+      const failed = ids.length - okIds.size;
+      if (failed) alert(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.');
+    }
 
     const cols = React.useMemo(() => COLS.filter(c => t.showConverted || !c.conv), [t.showConverted]);
 
@@ -265,6 +291,17 @@
     // Stable list of keys in the user's column order — drives <colgroup>, <thead>,
     // and each row's cell order. Memoized so resize re-renders don't churn rows.
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
+
+    // Select-all reflects only the rows on the current page.
+    const pageIds = pageRows.map(r => r.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+    const someSelected = !allSelected && pageIds.some(id => selected.has(id));
+    const toggleSelectAll = () => setSelected(s => {
+      const n = new Set(s);
+      if (allSelected) pageIds.forEach(id => n.delete(id));
+      else pageIds.forEach(id => n.add(id));
+      return n;
+    });
 
     return (
       <div className="app">
@@ -303,14 +340,29 @@
           </header>
 
           <div className="table-card">
+            {selected.size > 0 && (
+              <div className="bulk-bar" id="sp-bulk-bar">
+                <span className="bulk-count"><Icon name="check-square" size={14} />{selected.size} selected</span>
+                <div className="bulk-actions">
+                  <button id="sp-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
+                  <button id="sp-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
+                </div>
+              </div>
+            )}
             <div className="table-scroll">
-              <table ref={rz.tableRef} className={'ledger-table resizable' + (t.zebra ? ' zebra' : '') + (t.colorAmounts ? '' : ' mono-amt') + ' dens-' + t.density + (t.groupByWeek && sort.col === 'date' ? ' week-cards' : '')}
+              <table ref={rz.tableRef} className={'ledger-table resizable selectable' + (t.zebra ? ' zebra' : '') + (t.colorAmounts ? '' : ' mono-amt') + ' dens-' + t.density + (t.groupByWeek && sort.col === 'date' ? ' week-cards' : '')}
                   style={rz.colSizeVars}>
                 <colgroup>
+                  <col className="col-select" />
                   {rz.orderedColumns.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
                 </colgroup>
                 <thead>
                   <tr>
+                    <th className="th-select" title="Select all on this page">
+                      <input id="sp-select-all" type="checkbox" className="row-select-box" checked={allSelected}
+                        ref={el => { if (el) el.indeterminate = someSelected; }}
+                        onChange={toggleSelectAll} aria-label="Select all rows on this page" />
+                    </th>
                     {rz.orderedColumns.map(c => (
                       <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key && !c.noSort ? 'sorted' : '')}
                           title="Drag To Reorder · Click To Sort"
@@ -325,8 +377,9 @@
                     ))}
                   </tr>
                 </thead>
-                <TableBody rows={pageRows} colCount={cols.length} flashId={flashId} order={orderKeys}
-                  grouped={t.groupByWeek && sort.col === 'date'} month={month} year={year} onEdit={onEditTx} />
+                <TableBody rows={pageRows} colCount={cols.length + 1} flashId={flashId} order={orderKeys}
+                  grouped={t.groupByWeek && sort.col === 'date'} month={month} year={year} onEdit={onEditTx}
+                  selectable selectedSet={selected} onToggleSelect={toggleSelect} />
               </table>
             </div>
             <Pagination page={curPage} pages={pages} total={total} start={start} end={end}
@@ -337,6 +390,7 @@
         {modal && <TxModal initial={modal.tx} scan={modal.scan} onClose={() => setModal(null)} onSave={saveTx} onDelete={(tx) => { setModal(null); setDel(tx); }} />}
         {scan && <ScanModal onClose={() => setScan(false)} onScanned={(tx) => { setScan(false); setModal({ mode: 'add', tx, scan: true }); }} />}
         {del && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDelete} />}
+        {batchDel && <DeleteConfirm count={selected.size} onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />

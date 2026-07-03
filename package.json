@@ -1,0 +1,31 @@
+{
+  "name": "playwright-cli-container",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  },
+  "description": "A self-hosted **personal finance tracker** built for a multi-currency (TRY / USD / EUR) household. It tracks income and expenses with automatic TCMB exchange-rate conversion, imports statements from Turkish banks, and manages investments, budgets, accounts/cards, recurring bills, and subscriptions. Designed to run on a Synology NAS behind a reverse proxy via Docker.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {
+    "playwright": "^1.61.1",
+    "playwright-core": "^1.61.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ssadun/home-ledger.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ssadun/home-ledger/issues"
+  },
+  "homepage": "https://github.com/ssadun/home-ledger#readme"
+}

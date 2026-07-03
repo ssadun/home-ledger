@@ -5,7 +5,7 @@ from typing import Optional
 from app.database import get_db
 from app.models import User
 from app.services.auth import get_current_user
-from app.services.bank_import import parse_bank_file, import_transactions
+from app.services.bank_import import parse_bank_file, import_transactions, import_investments
 
 router = APIRouter(prefix="/api/import", tags=["import"])
 
@@ -59,3 +59,25 @@ async def confirm_import(
         skip_duplicates=skip_duplicates,
     )
     return result
+
+
+@router.post("/confirm-investments")
+async def confirm_investments(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Midas portföy önizlemesinden onaylanan varlıkları Investment tablosuna yazar.
+    payload: { investments: [...], upsert: bool }
+    """
+    holdings = payload.get("investments", [])
+    if not holdings:
+        raise HTTPException(400, "İçe aktarılacak yatırım yok")
+
+    return import_investments(
+        db=db,
+        owner_id=current_user.id,
+        holdings=holdings,
+        upsert=payload.get("upsert", True),
+    )

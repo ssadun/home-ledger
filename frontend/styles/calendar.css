@@ -8,6 +8,12 @@
 /* ── Calendar card ── */
 .cal-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;display:flex;flex-direction:column;gap:14px}
 
+/* Payment-method filter row (top of card) */
+.cal-filter{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.cal-filter .filter-label{margin:0}
+.cal-filter .select-wrap{flex:1;min-width:150px}
+.cal-filter .sel{width:100%}
+
 /* Header with month nav */
 .cal-header{display:flex;align-items:center;gap:12px}
 .cal-header-center{flex:1;text-align:center;display:flex;flex-direction:column;gap:2px}

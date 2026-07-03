@@ -1,6 +1,7 @@
 // accounts-components.jsx — Home Ledger Accounts page components.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { ACCOUNT_TYPES, ACCOUNT_ACTIVITY, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
 
   function grp(v, dec = 2) {
@@ -185,7 +186,7 @@
             <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
           </div>
         </div>
-        {isCredit && account.limit && <UtilBar used={account.balance} limit={account.limit} />}
+        {isCredit && account.limit > 0 && <UtilBar used={account.balance} limit={account.limit} />}
         {isCredit && (account.statementCutoff || account.paymentDue) && (() => {
           const dates = account.statementCutoff ? getCCDates(account.statementCutoff) : null;
           // Prefer the actual statement date (Son Ödeme Tarihi) when stored; else computed.
@@ -225,6 +226,7 @@
     const activity = ACCOUNT_ACTIVITY[account.id] || [];
     const isCredit = account.type === 'credit';
     const isOverdraft = account.type === 'overdraft';
+    const isInvest = account.type === 'invest';
 
     return (
       <div className="backdrop" onMouseDown={(e) => {if (e.target.classList.contains('backdrop')) onClose();}}>
@@ -248,9 +250,9 @@
 
           <div className="modal-body">
             <div className="detail-balance-hero">
-              <span className="detail-bal-label">{isCredit ? 'Outstanding Balance' : isOverdraft ? 'Overdraft Balance' : 'Current Balance'}</span>
+              <span className="detail-bal-label">{isCredit ? 'Outstanding Balance' : isOverdraft ? 'Overdraft Balance' : isInvest ? 'Portfolio Value' : 'Current Balance'}</span>
               <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
-              {(isCredit || isOverdraft) && account.limit &&
+              {(isCredit || isOverdraft) && account.limit > 0 &&
               <div style={{ width: '100%', marginTop: 8 }}>
                   <UtilBar used={account.balance} limit={account.limit} />
                 </div>
@@ -270,7 +272,7 @@
                 <span className="detail-info-k">Owner</span>
                 <span className="detail-info-v"><OwnerBadge name={account.owner} /></span>
               </div>
-              {(isCredit || isOverdraft) && account.limit &&
+              {(isCredit || isOverdraft) && account.limit > 0 &&
               <div className="detail-info-item">
                   <span className="detail-info-k">{isOverdraft ? 'Overdraft Limit' : 'Credit Limit'}</span>
                   <span className="detail-info-v">{SYM[account.cur]}{grp(account.limit)}</span>
@@ -318,7 +320,11 @@
               }
             </div>
 
-            {activity.length > 0 &&
+            {/* Investment accounts show their portfolio holdings instead of the
+                transaction-style activity list. */}
+            {isInvest && window.AccountHoldings && <window.AccountHoldings account={account} />}
+
+            {!isInvest && activity.length > 0 &&
             <div className="detail-activity">
                 <span className="detail-section-label"><Icon name="activity" size={12} />Recent Activity</span>
                 <div className="detail-activity-list">
@@ -335,7 +341,7 @@
               </div>
             }
 
-            {activity.length === 0 &&
+            {!isInvest && activity.length === 0 &&
             <div className="detail-empty">
                 <Icon name="inbox" size={28} />
                 <span>No recent activity for this account.</span>
@@ -386,12 +392,14 @@
     const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
     const isCredit = f.type === 'credit';
     const isOverdraft = f.type === 'overdraft';
+    const isCash = f.type === 'cash';
     // Other credit-card accounts that a supplementary/virtual card can hang off of
     // (excludes self when editing). Picked value is stored in `linked` (linked_key).
     const parentCardOptions = accounts.filter((a) => a.type === 'credit' && a.id !== initial.id);
 
     function submit() {
-      if (!f.name.trim() || !f.institution.trim()) return;
+      // Cash accounts have no institution — only a name (and owner) are required.
+      if (!f.name.trim() || (!isCash && !f.institution.trim())) return;
       const bal = parseFloat(f.balance) || 0;
       const result = {
         ...initial,
@@ -401,7 +409,7 @@
         cur: f.cur,
         balance: (isCredit || isOverdraft) && bal > 0 ? -bal : bal,
         number: f.number.trim() || '–',
-        institution: f.institution.trim(),
+        institution: f.institution.trim() || '–',
         primary: f.primary,
         iban: f.iban.trim() || null,
         ccType: f.ccType || 'visa',
@@ -456,7 +464,7 @@
               </div>
               <div className="form-field">
                 <span className="field-label">Institution</span>
-                <select id="acct-form-institution-input" className="field-input" value={f.institution || ''} onChange={(e) => set('institution', e.target.value)}>
+                <StyledSelect id="acct-form-institution-input" className="field-input" value={f.institution || ''} onChange={(e) => set('institution', e.target.value)}>
                   <option value="">— Select Institution —</option>
                   {Object.keys(FINANCIAL_INSTITUTIONS || {}).map((k) => {
                     const fi = FINANCIAL_INSTITUTIONS[k];
@@ -465,18 +473,18 @@
                   {f.institution && f.institution !== '–' &&
                     !Object.values(FINANCIAL_INSTITUTIONS || {}).some((fi) => fi.name === f.institution) &&
                     <option value={f.institution}>{f.institution}</option>}
-                </select>
+                </StyledSelect>
               </div>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Owner</span>
-                <select id="acct-form-owner-select" className="field-input" value={f.owner} onChange={(e) => set('owner', e.target.value)}>
+                <StyledSelect id="acct-form-owner-select" className="field-input" value={f.owner} onChange={(e) => set('owner', e.target.value)}>
                   <option value="Sadun">Sadun</option>
                   <option value="Handan">Handan</option>
                   <option value="Shared">Shared</option>
-                </select>
+                </StyledSelect>
               </div>
               <div className="form-field">
                 <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}</span>
@@ -489,31 +497,31 @@
               {isCredit &&
               <div className="form-field">
                   <span className="field-label">CC Type</span>
-                  <select id="acct-form-cctype-select" className="field-input" value={f.ccType} onChange={(e) => set('ccType', e.target.value)}>
+                  <StyledSelect id="acct-form-cctype-select" className="field-input" value={f.ccType} onChange={(e) => set('ccType', e.target.value)}>
                     <option value="visa">Visa</option>
                     <option value="mastercard">MasterCard</option>
                     <option value="troy">Troy</option>
-                  </select>
+                  </StyledSelect>
                 </div>
               }
               {f.type === 'debit' &&
               <div className="form-field">
                   <span className="field-label">Card Type</span>
-                  <select id="acct-form-debittype-select" className="field-input" value={f.debitType} onChange={(e) => set('debitType', e.target.value)}>
+                  <StyledSelect id="acct-form-debittype-select" className="field-input" value={f.debitType} onChange={(e) => set('debitType', e.target.value)}>
                     <option value="electron">Visa Electron</option>
                     <option value="maestro">Maestro</option>
                     <option value="troy">Troy</option>
-                  </select>
+                  </StyledSelect>
                 </div>
               }
               {(isCredit || f.type === 'debit') &&
               <div className="form-field">
                 <span className="field-label">Currency</span>
-                <select id="acct-form-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
+                <StyledSelect id="acct-form-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
                   <option value="TRY">TRY (₺)</option>
                   <option value="USD">USD ($)</option>
                   <option value="EUR">EUR (€)</option>
-                </select>
+                </StyledSelect>
               </div>
               }
             </div>
@@ -535,7 +543,7 @@
             {isCredit &&
             <div className="form-field full">
                 <span className="field-label">Parent Credit Card</span>
-                <select id="acct-form-parent-card-select" className="field-input" value={f.linked} onChange={(e) => {
+                <StyledSelect id="acct-form-parent-card-select" className="field-input" value={f.linked} onChange={(e) => {
                   const id = e.target.value;
                   const parent = parentCardOptions.find((a) => a.id === id);
                   // A supplementary/virtual card shares its parent's billing cycle —
@@ -546,7 +554,7 @@
                   {parentCardOptions.map((a) =>
                   <option key={a.id} value={a.id}>{a.name + ' · ' + a.number}</option>
                   )}
-                </select>
+                </StyledSelect>
               </div>
             }
 
@@ -577,14 +585,14 @@
             <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Statement Cutoff Week</span>
-                  <select id="acct-form-cutoff-select" className="field-input" value={f.statementCutoff} disabled={!!f.linked}
+                  <StyledSelect id="acct-form-cutoff-select" className="field-input" value={f.statementCutoff} disabled={!!f.linked}
                     onChange={(e) => set('statementCutoff', e.target.value ? Number(e.target.value) : '')}>
                     <option value="">— Select Week —</option>
                     <option value="1">1st Week (Days 1–7)</option>
                     <option value="2">2nd Week (Days 8–14)</option>
                     <option value="3">3rd Week (Days 15–21)</option>
                     <option value="4">4th Week (Days 22–28)</option>
-                  </select>
+                  </StyledSelect>
                   {f.linked && <span className="field-hint"><Icon name="link" size={11} /> Inherited from parent card</span>}
                 </div>
                 <div className="form-field">
@@ -651,6 +659,13 @@
                 </label>
               </div>
             </React.Fragment>
+            }
+
+            {isCash &&
+            <div className="form-field full">
+              <span className="field-label">Current Balance</span>
+              <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+            </div>
             }
           </div>
 

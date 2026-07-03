@@ -163,13 +163,34 @@
     // proportions are preserved; only the absolute pixels adapt.
     const sizingRef = React.useRef(columnSizing);
     sizingRef.current = columnSizing;
+
+    // Width the table spends on columns the resizer does NOT manage — the
+    // leading select-checkbox <col> (and any actions col). Measured directly
+    // from the unmanaged <col> elements: every managed col carries a
+    // `width: var(--rz-*)` inline style, so a col WITHOUT one is overhead that
+    // must be reserved out of the available width (otherwise the managed columns
+    // fill the whole container and the extra col pushes the table into overflow).
+    // Reading the cols' own rendered widths keeps this exact regardless of the
+    // table's current width, scrollbars, or fit timing (unlike a table-vs-managed
+    // subtraction, which drifts when the layout is transiently inconsistent).
+    const reservedWidth = () => {
+      const el = tableRef.current;
+      if (!el) return 0;
+      let reserved = 0;
+      el.querySelectorAll('colgroup > col').forEach((col) => {
+        const w = col.style && col.style.width;
+        if (!w || w.indexOf('--rz-') === -1) reserved += col.getBoundingClientRect().width;
+      });
+      return Math.round(reserved);
+    };
+
     React.useEffect(() => {
       let ro = null, rafId = null, tries = 0;
       const fit = (wrap) => {
         if (window.matchMedia('(max-width: 660px)').matches) return;     // mobile = stacked cards, no columns
         if (document.body.classList.contains('col-resizing')) return;    // never fight an active drag
-        const avail = innerWidth(wrap);
-        if (!avail) return;
+        const avail = innerWidth(wrap) - reservedWidth();
+        if (avail <= 0) return;
         const cur = columns.map(c => ({
           key: c.key,
           base: sizingRef.current[c.key] || c.size || 150,
@@ -204,7 +225,7 @@
     const resetSizes = React.useCallback(() => {
       const el = tableRef.current;
       const wrap = el && (el.closest('.table-scroll') || el.parentElement);
-      const avail = innerWidth(wrap);
+      const avail = innerWidth(wrap) - reservedWidth();
       const defs = columns.map(c => ({
         key: c.key,
         base: c.size || 150,

@@ -4,9 +4,10 @@
 // Static sample statements remain as an offline demo path.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;   // static config maps
   const { CATS } = window.LEDGER;
-  const { DOCUMENTS, guessCategory, tidyDesc } = window.IMPORT_DATA;
+  const { DOCUMENTS, guessCategory } = window.IMPORT_DATA;
 
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
   const grp = (v, d = 2) => Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -21,18 +22,32 @@
     { key: 'done',   label: 'Done', icon: 'check-check' },
   ];
 
+  // Broker portfolio statements (Midas) create Investments, not transactions —
+  // there is no per-account matching step, so the wizard skips "Detect Account".
+  const INV_STEPS = [
+    { key: 'choose', label: 'Choose File', icon: 'upload' },
+    { key: 'review', label: 'Review Holdings', icon: 'list-checks' },
+    { key: 'done',   label: 'Done', icon: 'check-check' },
+  ];
+
+  // Investment asset types accepted by the backend (models.Investment.asset_type).
+  const ASSET_TYPES = [
+    ['stock', 'Stock'], ['fund', 'Fund'], ['gold', 'Gold'],
+    ['crypto', 'Crypto'], ['deposit', 'Deposit'], ['usd', 'FX / Cash'],
+  ];
+
   // ── Step indicator ──
-  function Stepper({ current }) {
-    const idx = STEPS.findIndex(s => s.key === current);
+  function Stepper({ current, steps = STEPS }) {
+    const idx = steps.findIndex(s => s.key === current);
     return (
       <div className="imp-stepper">
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <React.Fragment key={s.key}>
             <div className={'imp-step' + (i === idx ? ' active' : '') + (i < idx ? ' done' : '')}>
               <span className="imp-step-dot"><Icon name={i < idx ? 'check' : s.icon} size={13} /></span>
               <span className="imp-step-label">{s.label}</span>
             </div>
-            {i < STEPS.length - 1 && <span className={'imp-step-bar' + (i < idx ? ' done' : '')}></span>}
+            {i < steps.length - 1 && <span className={'imp-step-bar' + (i < idx ? ' done' : '')}></span>}
           </React.Fragment>
         ))}
       </div>
@@ -209,12 +224,12 @@
           <span className="imp-src-id mono">{ident}</span>
           <span className="imp-src-sub">{sub}</span>
         </div>
-        <select className="field-input imp-src-sel" value={value || ''}
+        <StyledSelect className="field-input imp-src-sel" value={value || ''}
           onChange={(e) => { e.target.value === '__create__' ? onCreate(rec) : onPick(rec.source, e.target.value); }}>
           <option value="" disabled>Select account…</option>
           <option value="__create__">＋ Create from statement…</option>
           {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)}</option>)}
-        </select>
+        </StyledSelect>
         {value
           ? <span className="imp-src-flag ok" title="Resolved"><Icon name="badge-check" size={15} /></span>
           : <span className="imp-src-flag warn" title="No matching account"><Icon name="alert-triangle" size={15} /></span>}
@@ -276,14 +291,102 @@
               {t && <span className="acct-type-ico" style={{ width: 30, height: 30, color: t.color,
                 background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
                 borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)' }}><Icon name={t.icon} size={15} /></span>}
-              <select id="imp-detect-account-select" className="field-input" value={accId || ''} onChange={(e) => setAccId(e.target.value)}>
+              <StyledSelect id="imp-detect-account-select" className="field-input" value={accId || ''} onChange={(e) => setAccId(e.target.value)}>
                 <option value="" disabled>Select account…</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)} ({a.owner})</option>)}
-              </select>
+              </StyledSelect>
             </div>
             <span className="imp-hint"><Icon name="info" size={11} />This becomes the default account for every row — you can still change individual rows in the next step.</span>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // Amount field — displays grouped like the Accounts balance (`grp`, e.g.
+  // "3,360.31"), yet stays editable: shows raw digits while focused (so the
+  // thousands separators don't fight the caret) and reformats on blur. The sign
+  // and currency symbol live in the sibling `.imp-amt-sign` span.
+  function AmountInput({ id, amount, onAmount }) {
+    const [editing, setEditing] = React.useState(null);
+    const value = editing != null ? editing : grp(amount);
+    return (
+      <input id={id} type="text" inputMode="decimal" className="imp-cell imp-amt"
+        value={value}
+        onFocus={() => setEditing(Math.abs(amount) === 0 ? '' : String(Math.abs(amount)))}
+        onBlur={() => setEditing(null)}
+        onChange={(e) => {
+          setEditing(e.target.value);
+          const v = parseFloat(e.target.value.replace(/,/g, '')) || 0;
+          onAmount(amount < 0 ? -v : v);
+        }} />
+    );
+  }
+
+  // ── DateInput — same flatpickr control the "Add Spending" modal uses ──────
+  // Accounts.html doesn't load controls.jsx (which owns the shared DateInput),
+  // so this is a self-contained twin: readonly text field + calendar icon +
+  // the app's themed flatpickr popup, styled identically via .date-input-wrap /
+  // datepicker.css. `wrapClassName` lets the wrapper carry the grid-cell area so
+  // the inner input keeps the .imp-cell look.
+  if (!window.HL_enhanceFpYear) {
+    window.HL_enhanceFpYear = function (fp) {
+      const head = fp.calendarContainer &&
+        fp.calendarContainer.querySelector('.flatpickr-current-month');
+      const numWrap = head && head.querySelector('.numInputWrapper');
+      if (!numWrap || numWrap.dataset.hlYear) return;
+      const today = new Date();
+      const minYear = fp.config.minDate ? fp.config.minDate.getFullYear() : today.getFullYear() - 80;
+      let maxYear = fp.config.maxDate ? fp.config.maxDate.getFullYear() : today.getFullYear() + 10;
+      if (maxYear < minYear) maxYear = minYear;
+      const sel = document.createElement('select');
+      sel.className = 'flatpickr-yearDropdown-years';
+      sel.setAttribute('aria-label', 'Year');
+      for (let y = maxYear; y >= minYear; y--) {
+        const o = document.createElement('option');
+        o.value = String(y);
+        o.textContent = String(y);
+        sel.appendChild(o);
+      }
+      sel.value = String(fp.currentYear);
+      sel.addEventListener('change', (e) => fp.changeYear(parseInt(e.target.value, 10)));
+      numWrap.dataset.hlYear = '1';
+      numWrap.style.display = 'none';
+      numWrap.parentNode.insertBefore(sel, numWrap.nextSibling);
+      fp._hlYearSelect = sel;
+    };
+  }
+
+  function DateInput({ id, value, onChange, className, wrapClassName }) {
+    const inputRef = React.useRef(null);
+    const fpRef = React.useRef(null);
+
+    React.useEffect(() => {
+      if (!inputRef.current || typeof flatpickr === 'undefined') return;
+      fpRef.current = flatpickr(inputRef.current, {
+        dateFormat: 'Y-m-d',
+        defaultDate: value || null,
+        disableMobile: true,
+        monthSelectorType: 'dropdown',
+        onReady: (_, __, fp) => window.HL_enhanceFpYear(fp),
+        onYearChange: (_, __, fp) => { if (fp._hlYearSelect) fp._hlYearSelect.value = String(fp.currentYear); },
+        onChange: (_, dateStr) => onChange({ target: { value: dateStr } }),
+      });
+      return () => { if (fpRef.current) { fpRef.current.destroy(); fpRef.current = null; } };
+    }, []); // eslint-disable-line
+
+    React.useEffect(() => {
+      if (!fpRef.current) return;
+      const cur = fpRef.current.selectedDates[0]
+        ? fpRef.current.formatDate(fpRef.current.selectedDates[0], 'Y-m-d') : '';
+      if (value !== cur) fpRef.current.setDate(value || null, false);
+    }, [value]);
+
+    return (
+      <div className={'date-input-wrap ' + (wrapClassName || '')}>
+        <input id={id} ref={inputRef} type="text" className={className || 'field-input'}
+          placeholder="YYYY-MM-DD" readOnly />
+        <span className="date-input-icon"><Icon name="calendar" size={14} /></span>
       </div>
     );
   }
@@ -295,23 +398,23 @@
         <button id={'imp-row-' + idx + '-include-btn'} className="imp-inc" onClick={() => update(idx, { include: !row.include })} title={row.include ? 'Exclude row' : 'Include row'}>
           <Icon name={row.include ? 'check-square' : 'square'} size={16} />
         </button>
-        <input id={'imp-row-' + idx + '-date-input'} type="date" className="imp-cell imp-date" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
+        <DateInput id={'imp-row-' + idx + '-date-input'} className="imp-cell imp-date" wrapClassName="imp-date-wrap" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
         <input id={'imp-row-' + idx + '-desc-input'} className="imp-cell imp-desc" placeholder="Description" title="Transaction description" value={row.desc} onChange={(e) => update(idx, { desc: e.target.value })} />
         <div className="imp-cell-cat">
-          <select id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })}>
+          <StyledSelect id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })}>
             {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
-          </select>
+          </StyledSelect>
         </div>
         <div className={'imp-amt-wrap ' + (row.amount >= 0 ? 'pos' : 'neg')}>
           <span className="imp-amt-sign">{row.amount >= 0 ? '+' : '−'}{SYM[row.cur]}</span>
-          <input id={'imp-row-' + idx + '-amount-input'} type="number" step="0.01" className="imp-cell imp-amt" value={Math.abs(row.amount)}
-            onChange={(e) => { const v = parseFloat(e.target.value) || 0; update(idx, { amount: row.amount < 0 ? -v : v }); }} />
+          <AmountInput id={'imp-row-' + idx + '-amount-input'} amount={row.amount}
+            onAmount={(v) => update(idx, { amount: v })} />
           <button id={'imp-row-' + idx + '-flip-btn'} className="imp-amt-flip" title="Flip income/expense" onClick={() => update(idx, { amount: -row.amount })}><Icon name="repeat" size={11} /></button>
         </div>
-        <select id={'imp-row-' + idx + '-account-select'} className="imp-cell imp-acc" value={row.accId || ''} onChange={(e) => update(idx, { accId: e.target.value })}>
+        <StyledSelect id={'imp-row-' + idx + '-account-select'} className="imp-cell imp-acc" value={row.accId || ''} onChange={(e) => update(idx, { accId: e.target.value })}>
           <option value="" disabled>Account…</option>
           {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)}</option>)}
-        </select>
+        </StyledSelect>
         <button id={'imp-row-' + idx + '-delete-btn'} className="imp-del" onClick={() => remove(idx)} title="Remove row"><Icon name="trash-2" size={13} /></button>
       </div>
     );
@@ -363,6 +466,98 @@
             </div>
           ))}
         </div>
+        {result.creditPayments && result.creditPayments.length > 0 && (
+          <div className="imp-done-cp" id="imp-done-credit-payments">
+            <Icon name="credit-card" size={13} />
+            Created {result.creditPayments.length} Credit Payment{result.creditPayments.length !== 1 ? 's' : ''} with the statement attached: {result.creditPayments.join(', ')}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ═══════════════ STEP 3′ — Review holdings (broker portfolio) ═══════════════
+  function InvReviewRow({ row, idx, update, remove }) {
+    return (
+      <div className={'imp-inv-row' + (row.include ? '' : ' excluded')}>
+        <button id={'imp-inv-' + idx + '-include-btn'} className="imp-inc" onClick={() => update(idx, { include: !row.include })} title={row.include ? 'Exclude holding' : 'Include holding'}>
+          <Icon name={row.include ? 'check-square' : 'square'} size={16} />
+        </button>
+        <span className="imp-inv-ticker mono" title={row.ticker}>{row.ticker}</span>
+        <input id={'imp-inv-' + idx + '-name-input'} className="imp-cell imp-inv-name" placeholder="Asset name" title="Asset name" value={row.name} onChange={(e) => update(idx, { name: e.target.value })} />
+        <StyledSelect id={'imp-inv-' + idx + '-type-select'} className="imp-cell imp-inv-type" value={row.assetType} onChange={(e) => update(idx, { assetType: e.target.value })}>
+          {ASSET_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </StyledSelect>
+        <input id={'imp-inv-' + idx + '-qty-input'} type="number" step="any" className="imp-cell imp-inv-qty" title="Quantity held" value={row.qty} onChange={(e) => update(idx, { qty: parseFloat(e.target.value) || 0 })} />
+        <div className="imp-inv-cost-wrap">
+          <span className="imp-amt-sign">{SYM[row.cur]}</span>
+          <input id={'imp-inv-' + idx + '-cost-input'} type="number" step="0.01" className="imp-cell imp-inv-cost" title="Average cost per unit" value={row.cost} onChange={(e) => update(idx, { cost: parseFloat(e.target.value) || 0 })} />
+        </div>
+        <span className="imp-inv-value" title="Current market value (from statement)">{SYM[row.cur]}{grp(row.value)}</span>
+        <button id={'imp-inv-' + idx + '-delete-btn'} className="imp-del" onClick={() => remove(idx)} title="Remove holding"><Icon name="trash-2" size={13} /></button>
+      </div>
+    );
+  }
+
+  function InvReviewStep({ rows, setRows, summary }) {
+    const update = (i, patch) => setRows(prev => prev.map((r, j) => j === i ? { ...r, ...patch } : r));
+    const remove = (i) => setRows(prev => prev.filter((_, j) => j !== i));
+    const incl = rows.filter(r => r.include);
+    const allOn = incl.length === rows.length && rows.length > 0;
+    const cur = rows.length ? rows[0].cur : 'TRY';
+
+    return (
+      <div className="imp-pane imp-review">
+        {summary && (
+          <div className="imp-inv-summary">
+            <div className="imp-stat"><span className="imp-stat-k">Cash Balance</span><span className="imp-stat-v">{SYM[cur]}{grp(summary.cash || 0)}</span></div>
+            <div className="imp-stat"><span className="imp-stat-k">Portfolio Value</span><span className="imp-stat-v pos">{SYM[cur]}{grp(summary.total || 0)}</span></div>
+            <div className="imp-stat"><span className="imp-stat-k">Holdings</span><span className="imp-stat-v">{rows.length}</span></div>
+          </div>
+        )}
+        <div className="imp-rev-head">
+          <button id="imp-inv-bulk-select-btn" className="imp-bulk" onClick={() => setRows(prev => prev.map(r => ({ ...r, include: !allOn })))}>
+            <Icon name={allOn ? 'check-square' : 'square'} size={14} />{allOn ? 'Deselect all' : 'Select all'}
+          </button>
+          <span className="imp-rev-count">{incl.length} of {rows.length} holdings selected · existing positions are updated in place</span>
+        </div>
+        <div className="imp-rev-table imp-inv-table">
+          <div className="imp-inv-thead">
+            <span></span><span>SYMBOL</span><span>NAME</span><span>TYPE</span><span className="ar">QTY</span><span className="ar">AVG COST</span><span className="ar">VALUE</span><span></span>
+          </div>
+          <div className="imp-rev-body">
+            {rows.map((r, i) => <InvReviewRow key={r.key} row={r} idx={i} update={update} remove={remove} />)}
+            {rows.length === 0 && <div className="imp-rev-empty"><Icon name="inbox" size={24} />All holdings removed.</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function InvDoneStep({ result }) {
+    return (
+      <div className="imp-pane imp-done">
+        <div className="imp-done-ico"><Icon name="check-check" size={34} /></div>
+        <span className="imp-done-t">Portfolio Imported</span>
+        <span className="imp-done-s">
+          {result.created} investment{result.created !== 1 ? 's' : ''} created
+          {result.updated ? ' · ' + result.updated + ' updated' : ''}.
+        </span>
+        <div className="imp-done-grid">
+          {result.holdings.map(h => (
+            <div className="imp-done-row" key={h.key}>
+              <span className="imp-done-acc mono">{h.ticker}</span>
+              <span className="imp-done-n">{grp(h.qty, 0)} @ {SYM[h.cur]}{grp(h.cost)}</span>
+              <span className="imp-done-delta pos">{SYM[h.cur]}{grp(h.value)}</span>
+            </div>
+          ))}
+        </div>
+        {result.accounts && result.accounts.length > 0 && (
+          <div className="imp-done-cp" id="imp-done-invest-account">
+            <Icon name="trending-up" size={13} />
+            Created investment account{result.accounts.length !== 1 ? 's' : ''}: {result.accounts.join(', ')} — open it on the Accounts page to see these holdings.
+          </div>
+        )}
       </div>
     );
   }
@@ -377,6 +572,10 @@
     const [rows, setRows] = React.useState([]);
     const [doc, setDoc] = React.useState(null);               // normalized statement
     const [result, setResult] = React.useState(null);
+    const [mode, setMode] = React.useState('tx');             // 'tx' | 'inv' (broker portfolio)
+    const [invRows, setInvRows] = React.useState([]);         // editable holdings
+    const [invSummary, setInvSummary] = React.useState(null); // { cash, total, period_* }
+    const [invResult, setInvResult] = React.useState(null);   // { created, updated, holdings }
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState(null);
     const [sourceMap, setSourceMap] = React.useState({});     // statement source → chosen account id
@@ -437,11 +636,40 @@
         setBusy(true);
         try {
           const res = await window.HL_IMPORT_API.preview(pickedFile, 'auto');
+          // Broker portfolio statement (Midas) → holdings become Investments,
+          // skipping the account-detection step entirely.
+          if (res.kind === 'investments') {
+            const holdings = res.investments || [];
+            if (!holdings.length) {
+              setError('No portfolio holdings could be parsed from this file.');
+              setBusy(false);
+              return;
+            }
+            setMode('inv');
+            setInvSummary(res.portfolio || null);
+            setInvRows(holdings.map((h, i) => ({
+              key: 'h' + i,
+              include: true,
+              ticker: h.ticker || (h.name || '').split(' - ')[0],
+              name: h.name || '',
+              assetType: h.asset_type || 'stock',
+              cur: h.currency || 'TRY',
+              qty: Number(h.amount) || 0,
+              cost: h.purchase_price != null ? Number(h.purchase_price) : 0,
+              value: Number(h.current_value) || 0,
+            })));
+            setDoc({ fileName: pickedFile.name, format: formatOf(pickedFile.name),
+              institution: res.bank_detected || 'Broker' });
+            setStep('review');
+            setBusy(false);
+            return;
+          }
           if (!res.rows || !res.rows.length) {
             setError('No transactions could be parsed from this file.');
             setBusy(false);
             return;
           }
+          setMode('tx');
           const norm = normalizePreview(pickedFile, res);
           setDoc(norm);
           const matched = matchBySource(accounts, norm.accountNumber);
@@ -464,19 +692,22 @@
       // Build editable rows. Category is taken from the Turkish "Etiket" tag when
       // mappable (falling back to keyword guessing); the account is auto-mapped per
       // card/source, falling back to the document-level account when unmatched.
-      // Credit-card statements keep the bank's original description casing as-is
-      // (no Title-casing); other sources are still tidied.
-      const creditSources = new Set(
-        (doc.statementAccounts || []).filter(a => a.type === 'credit').map(a => a.source));
+      // Keep the bank's ORIGINAL description casing verbatim for every source —
+      // never Title-case or normalize it. Some line items carry meaningful mixed
+      // casing (e.g. "Sadun Sevıngen--EFT-CEP ŞUBE", "K.Kartı Ödeme") that must be
+      // preserved exactly as the bank sent it.
+      // Sources that resolve to a bank account (drives the "Diğer/Other → Transfer"
+      // rule, which is scoped to bank statements — see guessCategory).
+      const bankSources = new Set(
+        (doc.statementAccounts || []).filter(a => a.type === 'bank').map(a => a.source));
       const built = doc.rows.map((r, i) => {
         const etiket = r[4];
-        const fromCredit = creditSources.has(r[5]);
         return {
           key: 'r' + i,
           include: true,
           date: r[0],
-          desc: fromCredit ? r[1] : tidyDesc(r[1]),
-          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket),
+          desc: r[1],
+          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, bankSources.has(r[5])),
           amount: r[2],
           cur: r[3],
           accId: resolveSource(r[5]) || accId,
@@ -484,6 +715,59 @@
       });
       setRows(built);
       setStep('review');
+    }
+
+    // Persist reviewed broker holdings as Investments (upsert by platform+symbol).
+    async function commitInvestments() {
+      setError(null);
+      const incl = invRows.filter(r => r.include);
+      const holdings = incl.map(r => ({
+        ticker: r.ticker,
+        name: r.name,
+        platform: 'Midas',
+        asset_type: r.assetType,
+        currency: r.cur,
+        amount: r.qty,
+        purchase_price: r.cost,
+      }));
+      setBusy(true);
+      let outcome;
+      try {
+        outcome = await window.HL_IMPORT_API.confirmInvestments(holdings, true);
+      } catch (e) {
+        setError(e.message || 'Import failed.');
+        setBusy(false);
+        return;
+      }
+      // Auto-create an "invest"-type account per platform so the holdings surface
+      // under it on the Accounts page (matched by platform == account name). Skip
+      // platforms that already have an invest account. Non-fatal: the Investment
+      // records are already saved above.
+      const createdAccounts = [];
+      const platforms = [...new Set(incl.map(r => r.platform || 'Midas'))];
+      if (window.HL_ACCOUNTS_API) {
+        for (const p of platforms) {
+          const exists = accounts.some(a => a.type === 'invest' && (a.name || '').trim().toLowerCase() === p.trim().toLowerCase());
+          if (exists) continue;
+          const mine = incl.filter(r => (r.platform || 'Midas') === p);
+          // Portfolio value: statement total when it's the only platform, else the
+          // sum of the platform's holdings' market value (cost basis as fallback).
+          const value = (platforms.length === 1 && invSummary && invSummary.total)
+            ? invSummary.total
+            : +mine.reduce((s, r) => s + (Number(r.value) || (r.qty * (r.cost || 0))), 0).toFixed(2);
+          const cur = (mine[0] && mine[0].cur) || 'TRY';
+          try {
+            const acc = await window.HL_ACCOUNTS_API.create({ type: 'invest', name: p, owner: 'Sadun', cur, balance: value, institution: p });
+            createdAccounts.push(acc.name);
+          } catch (e) { /* non-fatal: holdings still imported */ }
+        }
+      }
+
+      setBusy(false);
+      setInvResult({ created: outcome.created || 0, updated: outcome.updated || 0, holdings: incl, accounts: createdAccounts });
+      // Refresh the parent Accounts list so any freshly created invest account shows.
+      if (createdAccounts.length) onCommit && onCommit([], {});
+      setStep('done');
     }
 
     async function commit() {
@@ -513,36 +797,51 @@
       }
       setBusy(false);
 
-      // Credit-card statement summary → (1) store the actual Last Payment Date
-      // (Son Ödeme Tarihi) on the card, (2) add ONE budget-exempt "Credit Card
-      // Payment" record (Dönem Borcunuz, dated on that day) so it shows on the
-      // calendar as a single expense item. Non-fatal: the rows are already saved.
+      // Credit-card statement summary → create a dedicated Credit Payments record
+      // (with the uploaded extract attached) instead of a loose "Credit Card Payment"
+      // spending. The backend auto-links every imported purchase in the statement
+      // window to the record, so the extract is viewable on the Credit Payments page.
+      // Non-fatal: the purchase rows are already saved above.
+      const createdCP = [];
       const stmts = (doc.statementAccounts || []).filter(
         rec => rec.type === 'credit' && rec.payment_due && rec.total);
       for (const rec of stmts) {
-        const accId = resolveSource(rec.source);
-        const acct = accounts.find(a => a.id === accId);
+        const cardId = resolveSource(rec.source);        // 'acc-N' account key
+        const acct = accounts.find(a => a.id === cardId);
         if (!acct) continue;
+        // Persist the statement's Last Payment Date on the card (unchanged behavior).
         try {
           await window.HL_ACCOUNTS_API.update(acct._dbId, { ...acct, paymentDue: rec.payment_due });
-          if (window.HL_SPENDING_API) {
-            const cur = rec.currency || 'TRY';
-            await window.HL_SPENDING_API.create({
-              date: rec.payment_due,
-              amt: rec.total,
-              cur,
-              type: 'expense',
-              cat: 'credit-card-payment',
-              desc: 'Credit Card Payment — ' + (acct.name || rec.source),
-              payingFor: '–',
-              paymentMethod: accId,
-              payer: ownerOf(accId),
-              // TRY statements are 1:1; provide the TRY value as the client fallback so
-              // calendar/summary totals are correct even when no TCMB rate row exists yet.
-              tryV: cur === 'TRY' ? rec.total : null,
-            });
+        } catch (e) { /* non-fatal */ }
+        // "Dönemiçi İşlemler" (interim, in-period) dumps are not a billed statement —
+        // their total is a running period sum, not the final debt — so never create a
+        // Credit Payment record from them (the purchase rows are still imported above).
+        if (rec.interim) continue;
+        if (!window.HL_CREDIT_PAYMENTS_API) continue;
+        try {
+          // Cutover ≈ the statement's last transaction date for this card; the backend
+          // links purchases dated within (cutover − 1 month, cutover] to the record.
+          const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).sort();
+          const cutover = cardDates.length ? cardDates[cardDates.length - 1] : rec.payment_due;
+          const [cy, cm] = String(cutover || rec.payment_due).split('-');
+          const cp = await window.HL_CREDIT_PAYMENTS_API.create({
+            accountId: acct._dbId,
+            year: Number(cy),
+            month: Number(cm),
+            cutoverDate: cutover,
+            paymentDate: rec.payment_due,
+            total: rec.total,
+            minimum: rec.minimum || rec.min_payment || 0,
+            cur: rec.currency || 'TRY',
+          });
+          // Attach the uploaded statement to the record (stores the file; does not
+          // re-import rows). Skipped on the sample-document path where there is no file.
+          if (pickedFile) {
+            try { await window.HL_CREDIT_PAYMENTS_API.previewStatement(cp.id, pickedFile); }
+            catch (e) { /* attachment failed; the record + its links still stand */ }
           }
-        } catch (e) { /* card already imported; surfacing this would confuse the Done screen */ }
+          createdCP.push(cp);
+        } catch (e) { /* non-fatal: purchases already imported, just no CP record */ }
       }
 
       // Per-account summary for the Done screen + the host's balance sync.
@@ -556,12 +855,13 @@
         const a = accounts.find(x => x.id === id);
         return { accId: id, name: a ? a.name : id, cur: a ? a.cur : 'TRY', n: byAcc[id].n, delta: byAcc[id].delta };
       });
-      setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount });
+      setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount,
+        creditPayments: createdCP.map(c => c.name) });
       onCommit && onCommit(incl, byAcc);
       setStep('done');
     }
 
-    const inclCount = rows.filter(r => r.include).length;
+    const inclCount = (mode === 'inv' ? invRows : rows).filter(r => r.include).length;
 
     // Footer buttons per step
     function Footer() {
@@ -581,8 +881,8 @@
       );
       if (step === 'review') return (
         <React.Fragment>
-          <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep('detect')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
-          <button id="imp-review-import-btn" className="amb ok" disabled={inclCount === 0 || busy} onClick={commit}>
+          <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep(mode === 'inv' ? 'choose' : 'detect')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
+          <button id="imp-review-import-btn" className="amb ok" disabled={inclCount === 0 || busy} onClick={mode === 'inv' ? commitInvestments : commit}>
             <Icon name={busy ? 'loader' : 'check'} size={14} />{busy ? 'Importing…' : 'Import'}
           </button>
         </React.Fragment>
@@ -595,22 +895,24 @@
         <div className="modal imp-modal">
           <div className="modal-head">
             <div className="modal-head-l">
-              <span className="modal-title"><Icon name="file-down" size={16} />Import Transactions</span>
+              <span className="modal-title"><Icon name="file-down" size={16} />{mode === 'inv' ? 'Import Portfolio' : 'Import Transactions'}</span>
               <span className="modal-sub">{doc ? doc.fileName : 'From CSV, Excel, or PDF statement'}</span>
             </div>
             <button id="imp-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
-          <div className="imp-stepper-wrap"><Stepper current={step} /></div>
+          <div className="imp-stepper-wrap"><Stepper current={step} steps={mode === 'inv' ? INV_STEPS : STEPS} /></div>
 
           <div className="modal-body imp-body">
             {error && <div className="imp-error-banner"><Icon name="alert-triangle" size={14} />{error}</div>}
             {step === 'choose' && <ChooseStep format={format} setFormat={setFormat} setSelected={setSelected}
               pickedFile={pickedFile} setPickedFile={setPickedFile} />}
-            {step === 'detect' && doc && <DetectStep doc={doc} accId={accId} setAccId={setAccId} accounts={accounts}
+            {step === 'detect' && mode === 'tx' && doc && <DetectStep doc={doc} accId={accId} setAccId={setAccId} accounts={accounts}
               sourceMap={sourceMap} resolveSource={resolveSource} onPick={pickSource} onCreate={openCreate} />}
-            {step === 'review' && <ReviewStep rows={rows} setRows={setRows} accounts={accounts} />}
-            {step === 'done' && result && <DoneStep result={result} />}
+            {step === 'review' && mode === 'tx' && <ReviewStep rows={rows} setRows={setRows} accounts={accounts} />}
+            {step === 'review' && mode === 'inv' && <InvReviewStep rows={invRows} setRows={setInvRows} summary={invSummary} />}
+            {step === 'done' && mode === 'tx' && result && <DoneStep result={result} />}
+            {step === 'done' && mode === 'inv' && invResult && <InvDoneStep result={invResult} />}
           </div>
 
           <div className="modal-foot"><Footer /></div>

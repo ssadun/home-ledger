@@ -215,23 +215,69 @@ Frontend `Dashboard.html` exists but there is **no `/api/dashboard` router** —
 
 ## Supported Bank Import Formats
 
-| Bank | Formats | Column detection |
-|---|---|---|
-| Garanti BBVA | XLS, XLSX, CSV | Tarih / Açıklama / Borç / Alacak / Bakiye |
-| ON Burgan | XLS, XLSX, CSV | Same structure, different column names |
-| Generic | XLS, XLSX, CSV | Heuristic column detection |
-| Any bank | PDF | pdfplumber for text PDFs; PyMuPDF + Tesseract for scanned PDFs |
+Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user review; `/confirm` writes to DB. `skip_duplicates=true` deduplicates by (date, amount, type). All parsing lives in `backend/app/services/bank_import.py`.
 
-Import is two-step: `/preview` returns parsed rows for user review; `/confirm` writes to DB. `skip_duplicates=true` deduplicates by (date, amount, type).
+> **This is the living format registry — keep it complete.** Every statement format the app has ever learned to parse is catalogued below. When a new format is added (or an existing one changes), update the matching table row in the SAME commit so the knowledge is never lost. See _Adding a new statement format_ at the end.
+
+### High-level dispatch (`parse_bank_file`)
+
+- **Spreadsheet / CSV** (`xls`, `xlsx`, `csv`): try the Garanti multi-section grid export first (`_is_garanti_export` → `_parse_garanti_export`), else load a DataFrame and route by column signature to `_parse_garanti` / `_parse_on_burgan` / `_parse_generic`.
+- **PDF**: extract text, then try each dedicated text-PDF parser **in the order below**; the first whose detector matches wins. If none match (or none yield rows), fall back to the generic table parser (`_parse_pdf` → `_parse_generic`), then scanned-PDF OCR (`_parse_pdf_ocr`, PyMuPDF + Tesseract `tur+eng`).
+
+### PDF statement parsers (dispatch order)
+
+| # | Format | Detector (`_is_…`) | Signature in text | Layout · Date | Amount format | Produces / quirks |
+|---|---|---|---|---|---|---|
+| 1 | Midas portfolio | `_is_midas_pdf` | `midas menkul`, or `portföy özeti`+`hesap ekstresi` | PORTFÖY ÖZETİ table | `7.795,89 TRY` (3-alt regex) | **Investments** (not transactions) via `_parse_midas_holdings`; upsert by platform+ticker |
+| 2 | Garanti credit-card statement (full ekstre) | `_is_garanti_cc_pdf` | `hesap kesim tarihi` / `dönem borcunuz` / (`bonus`+`son ödeme tarihi`) | Free text (no table) · `02 Haziran 2026` (TR month name) | last `1.234,56` on line; suffix `+`/`-` → income, else expense | `_parse_garanti_cc_pdf`; emits card identity + `payment_due`/`total` → **creates a Credit Payment**. `ÖDEMENİZ… TEŞEKKÜR`→income/`credit-card-payment`; `DEVİR`→expense/`debt` (`_cc_classify`) |
+| 3 | Garanti **Dönemiçi İşlemler** (interim in-period card dump) | `_is_garanti_donemici_pdf` | folded `DONEMICI ISLEMLER` | Table `Tarih\|İşlem\|Etiket\|Bonus\|Tutar(TL)` · `23/07/2026` | Turkish `-5.151,22` (sign prefix) | `_parse_garanti_donemici_pdf`; amount = **Tutar column only** (empty Tutar = bonus-only row → skip; reconciles to "Toplam TL Harcama Tutarı"). Account flagged `interim:true` → **never creates a Credit Payment** |
+| 4 | Garanti **Hesap Hareketleri** (checking account) | `_is_garanti_hesap_pdf` | folded `HESAP HAREKETLERI` **and** (`GARANTIBBVA` or `HESAP NUMARASI`) | Table `Tarih\|Açıklama\|Etiket\|Tutar\|Bakiye` · `04.06.2026` | `+2.102,90 TL` (sign prefix, `TL` suffix) | `_parse_garanti_hesap_pdf`; **bank** account identity (IBAN/no/branch). Detector deliberately requires the Garanti signature so it doesn't grab ON files |
+| 5 | ON / Burgan **Hesap Hareketleri** (checking account) | `_is_on_burgan_pdf` | folded `BURGAN` or `ON HESAP VIRMAN` | Table `Tarih\|Açıklama\|Tutar\|Bakiye` (header only p1; `None`-padded later pages; multi-line descs) · `02.07.2026` | **3-decimal** Turkish `-160.643,550`; `1,000` = **1.0** | `_parse_on_burgan_pdf` with **`_parse_on_amount`** (NOT the shared `_parse_amount`, which misreads `,ddd` as thousands). **bank** account identity via IBAN (`TR`+24 digits) |
+| — | Generic table fallback | — | (none matched) | any table pdfplumber finds | `_parse_amount` heuristic | `_parse_pdf`→`_parse_generic`; last resort before OCR |
+
+### Spreadsheet / CSV parsers
+
+| Format | Detector | Layout | Notes |
+|---|---|---|---|
+| Garanti multi-section export | `_is_garanti_export` | Raw cell grid; delayed header, multiple card/account sections | `_parse_garanti_export` — state machine; tags each row with `source` + `etiket`; emits account identities |
+| Garanti (single header) | column signature | `Tarih\|Açıklama\|Borç\|Alacak\|Bakiye` (or single `Tutar`) | `_parse_garanti` |
+| ON Burgan (single header) | column signature | Same shape, different column names | `_parse_on_burgan` |
+| Generic | heuristic | Guesses date + numeric columns | `_parse_generic` |
+
+### Turkish number & date cheat-sheet
+
+- **Dates:** `15.03.2026`, `15/03/2026`, `2026-03-15`, `15-03-2026`, and TR month names `02 Haziran 2026` — all via `_parse_turkish_date`.
+- **Amounts:** Turkish uses `.` = thousands, `,` = decimal (`1.234,56` = 1234.56). The shared `_parse_amount` assumes **2-decimal** and treats a 3-digit `,ddd` as thousands — so **3-decimal banks (ON/Burgan) need `_parse_on_amount`**. Currency/sign may be a prefix (`-`, `+`) and/or suffix (`TL`, `TRY`, `USD`); strip non-numeric before parsing where needed. `_fold` normalizes Turkish diacritics/casing for keyword matching.
+
+### Adding a new statement format
+
+1. Add a `_is_<name>_pdf(text)` detector and a `_parse_<name>_pdf(content, text)` (or grid) parser in `bank_import.py`; reuse `_parse_turkish_date`, `_normalize_row`, `_fold`, and account-identity extraction.
+2. **Make the detector specific** so it doesn't shadow another bank (e.g. `HESAP HAREKETLERI` alone is ambiguous — Garanti's also requires `GARANTIBBVA`).
+3. Wire it into `parse_bank_file`'s PDF branch **in priority order** (`if not rows and text and _is_…`).
+4. Emit an `accounts` identity record (IBAN for banks, card number for cards). Set `interim:true` for non-billed/in-period card dumps so the frontend skips Credit Payment creation.
+5. **Add a row to the tables above in the same commit.** Then rebuild the backend image (baked, not mounted) and run `graphify update .`.
+
+> **Never convert the casing of imported line-item descriptions.** Preserve the bank's original text verbatim — no Title-casing, upper-casing, or lower-casing — for every source (bank accounts and cards alike). Some line items carry meaningful mixed casing (e.g. `Sadun Sevıngen--EFT-CEP ŞUBE`, `K.Kartı Ödeme`) that must survive the import exactly as sent.
+
+> **Any line item whose description contains "virman" is always a Transfer** (category `wire-transfer`), never shopping/salary — for every import. "Virman" = internal account transfer; the type is kept per its sign (a virman may be incoming or outgoing). Enforced in the backend (`_cc_classify` → sets `category_key`, matched via `_fold` so `VİRMAN` casing works) and the frontend (`guessCategory` in `import-data.js`, overriding Etiket + the income/expense fallback).
+
+> **The importer first classifies each statement** (bank account / credit card / investment) — that's what the dispatch in `parse_bank_file` already does: Midas → `kind:"investments"`; card parsers emit `accounts[].type == "credit"`; account parsers emit `accounts[].type == "bank"`. **On BANK-account statements only,** a line item whose description contains "diğer"/"other" (whole word) is marked **Transfer** (`wire-transfer`), type kept per its sign. Scoped to bank because on CARD statements "Diğer" is a legitimate spending tag (tolls, misc. purchases) and must stay an expense. Enforced in the backend (`_normalize_row(account_type="bank")`, matched via `_fold` + `_DIGER_RE`) and the frontend (`guessCategory(…, isBank)`, bank sources computed in `goReview`).
 
 
 ## Local Environment & Dev Workflow
 
 - **App (host):** `http://localhost:3236` — frontend container `home-ledger-web`, published `3236->80`.
-- Test it after each visual change after completion over Playwright
-- **Playwright MCP** runs on the host network → use `localhost:3236`, **not** `:3000`.
-  - If a Playwright call fails with **"Browser is already in use … use --isolated"**, the browser is locked by a stale session. Restart its container to clear the lock, then retry: `docker restart claude-playwright`.
 - **What the user actually views:** `http://nas:8088` — a Python `dev-server.py` serving `frontend/` live from disk (`Cache-Control: no-store`), **not** Docker's 3236. Verify changes here.
+- **Verify each visual change with Playwright (CLI, not MCP).** The `claude-playwright` container now runs `npx playwright test` over spec files instead of exposing an MCP browser server. Config + specs live at `/volume1/docker/_config/claude-playwright/` (`playwright.config.js` sets `baseURL: http://nas:8088`; `tests/hl-helpers.js` provides `login(page)` + `tableOverflow(page, path)`). Host/`nas` networking lets specs reach `nas:8088` and its relative `/api` backend.
+  - **Run a spec** (on-demand — the container is not left running):
+    ```bash
+    DIR=/volume1/docker/_config/claude-playwright
+    docker compose -f "$DIR/compose.yml" --project-directory "$DIR" run --rm claude-playwright \
+      npx playwright test tests/<your-spec>.spec.js
+    ```
+  - **Auth:** a fresh context has no JWT, so specs must log in first — call `login(page)` from `hl-helpers.js` (drives `window.HL_AUTH.login` with the test user, storing `hl-token` in localStorage).
+  - **Artifacts:** screenshots/traces land in `./test-results` (mounted to NAS disk); `Read` the PNGs to inspect them. Assertions + `console.log` replace the old interactive MCP driving.
+  - **In-browser Babel** transpiles JSX per page (~2–4 s/page), so give multi-page specs a generous `timeout` (config is 150 s).
 - **UI changes apply to both desktop and mobile by default** — never stop at desktop.
 - **Mobile viewport for testing:** **360 × 780**.
 

@@ -342,3 +342,50 @@ body.col-resizing * { cursor: col-resize !important; }
 .pagination                   { border-top: none; background: var(--bg2); }
 .table-scroll                 { background: var(--bg2); }
 .ledger-table thead tr        { background: var(--bg2); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Mass-delete — leftmost checkbox column + bulk action bar.
+   Enabled by adding `.selectable` to the table and a leading select column.
+   ════════════════════════════════════════════════════════════════════════ */
+.ledger-table col.col-select        { width: 40px; }
+.ledger-table th.th-select,
+.ledger-table td.td-select          { width: 40px; padding: 0 0 0 14px; text-align: left; cursor: default; }
+.ledger-table th.th-select          { color: var(--muted); }
+.ledger-table th.th-select:hover    { color: var(--muted); }
+
+.row-select-box {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; margin: 0; flex-shrink: 0; vertical-align: middle;
+  border: 1px solid var(--border2); border-radius: 4px; background: var(--bg3);
+  cursor: pointer; position: relative; transition: all .15s;
+}
+.row-select-box:hover                { border-color: var(--accent); }
+.row-select-box:checked,
+.row-select-box:indeterminate        { background: var(--accent); border-color: var(--accent); }
+.row-select-box:checked::after {
+  content: ''; position: absolute; left: 4px; top: 1px;
+  width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.row-select-box:indeterminate::after {
+  content: ''; position: absolute; left: 3px; top: 6px; width: 7px; height: 2px; background: #fff;
+}
+.ledger-table tbody tr.tx-row.row-selected td       { background: rgba(79,142,247,.10); }
+.ledger-table tbody tr.tx-row.row-selected:hover td { background: rgba(79,142,247,.14); }
+
+.bulk-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; background: rgba(79,142,247,.08); border-bottom: 1px solid var(--border);
+}
+.bulk-count   { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+.bulk-actions { display: inline-flex; align-items: center; gap: 8px; }
+
+@media (max-width: 660px) {
+  /* Insert a leading checkbox column into the stacked card grid, spanning both rows. */
+  .ledger-table.selectable tbody tr.tx-row            { grid-template-columns: auto 1fr auto; }
+  .ledger-table.selectable td.td-select               { display: flex; grid-column: 1; grid-row: 1 / span 2; align-items: center; justify-content: center; padding: 0; }
+  .ledger-table.selectable td[data-label="Description"]{ grid-column: 2; }
+  .ledger-table.selectable td[data-label="Amount"]     { grid-column: 3; }
+  .ledger-table.selectable td.td-meta-mobile           { grid-column: 2; }
+  .ledger-table.selectable td[data-label="Payment"]    { grid-column: 3; }
+  .bulk-bar { margin: 0 0 6px; border-radius: 8px; border: 1px solid var(--border); }
+}

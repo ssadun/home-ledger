@@ -1,6 +1,7 @@
 // credit-payments-components.jsx — table, add/edit modal, statement detail/upload, delete confirm.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { grp, SYM, MONTHS } = window.LEDGER_FMT;
   const { DateInput, CurrencyInput } = window;
   const CP_API = window.HL_CREDIT_PAYMENTS_API;
@@ -9,7 +10,7 @@
   const fmtDate = (s) => s || '–';
 
   // ── Records table ─────────────────────────────────────────────────────────
-  function CreditPaymentTable({ records, onRowClick, onEdit, onDelete }) {
+  function CreditPaymentTable({ records, onRowClick, onEdit, onDelete, selectable, selected, onToggleSelect, allSelected, someSelected, onToggleSelectAll }) {
     if (!records.length) {
       return (
         <div className="cp-empty" id="cp-empty-state">
@@ -24,6 +25,13 @@
         <table className="cp-table" id="cp-table">
           <thead>
             <tr>
+              {selectable && (
+                <th className="cp-th-select" title="Select all">
+                  <input id="cp-select-all" type="checkbox" className="row-select-box" checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected; }}
+                    onChange={onToggleSelectAll} aria-label="Select all credit payments" />
+                </th>
+              )}
               <th>STATEMENT</th>
               <th>CARD</th>
               <th>CUTOVER</th>
@@ -36,7 +44,13 @@
           </thead>
           <tbody>
             {records.map(r => (
-              <tr key={r.id} id={'cp-row-' + r.id} className="cp-row" onClick={() => onRowClick(r)}>
+              <tr key={r.id} id={'cp-row-' + r.id} className={'cp-row' + (selectable && selected.has(r.id) ? ' row-selected' : '')} onClick={() => onRowClick(r)}>
+                {selectable && (
+                  <td className="cp-td-select" data-label="" onClick={(e) => { e.stopPropagation(); onToggleSelect(r.id); }}>
+                    <input id={'cp-row-select-' + r.id} type="checkbox" className="row-select-box" checked={selected.has(r.id)}
+                      onChange={() => {}} aria-label="Select row" />
+                  </td>
+                )}
                 <td data-label="Statement">
                   <span className="cp-name"><Icon name="file-text" size={14} />{r.name || '–'}</span>
                 </td>
@@ -113,28 +127,28 @@
           <div className="modal-body">
             <div className="form-field full">
               <span className="field-label">Credit Card</span>
-              <select id="cp-modal-card-select" className="field-input" value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>
+              <StyledSelect id="cp-modal-card-select" className="field-input" value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>
                 <option value="">— Select Card —</option>
                 {cards.map(c => (
                   <option key={c._dbId} value={c._dbId}>
                     {c.name}{c.number && c.number !== '–' ? ' ' + c.number : ''}{c.owner && c.owner !== 'Shared' ? ' (' + c.owner + ')' : ''}
                   </option>
                 ))}
-              </select>
+              </StyledSelect>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Statement Month</span>
-                <select id="cp-modal-month-select" className="field-input" value={f.month} onChange={(e) => set('month', e.target.value)}>
+                <StyledSelect id="cp-modal-month-select" className="field-input" value={f.month} onChange={(e) => set('month', e.target.value)}>
                   {MONTHS.slice(1).map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-                </select>
+                </StyledSelect>
               </div>
               <div className="form-field">
                 <span className="field-label">Statement Year</span>
-                <select id="cp-modal-year-select" className="field-input" value={f.year} onChange={(e) => set('year', e.target.value)}>
+                <StyledSelect id="cp-modal-year-select" className="field-input" value={f.year} onChange={(e) => set('year', e.target.value)}>
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
+                </StyledSelect>
               </div>
             </div>
 
@@ -154,9 +168,9 @@
                 <span className="field-label">Total Payment</span>
                 <div className="amount-input-wrap">
                   <CurrencyInput id="cp-modal-total-input" value={f.total} currency={f.cur} onChange={(v) => set('total', v)} />
-                  <select id="cp-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
+                  <StyledSelect id="cp-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
                     <option>TRY</option><option>USD</option><option>EUR</option>
-                  </select>
+                  </StyledSelect>
                 </div>
               </div>
               <div className="form-field">
@@ -284,20 +298,23 @@
   }
 
   // ── Delete confirm ──────────────────────────────────────────────────────────
-  function DeleteCreditPaymentConfirm({ record, onClose, onConfirm }) {
+  function DeleteCreditPaymentConfirm({ record, count, onClose, onConfirm }) {
+    const batch = typeof count === 'number';
     return (
       <div className="backdrop">
         <div className="modal confirm-modal">
           <div className="modal-head">
             <div className="modal-head-l">
-              <span className="modal-title"><Icon name="trash-2" size={16} />Delete Credit Payment</span>
+              <span className="modal-title"><Icon name="trash-2" size={16} />{batch ? 'Delete Selected' : 'Delete Credit Payment'}</span>
             </div>
             <button id="cp-del-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
           <div className="confirm-body">
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
             <div className="confirm-text">
-              Delete <b>{record.name}</b>?
+              {batch
+                ? <>Delete <b>{count}</b> selected credit {count === 1 ? 'payment' : 'payments'}?</>
+                : <>Delete <b>{record.name}</b>?</>}
               <span className="warn">⚠ Linked spendings stay, but lose their statement link. This cannot be undone.</span>
             </div>
           </div>

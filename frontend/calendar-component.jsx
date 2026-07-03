@@ -3,7 +3,20 @@
 // Clicking a day shows event detail; clicking an event navigates to the source page.
 (function () {
   const Icon = window.Icon;
-  const { CATS, TX } = window.LEDGER;
+  const StyledSelect = window.StyledSelect;
+  const { CATS, TX, FX } = window.LEDGER;
+
+  // Credit-card colour follows the user's Account Types setting (Config → Account
+  // Types → Credit Card), not a hardcoded orange. Falls back to orange if unset.
+  const creditColor = () => (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES
+    && window.ACCOUNTS_DATA.ACCOUNT_TYPES.credit && window.ACCOUNTS_DATA.ACCOUNT_TYPES.credit.color) || 'var(--orange)';
+
+  // TRY value for the month summary. Backend rows can arrive with amount_try = null,
+  // so fall back to an FX conversion (TRY → toTRY 1) instead of summing nulls to zero.
+  function toTRY(amt, cur) {
+    const fx = FX && FX[cur];
+    return fx && fx.toTRY != null ? +(amt * fx.toTRY).toFixed(2) : (amt || 0);
+  }
   const { grp, fmtDate, dowOf, SYM, MONTHS } = window.LEDGER_FMT;
 
   /* ── Transaction-type legend ────────────────────────────────────────── */
@@ -12,12 +25,41 @@
     expense:       { label: 'Spending',         color: 'var(--coral)',    icon: 'arrow-up-right' },
     account:       { label: 'Account Activity', color: 'var(--accent)',   icon: 'landmark' },
     recurring:     { label: 'Upcoming Due',     color: 'var(--lavender)', icon: 'repeat' },
-    creditPayment: { label: 'Card Payment',     color: 'var(--orange)',   icon: 'credit-card' },
   };
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  /* ── Payment-method resolution (accounts + literal methods) ─────────── */
+  const LITERAL_PM = {
+    'credit-card': 'Credit Card', 'debit-card': 'Debit Card',
+    'cash': 'Cash', 'wallet': 'Wallet', 'bank': 'Bank Transfer',
+  };
+  const accountsList = () => (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
+
+  // Normalise a raw payment-method value (account id/name or a literal) to a
+  // stable { key, label }. Prefixed keys keep an account named "cash" ≠ literal "cash".
+  function resolvePM(raw) {
+    if (raw == null || raw === '') return null;
+    const a = accountsList().find(x => x.id === raw || x._dbId === raw || x.name === raw);
+    if (a) return { key: 'acct:' + a.id, label: a.name };
+    if (LITERAL_PM[raw]) return { key: 'lit:' + raw, label: LITERAL_PM[raw] };
+    return { key: 'raw:' + String(raw), label: String(raw) };
+  }
+
+  // Distinct payment methods across every calendar source (all months), so the
+  // filter list stays stable as the user steps between months.
+  function paymentMethodOptions() {
+    const seen = new Map();
+    const push = (raw) => { const p = resolvePM(raw); if (p && !seen.has(p.key)) seen.set(p.key, p); };
+    ((window.LEDGER && window.LEDGER.TX) || []).forEach(t => push(t.paymentMethod));
+    if (window.RECURRING_DATA) window.RECURRING_DATA.RECURRING.forEach(r => push(r.paymentMethod));
+    if (window.CREDIT_PAYMENTS_DATA) window.CREDIT_PAYMENTS_DATA.RECORDS.forEach(r => push(r.accountKey || r.accountId || r.cardLabel));
+    if (window.ACCT_TX_DATA) window.ACCT_TX_DATA.ACCT_TX.forEach(a => push(a.accountName));
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }
+
   /* ── Build unified event map { dateStr → [...events] } ─────────────── */
-  function buildEvents(year, month) {
+  // pmFilter: a resolvePM key ('' = all methods) restricting which events show.
+  function buildEvents(year, month, pmFilter) {
     const map = {};
     const pfx = year + '-' + String(month + 1).padStart(2, '0');
     const add = (d, ev) => { (map[d] || (map[d] = [])).push(ev); };
@@ -26,12 +68,15 @@
     // Data source: data.js → window.LEDGER.TX
     TX.forEach(tx => {
       if (!tx.date.startsWith(pfx)) return;
+      const pm = resolvePM(tx.paymentMethod);
+      if (pmFilter && (!pm || pm.key !== pmFilter)) return;
       const c = CATS[tx.cat] || {};
       add(tx.date, {
-        source: tx.type === 'income' ? 'income' : 'expense',
-        id: tx.id, desc: tx.desc, amount: tx.tryV, cur: tx.cur, rawAmt: tx.amt,
+        // Credit-card-payment is a transfer, not new spending — show it as "Upcoming Due".
+        source: tx.cat === 'credit-card-payment' ? 'recurring' : (tx.type === 'income' ? 'income' : 'expense'),
+        id: tx.id, desc: tx.desc, amount: tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur), cur: tx.cur, rawAmt: tx.amt,
         catLabel: c.label || tx.cat, catIcon: c.icon || 'circle', catColor: c.color || 'var(--slate)',
-        payer: tx.payer, paymentMethod: tx.paymentMethod,
+        payer: tx.payer, paymentMethod: tx.paymentMethod, pmKey: pm ? pm.key : null,
         href: 'Spending.html?month=' + month + '&year=' + year + '&highlight=' + tx.id,
       });
     });
@@ -43,10 +88,12 @@
       ACCT_TX.forEach(atx => {
         if (!atx.date.startsWith(pfx)) return;
         const t = ACCT_TX_TYPES[atx.txType] || {};
+        const pm = resolvePM(atx.accountName);
+        if (pmFilter && (!pm || pm.key !== pmFilter)) return;
         add(atx.date, {
           source: 'account', id: atx.id, desc: atx.desc, amount: atx.tryV,
           cur: atx.cur, rawAmt: atx.amt, direction: atx.direction,
-          accountName: atx.accountName,
+          accountName: atx.accountName, pmKey: pm ? pm.key : null,
           catLabel: t.label || atx.txType, catIcon: t.icon || 'landmark', catColor: t.color || 'var(--accent)',
           href: 'Account Activity.html?highlight=' + atx.id,
         });
@@ -62,6 +109,8 @@
         if (!rec.nextDue.startsWith(pfx)) return;
         const c = CATS[rec.cat] || {};
         const pmAcct = accts.find(a => a.id === rec.paymentMethod);
+        const pm = resolvePM(rec.paymentMethod);
+        if (pmFilter && (!pm || pm.key !== pmFilter)) return;
         add(rec.nextDue, {
           source: 'recurring', id: rec.id, desc: rec.name + ' — Due',
           amount: rec.tryAmount, cur: rec.cur, rawAmt: rec.amount,
@@ -69,6 +118,7 @@
           payer: rec.payer,
           paymentMethod: pmAcct ? pmAcct.name : null,
           paymentMethodType: pmAcct ? pmAcct.type : null,
+          pmKey: pm ? pm.key : null,
           href: 'Subscriptions.html?highlight=' + rec.id,
         });
       });
@@ -79,11 +129,15 @@
     if (window.CREDIT_PAYMENTS_DATA) {
       window.CREDIT_PAYMENTS_DATA.RECORDS.forEach(rec => {
         if (!rec.paymentDate || !rec.paymentDate.startsWith(pfx)) return;
+        const pm = resolvePM(rec.accountKey || rec.accountId || rec.cardLabel);
+        if (pmFilter && (!pm || pm.key !== pmFilter)) return;
         add(rec.paymentDate, {
-          source: 'creditPayment', id: rec.id, desc: (rec.name || 'Card Payment') + ' — Due',
+          // Merged into "Upcoming Due" (recurring); keeps the credit-card icon + Credit Payments link.
+          source: 'recurring', id: rec.id, desc: (rec.name || 'Card Payment') + ' — Due',
           amount: rec.total, cur: rec.cur, rawAmt: rec.total,
-          catLabel: rec.cardLabel || 'Credit Card', catIcon: 'credit-card', catColor: 'var(--orange)',
-          paymentMethod: rec.cardLabel || null,
+          catLabel: rec.cardLabel || 'Credit Card', catIcon: 'credit-card', catColor: creditColor(),
+          // Payment Method chip shows the account name (resolved), not the composite card label.
+          paymentMethod: pm ? pm.label : (rec.cardLabel || null), pmKey: pm ? pm.key : null,
           href: 'Credit Payments.html?highlight=' + rec.id,
         });
       });
@@ -114,12 +168,16 @@
 
   /* ── CalendarWidget ─────────────────────────────────────────────────── */
   function CalendarWidget({ initialYear, initialMonth }) {
-    const now = window.LEDGER.TODAY || new Date();
+    // Open on the real current month (production data is current); the mock
+    // LEDGER.TODAY is a dev-only fixture and would pin this to a stale month.
+    const now = new Date();
     const [year, setYear]   = React.useState(initialYear != null ? initialYear : now.getFullYear());
     const [month, setMonth] = React.useState(initialMonth != null ? initialMonth : now.getMonth());
     const [sel, setSel]     = React.useState(null);
+    const [pm, setPm]       = React.useState('');   // '' = all payment methods
 
-    const events = React.useMemo(() => buildEvents(year, month), [year, month]);
+    const pmOptions = React.useMemo(() => paymentMethodOptions(), []);
+    const events = React.useMemo(() => buildEvents(year, month, pm), [year, month, pm]);
     const days   = React.useMemo(() => gridDays(year, month), [year, month]);
     const todayStr = pfxDate(now.getFullYear(), now.getMonth(), now.getDate());
     const selEvts  = sel && events[sel] ? events[sel] : [];
@@ -145,6 +203,18 @@
       <div className="cal-layout">
         {/* ── Calendar grid card ── */}
         <div className="cal-card">
+          {pmOptions.length > 0 && (
+            <div className="cal-filter">
+              <span className="filter-label"><Icon name="wallet" size={11} />Payment Method</span>
+              <div className="select-wrap">
+                <StyledSelect id="cal-pm-filter" className="sel" value={pm}
+                  onChange={(e) => { setPm(e.target.value); setSel(null); }}>
+                  <option value="">All Methods</option>
+                  {pmOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </StyledSelect>
+              </div>
+            </div>
+          )}
           <div className="cal-header">
             <button id="cal-prev-month-btn" className="cal-nav-btn" onClick={() => step(-1)} title="Previous Month"><Icon name="chevron-left" size={16} /></button>
             <div className="cal-header-center">
@@ -198,7 +268,7 @@
                 <div className="cal-events-list">
                   {selEvts.map((ev, i) => (
                     <a key={i} className="cal-event-row" href={ev.href}
-                      title={'View in ' + (ev.source === 'account' ? 'Account Activity' : ev.source === 'recurring' ? 'Subscriptions' : ev.source === 'creditPayment' ? 'Credit Payments' : 'Spending')}>
+                      title={'View in ' + (ev.href && ev.href.startsWith('Credit Payments') ? 'Credit Payments' : ev.href && ev.href.startsWith('Account Activity') ? 'Account Activity' : ev.href && ev.href.startsWith('Subscriptions') ? 'Subscriptions' : 'Spending')}>
                       <span className="cal-ev-icon" style={{
                         color: CAL_TYPES[ev.source].color,
                         background: 'color-mix(in srgb, ' + CAL_TYPES[ev.source].color + ' 12%, transparent)',
@@ -211,15 +281,9 @@
                           <span className={'cal-ev-badge cal-badge-' + ev.source}>{CAL_TYPES[ev.source].label}</span>
                           {ev.payer && <span className="cal-ev-payer"><Icon name="user" size={9} />{ev.payer}</span>}
                           {ev.paymentMethod && (() => {
-                            const pm = ev.paymentMethod;
-                            const pmt = ev.paymentMethodType;
-                            let icon = 'wallet', label = pm;
-                            if (pm === 'credit-card') { icon = 'credit-card'; label = 'Credit Card'; }
-                            else if (pm === 'debit-card') { icon = 'credit-card'; label = 'Debit Card'; }
-                            else if (pm === 'cash') { icon = 'banknote'; label = 'Cash'; }
-                            else if (pmt === 'credit' || pmt === 'debit') { icon = 'credit-card'; }
-                            else if (pmt === 'bank') { icon = 'landmark'; }
-                            return <span className="cal-ev-payer"><Icon name={icon} size={9} />{label}</span>;
+                            // Show only the account name (resolved label) — no icon.
+                            const pm = resolvePM(ev.paymentMethod);
+                            return <span className="cal-ev-payer">{pm ? pm.label : ev.paymentMethod}</span>;
                           })()}
                           {ev.accountName && <span className="cal-ev-acct"><Icon name="landmark" size={9} />{ev.accountName}</span>}
                         </span>

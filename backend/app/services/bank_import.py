@@ -138,6 +138,8 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
     - "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ" (your payment) → income, category "Credit Card Payment"
       A payment credits the card (reduces the debt), so it is booked as income.
     - "ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR" (balance carried over) → expense, category "Debt"
+    - "…VIRMAN…" (internal account transfer) → category "Wire Transfer" (type kept
+      as-is: a virman may be incoming or outgoing per its sign). Valid for every import.
     """
     # Strip everything but letters/digits so interleaved spaces or stray
     # watermark punctuation ("TE ŞE-KKÜR") can't break the keyword match.
@@ -146,12 +148,24 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
         return "income", "credit-card-payment"
     if "DEVIR" in f:
         return "expense", "debt"
+    if "VIRMAN" in f:
+        return None, "wire-transfer"
     return None, None
 
 
+# "Diğer" / "Other" as a whole word (folded). Word-bounded so it won't fire on
+# BROTHER/OTHERS etc. Used only for bank-account statements (see _normalize_row).
+_DIGER_RE = re.compile(r"\b(DIGER|OTHER)\b")
+
+
 def _normalize_row(date: str, description: str, amount: float, balance=None, raw=None,
-                   currency="TRY", etiket=None, source=None) -> dict:
+                   currency="TRY", etiket=None, source=None, account_type=None) -> dict:
     type_override, category_override = _cc_classify(description)
+    # BANK-ACCOUNT statements only: a "Diğer"/"Other" line item is a miscellaneous
+    # transfer → Transfer (category wire-transfer). Scoped to account_type == "bank"
+    # because on CARD statements "Diğer" is a legitimate spending tag (tolls, etc.).
+    if category_override is None and account_type == "bank" and _DIGER_RE.search(_fold(description)):
+        category_override = "wire-transfer"
     return {
         "date": date,
         "description": (description or "").strip()[:200],
@@ -513,6 +527,299 @@ def _parse_garanti_cc_pdf(text: str) -> tuple[list[dict], list[dict]]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Garanti BBVA "Dönemiçi İşlemler" (dönem içi işlem listesi — PDF)
+# ─────────────────────────────────────────────────────────────────────────────
+# Bu, tam ekstre değil, kartın dönem-içi (henüz kesilmemiş) işlem dökümüdür.
+# Tam ekstrenin (_parse_garanti_cc_pdf) aksine gerçek bir TABLO olarak gelir:
+#   Tarih | İşlem | Etiket | Bonus | Tutar (TL)
+# ve tarihler "23/07/2026" (gg/aa/yyyy) biçimindedir, Türkçe ay adı değil.
+# İşlem tutarı YALNIZCA "Tutar (TL)" kolonudur; "Bonus" kolonu puan hareketidir
+# (bazen pdfplumber bonus'u tutar hizasına kaydırır — Tutar boşsa satır bonus-only
+# demektir ve TL harcaması yoktur, atlanır). Böylece toplam, ekstredeki
+# "Toplam TL Harcama Tutarı" ile birebir tutar.
+_DONEMICI_CARD_RE   = re.compile(r"(\d{4}\s+\*{2,4}\s+\*{2,4}\s+\d{4})")
+_DONEMICI_HOLDER_RE = re.compile(r"Say[ıi]n\s+([^\n,]+)")
+# Başlık özet satırı: "… 71.571,59 TL 26.06.2026 06.07.2026"
+#                       (dönem borcu)   (hesap kesim) (son ödeme)
+_DONEMICI_SUMMARY_RE = re.compile(
+    r"(\d{1,3}(?:\.\d{3})*,\d{2})\s*TL\s+(\d{2}\.\d{2}\.\d{4})\s+(\d{2}\.\d{2}\.\d{4})"
+)
+_DONEMICI_CUR_RE = re.compile(r"D[öo]nemi[çc]i\s+[İIi]şlemler\s*-\s*([A-Za-z]{2,3})")
+
+
+def _is_garanti_donemici_pdf(text: str) -> bool:
+    """Garanti 'Dönemiçi İşlemler' dökümü mü? (diakritikten bağımsız)."""
+    return "DONEMICI ISLEMLER" in _fold(text)
+
+
+def _parse_garanti_donemici_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    """Garanti 'Dönemiçi İşlemler' PDF'ini işlem satırları + kart kimliğine çevirir.
+
+    Serbest metin değil gerçek tablo olduğundan pdfplumber.extract_tables ile okunur.
+    İşlem tutarı yalnızca 'Tutar (TL)' kolonundan alınır (bkz. yukarıdaki not).
+    """
+    rows: list[dict] = []
+
+    card = None
+    m = _DONEMICI_CARD_RE.search(text)
+    if m:
+        card = re.sub(r"\s+", " ", m.group(1)).strip()
+    holder = None
+    mh = _DONEMICI_HOLDER_RE.search(text)
+    if mh:
+        holder = " ".join(mh.group(1).split())
+
+    payment_due = None
+    statement_total = None
+    ms = _DONEMICI_SUMMARY_RE.search(text)
+    if ms:
+        statement_total = _parse_amount(ms.group(1))
+        payment_due = _parse_turkish_date(ms.group(3))   # son ödeme tarihi
+
+    mcur = _DONEMICI_CUR_RE.search(text)
+    currency = _detect_currency(mcur.group(1)) if mcur else "TRY"
+
+    try:
+        import pdfplumber
+    except ImportError:
+        return rows, []
+
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                if not table:
+                    continue
+                # Başlık satırını (Tarih … Tutar) ve Tutar kolon indeksini bul.
+                header_idx = None
+                amount_i = None
+                for i, r in enumerate(table):
+                    folded = [_fold(str(c or "")) for c in r]
+                    joined = " ".join(folded)
+                    if "TARIH" in joined and "TUTAR" in joined:
+                        header_idx = i
+                        for k, c in enumerate(folded):
+                            if "TUTAR" in c:
+                                amount_i = k
+                        break
+                if header_idx is None or amount_i is None:
+                    continue
+                for r in table[header_idx + 1:]:
+                    cells = [str(c or "").strip() for c in r]
+                    if not cells:
+                        continue
+                    date = _parse_turkish_date(cells[0])
+                    if not date:
+                        continue
+                    amount = _parse_amount(cells[amount_i]) if amount_i < len(cells) else None
+                    if not amount:            # Tutar boş → bonus-only satır, TL harcaması yok
+                        continue
+                    desc = " ".join(cells[1].split()) if len(cells) > 1 else ""
+                    # Etiket hücresi satır sarması ile bölünebilir ("Emeklilik/\nSigorta")
+                    # → boşlukları sadeleştir ve "/" çevresini kapat ("Emeklilik/Sigorta").
+                    etiket = " ".join(cells[2].split()) if len(cells) > 2 else ""
+                    etiket = re.sub(r"\s*/\s*", " / ", etiket)
+                    rows.append(_normalize_row(
+                        date, desc, amount, currency=currency, etiket=etiket, source=card,
+                    ))
+
+    accounts: list[dict] = []
+    if card:
+        accounts.append({
+            "source": card, "type": "credit", "number": card, "card_number": card,
+            "iban": None, "branch": None, "holder": holder,
+            "currency": currency, "institution": "garanti",
+            "payment_due": payment_due, "total": statement_total,
+            # Dönem-içi döküm gerçek (kesilmiş) ekstre değildir; "total" cari dönem
+            # yürüyen toplamıdır, kesin borç değil. Bu yüzden frontend bundan
+            # Credit Payment kaydı ÜRETMEZ (bkz. import.jsx CP-oluşturma döngüsü).
+            "interim": True,
+        })
+    return rows, accounts
+
+
+# ─── Garanti BBVA "Hesap Hareketleri" (vadesiz hesap dökümü — PDF) ────────────
+# Kredi kartı değil, vadesiz mevduat hesabının hareket dökümüdür. Gerçek bir
+# TABLO olarak gelir:  Tarih | Açıklama | Etiket | Tutar | Bakiye
+# Tutar "+2.102,90 TL" / "-188.146,94 TL" biçimindedir (işaret önekte, "TL" soneki).
+# Genel tablo yolu bu soneki temizleyemediği için tüm satırlar 0 tutarla elenir;
+# bu yüzden ayrı bir parser gerekir. Hesap kimliği (IBAN / hesap no / şube) de
+# çıkarılır ki import sihirbazı satırları doğru hesaba eşleştirebilsin.
+_HESAP_HOLDER_RE = re.compile(r"Say[ıi]n\s+([^,\n]+)")
+_HESAP_NO_RE     = re.compile(r"Hesap Numaras[ıi]\s*:\s*(\d[\d\s-]*\d)")
+_HESAP_IBAN_RE   = re.compile(r"IBAN\s*:\s*(TR\d[\dA-Z ]+\d)")
+_HESAP_SUBE_RE   = re.compile(r"Şube\s*:\s*([^\n]+)")
+
+
+def _is_garanti_hesap_pdf(text: str) -> bool:
+    """Garanti vadesiz hesap hareketleri dökümü mü? (diakritikten bağımsız).
+
+    'Hesap Hareketleri' başka bankalarda da (ör. ON Burgan) geçtiği için
+    Garanti imzası (garantibbva / 'Hesap Numarası') ile birlikte aranır.
+    """
+    f = _fold(text)
+    return "HESAP HAREKETLERI" in f and ("GARANTIBBVA" in f or "HESAP NUMARASI" in f)
+
+
+def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    """Garanti 'Hesap Hareketleri' PDF'ini işlem satırları + hesap kimliğine çevirir."""
+    rows: list[dict] = []
+
+    holder = None
+    mh = _HESAP_HOLDER_RE.search(text)
+    if mh:
+        holder = " ".join(mh.group(1).split())
+    account_no = None
+    mno = _HESAP_NO_RE.search(text)
+    if mno:
+        account_no = _account_no_from_hesap(mno.group(1))
+    iban = None
+    mib = _HESAP_IBAN_RE.search(text)
+    if mib:
+        iban = " ".join(mib.group(1).split())
+    branch = None
+    msu = _HESAP_SUBE_RE.search(text)
+    if msu:
+        branch = " ".join(msu.group(1).split())
+
+    file_currency = "TRY"
+
+    try:
+        import pdfplumber
+    except ImportError:
+        return rows, []
+
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                if not table:
+                    continue
+                # Başlık satırını ve kolon indekslerini bul.
+                header_idx = date_i = amount_i = None
+                desc_i = etiket_i = None
+                for i, r in enumerate(table):
+                    di = _match_idx(r, GARANTI_DATE_COLS)
+                    ai = _match_idx(r, GARANTI_AMOUNT_COLS)
+                    if di is not None and ai is not None:
+                        header_idx = i
+                        date_i, amount_i = di, ai
+                        desc_i = _match_idx(r, GARANTI_DESC_COLS)
+                        etiket_i = _match_idx(r, GARANTI_ETIKET_COLS)
+                        break
+                if header_idx is None:
+                    continue
+                for r in table[header_idx + 1:]:
+                    cells = [str(c or "").strip() for c in r]
+                    if not cells or date_i >= len(cells) or amount_i >= len(cells):
+                        continue
+                    date = _parse_turkish_date(cells[date_i])
+                    if not date:
+                        continue
+                    tutar_cell = cells[amount_i]
+                    currency = _detect_currency(tutar_cell)
+                    # İşaret önekli, para birimi sonekli tutar: "+2.102,90 TL".
+                    amount = _parse_amount(re.sub(r"[^\d.,+-]", "", tutar_cell))
+                    if not amount:
+                        continue
+                    file_currency = currency
+                    desc = " ".join(cells[desc_i].split()) if (desc_i is not None and desc_i < len(cells)) else ""
+                    etiket = " ".join(cells[etiket_i].split()) if (etiket_i is not None and etiket_i < len(cells)) else ""
+                    rows.append(_normalize_row(
+                        date, desc, amount, currency=currency, etiket=etiket,
+                        source=iban or account_no, account_type="bank",
+                    ))
+
+    accounts: list[dict] = []
+    if account_no or iban:
+        accounts.append({
+            "source": iban or account_no, "type": "bank", "number": account_no,
+            "card_number": None, "iban": iban, "branch": branch, "holder": holder,
+            "currency": file_currency, "institution": "garanti",
+        })
+    return rows, accounts
+
+
+# ─── ON (Burgan Bank) "Hesap Hareketleri" (vadesiz hesap dökümü — PDF) ────────
+# Tablo:  Tarih | Açıklama | Tutar | Bakiye  (başlık yalnızca 1. sayfada; sonraki
+# sayfalar başlıksız devam eder ve pdfplumber kimi satırlara None dolgu ekler).
+# Tutarlar Türkçe ÜÇ ondalıklı biçimdedir: "-160.643,550", "185.000,000" ve
+# önemlisi "1,000" = 1.0 (bin değil!). Paylaşılan _parse_amount ",ddd"yi binlik
+# sanıp yanlış okuduğu için ON'a özel üç-ondalıklı bir çözümleyici gerekir.
+_ON_IBAN_RE   = re.compile(r"(TR\d{24})")
+_ON_HOLDER_RE = re.compile(r"Ad Soyad\s*:\s*(.+?)\s+TCKN")
+_ON_CUR_RE    = re.compile(r"[\d.]+,\d{3}\s*(TRY|USD|EUR)")
+_ON_DATE_RE   = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
+# ON tutar hücresi: isteğe bağlı '-', binlik '.', zorunlu ',ddd' ondalık.
+_ON_AMOUNT_RE = re.compile(r"^-?\d{1,3}(?:\.\d{3})*,\d{3}$")
+
+
+def _is_on_burgan_pdf(text: str) -> bool:
+    """ON / Burgan Bank hesap hareketleri dökümü mü? (diakritikten bağımsız)."""
+    f = _fold(text)
+    return "BURGAN" in f or "ON HESAP VIRMAN" in f
+
+
+def _parse_on_amount(cell: str) -> Optional[float]:
+    """ON üç-ondalıklı Türkçe tutarını float'a çevirir ("1.234,560" → 1234.56)."""
+    s = (cell or "").strip()
+    if not _ON_AMOUNT_RE.match(s):
+        return None
+    try:
+        return float(s.replace(".", "").replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _parse_on_burgan_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    """ON (Burgan) 'Hesap Hareketleri' PDF'ini işlem satırları + hesap kimliğine çevirir."""
+    rows: list[dict] = []
+
+    iban = None
+    mib = _ON_IBAN_RE.search(text)
+    if mib:
+        iban = mib.group(1)
+    holder = None
+    mh = _ON_HOLDER_RE.search(text)
+    if mh:
+        holder = " ".join(mh.group(1).split())
+    mcur = _ON_CUR_RE.search(text)
+    currency = mcur.group(1).replace("TRY", "TRY") if mcur else "TRY"
+
+    try:
+        import pdfplumber
+    except ImportError:
+        return rows, []
+
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                for raw in table or []:
+                    # None dolguyu ve boş hücreleri at → [tarih, açıklama, tutar, bakiye].
+                    cells = [str(c).strip() for c in raw if c is not None and str(c).strip()]
+                    if len(cells) < 4 or not _ON_DATE_RE.match(cells[0]):
+                        continue                      # başlık/altbilgi/devam parçası
+                    date = _parse_turkish_date(cells[0])
+                    # Tutar = sondan bir önceki, Bakiye = son (üç-ondalıklı sayı hücreleri).
+                    amount = _parse_on_amount(cells[-2])
+                    balance = _parse_on_amount(cells[-1])
+                    if amount is None:
+                        continue
+                    desc = " ".join(" ".join(cells[1:-2]).split())
+                    rows.append(_normalize_row(
+                        date, desc, amount, balance=balance, currency=currency,
+                        source=iban, account_type="bank",
+                    ))
+
+    accounts: list[dict] = []
+    if iban:
+        accounts.append({
+            "source": iban, "type": "bank", "number": None, "card_number": None,
+            "iban": iban, "branch": None, "holder": holder,
+            "currency": currency, "institution": "burgan",
+        })
+    return rows, accounts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Garanti BBVA "export" parser (hesap hareketleri + kredi kartı ekstresi)
 # ─────────────────────────────────────────────────────────────────────────────
 # Bu dosyalar tek bir sayfada birden fazla bölüm içerebilir (ör. ana kart +
@@ -693,6 +1000,7 @@ def _parse_garanti_export(grid: list[list]) -> tuple[list[dict], list[dict]]:
         rows.append(_normalize_row(
             date, _cell(idx["desc"]), amount, balance, dict(enumerate(cells)),
             currency=current_currency, etiket=_cell(idx["etiket"]), source=current_source,
+            account_type=(accounts.get(current_source) or {}).get("type"),
         ))
 
     # Ad Soyad bölüm başlığından sonra görüldüyse, kimliği olmayan kayıtlara da uygula.
@@ -701,6 +1009,114 @@ def _parse_garanti_export(grid: list[list]) -> tuple[list[dict], list[dict]]:
             rec["holder"] = holder
 
     return rows, list(accounts.values())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Midas (Menkul Değerler) portföy ekstresi (PDF)
+# ─────────────────────────────────────────────────────────────────────────────
+# Midas ekstresi bir aracı kurum hesap özetidir: banka işlem listesi değil,
+# "PORTFÖY ÖZETİ" tablosu (elde tutulan menkul kıymetler) içerir. Bu yüzden
+# işlem (Transaction) değil, yatırım (Investment) kaydı üretir.
+#   Tablo kolonları: Sermaye Piyasası Aracı | Adet | Hisse Başı Ort. Maliyet |
+#                    Kâr/Zarar | Toplam Değeri
+#   Örn: "ALTIN.S1 - Altın Sertifikası •..." | 97 | 80,83 TRY | -44,22 TRY | 7795,89 TRY
+
+# Bir hücre metninden ilk sayıyı çeker. Sıra önemli: önce binlik+ondalık
+# (7.795,89), sonra ondalık (80,83), en son düz tam sayı (4328) — aksi halde
+# "4328" gibi ayraçsız sayılarda ilk alternatif yanlışça "432"yi yakalar.
+_MIDAS_NUM_RE = re.compile(r"-?\d{1,3}(?:\.\d{3})+,\d+|-?\d+,\d+|-?\d+(?:\.\d+)?")
+
+
+def _is_midas_pdf(text: str) -> bool:
+    low = text.lower()
+    return "midas menkul" in low[:1500] or (
+        "portföy özeti" in low and "hesap ekstresi" in low[:2000]
+    )
+
+
+def _midas_num(cell) -> Optional[float]:
+    """'80,83 TRY' / '7.795,89 TRY' / '9291.31' → float (para birimi ekini atar)."""
+    m = _MIDAS_NUM_RE.search(str(cell or ""))
+    return _parse_amount(m.group(0)) if m else None
+
+
+def _midas_asset_type(ticker: str, name: str) -> str:
+    """Sembol/isimden varlık türü tahmini (kullanıcı review'da değiştirebilir)."""
+    t = (ticker or "").upper()
+    n = _fold(name)
+    if "ALTIN" in t or "ALTIN" in n or "GUMUS" in n:
+        return "gold"
+    if t.endswith(".F") or "PORTFOY" in n or "FON" in n:
+        return "fund"
+    return "stock"
+
+
+def _midas_summary(text: str) -> dict:
+    """Ekstre başlığından nakit bakiye / toplam portföy değeri / dönem çıkarır."""
+    out = {"cash": None, "total": None, "period_from": None, "period_to": None}
+    m = re.search(r"Nakit Bakiye\s*:\s*([\d.,]+)", text)
+    if m:
+        out["cash"] = _parse_amount(m.group(1))
+    m = re.search(r"Toplam Portföy Değeri\s*:\s*([\d.,]+)", text)
+    if m:
+        out["total"] = _parse_amount(m.group(1))
+    m = re.search(r"(\d{2}/\d{2}/\d{2})\s*-\s*(\d{2}/\d{2}/\d{2})", text)
+    if m:
+        out["period_from"] = m.group(1)
+        out["period_to"] = m.group(2)
+    return out
+
+
+def _parse_midas_holdings(content: bytes) -> list[dict]:
+    """PORTFÖY ÖZETİ tablosunu yatırım (Investment) kayıtlarına çevirir."""
+    holdings: list[dict] = []
+    try:
+        import pdfplumber
+    except ImportError:
+        return holdings
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                if not table:
+                    continue
+                # Başlık satırını bul (Adet + Maliyet kolonları).
+                header_idx = None
+                for i, r in enumerate(table):
+                    joined = _fold(" ".join(str(c or "") for c in r))
+                    if "ADET" in joined and "MALIYET" in joined:
+                        header_idx = i
+                        break
+                if header_idx is None:
+                    continue
+                for r in table[header_idx + 1:]:
+                    cells = [str(c or "").strip() for c in r]
+                    if not cells or not cells[0]:
+                        continue
+                    name_cell = cells[0]
+                    folded = _fold(name_cell)
+                    # Dipnot (*) ve toplam satırlarını atla.
+                    if name_cell.startswith("*") or "TOPLAM" in folded:
+                        continue
+                    qty = _midas_num(cells[1]) if len(cells) > 1 else None
+                    if qty is None:
+                        continue
+                    avg = _midas_num(cells[2]) if len(cells) > 2 else None
+                    total = _midas_num(cells[-1]) if len(cells) >= 2 else None
+                    ticker = re.split(r"\s+-\s+", name_cell, 1)[0].strip()
+                    # Sondaki kısaltma imlerini ("•...", "...") temizle.
+                    disp_name = name_cell.rstrip(" .•·").strip()
+                    cur = _detect_currency(cells[2] if len(cells) > 2 else name_cell)
+                    holdings.append({
+                        "ticker": ticker,
+                        "name": disp_name,
+                        "platform": "Midas",
+                        "asset_type": _midas_asset_type(ticker, disp_name),
+                        "currency": cur or "TRY",
+                        "amount": qty,
+                        "purchase_price": avg,
+                        "current_value": total,
+                    })
+    return holdings
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -764,9 +1180,32 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto") -> d
         # Önce metni çıkar: Garanti kredi kartı ekstresi serbest metin formatındadır
         # (tablo yok), bu yüzden tablo tabanlı _parse_pdf onu okuyamaz.
         text = _extract_pdf_text(content)
+        # Midas aracı kurum ekstresi → işlem değil, PORTFÖY ÖZETİ (yatırımlar).
+        if text and _is_midas_pdf(text):
+            holdings = _parse_midas_holdings(content)
+            summary = _midas_summary(text)
+            return {
+                "kind": "investments",
+                "bank_detected": "Midas (portföy)",
+                "total_rows": len(holdings),
+                "investments": holdings,
+                "portfolio": summary,
+                "rows": [],
+                "accounts": [],
+                "errors": [] if holdings else ["Portföyde kayıt bulunamadı."],
+            }
         if text and _is_garanti_cc_pdf(text):
             rows, accounts = _parse_garanti_cc_pdf(text)
             bank_detected = "garanti (kredi kartı PDF)"
+        if not rows and text and _is_garanti_donemici_pdf(text):
+            rows, accounts = _parse_garanti_donemici_pdf(content, text)
+            bank_detected = "garanti (dönemiçi işlemler PDF)"
+        if not rows and text and _is_garanti_hesap_pdf(text):
+            rows, accounts = _parse_garanti_hesap_pdf(content, text)
+            bank_detected = "garanti (hesap hareketleri PDF)"
+        if not rows and text and _is_on_burgan_pdf(text):
+            rows, accounts = _parse_on_burgan_pdf(content, text)
+            bank_detected = "on_burgan (hesap hareketleri PDF)"
         if not rows:
             rows = _parse_pdf(content)
             bank_detected = bank_hint if bank_hint != "auto" else "pdf"
@@ -913,3 +1352,75 @@ def import_transactions(
         "skipped": skipped,
         "errors": errors,
     }
+
+
+def import_investments(
+    db: Session,
+    owner_id: int,
+    holdings: list[dict],
+    upsert: bool = True,
+) -> dict:
+    """
+    Parse edilmiş Midas portföy satırlarını Investment tablosuna yazar.
+
+    upsert=True ise aynı platform + sembol (name'in başındaki ticker) olan kayıt
+    güncellenir (adet + maliyet), yoksa yeni oluşturulur. Böylece ekstre yeniden
+    içe aktarıldığında portföy çift kayıt üretmez.
+    """
+    from app.models import Investment as Inv
+
+    created = 0
+    updated = 0
+    errors = []
+
+    for h in holdings:
+        try:
+            name = (h.get("name") or "").strip()
+            if not name:
+                continue
+            ticker = (h.get("ticker") or name.split(" - ")[0]).strip()
+            platform = (h.get("platform") or "Midas").strip()
+            amount = float(h.get("amount") or 0)
+            currency = h.get("currency") or "TRY"
+            asset_type = h.get("asset_type") or "stock"
+            price = h.get("purchase_price")
+            price = float(price) if price is not None else None
+
+            existing = None
+            if upsert and ticker:
+                # Sembolle eşleştir: name "TICKER - Ad" biçiminde saklanır.
+                existing = (
+                    db.query(Inv)
+                    .filter(
+                        Inv.owner_id == owner_id,
+                        Inv.platform == platform,
+                        Inv.name.like(ticker + "%"),
+                    )
+                    .first()
+                )
+
+            if existing:
+                existing.amount = amount
+                if price is not None:
+                    existing.purchase_price = price
+                existing.asset_type = asset_type or existing.asset_type
+                existing.currency = currency
+                updated += 1
+            else:
+                db.add(Inv(
+                    owner_id=owner_id,
+                    name=name,
+                    platform=platform,
+                    asset_type=asset_type,
+                    currency=currency,
+                    amount=amount,
+                    purchase_price=price,
+                    note="midas_import",
+                ))
+                created += 1
+
+        except Exception as e:
+            errors.append(f"{h.get('name')}: {e}")
+
+    db.commit()
+    return {"created": created, "updated": updated, "errors": errors}

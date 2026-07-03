@@ -15,7 +15,18 @@ button{font-family:var(--font-sans)}
 
 /* ─── Collapsible sidebar (NAS Monitor toggle system) ─────────────────────── */
 .sidebar{position:fixed;left:0;top:0;width:69px;height:100vh;background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:101;transition:width .3s ease;overflow:visible}
-body.sidebar-expanded .sidebar{width:175px}
+body.sidebar-expanded .sidebar{width:var(--hl-sidebar-w,180px)}
+/* Drag-to-resize handle on the sidebar's right edge (expanded desktop only).
+   Width persists to localStorage via menu.js so it survives across visits. */
+.sidebar-resizer{position:absolute;top:0;right:-1px;width:3px;height:100%;cursor:col-resize;z-index:103;background:transparent;transition:background .15s}
+.sidebar-resizer:hover,body.sidebar-resizing .sidebar-resizer{background:var(--accent)}
+body:not(.sidebar-expanded) .sidebar-resizer{display:none}
+/* Keep the handle alive mid-drag even if the sidebar collapsed, so pointer
+   capture holds and dragging back past the minimum re-expands it. */
+body.sidebar-resizing .sidebar-resizer{display:block}
+/* While dragging, kill the width/margin easing so the sidebar tracks the cursor 1:1. */
+body.sidebar-resizing{cursor:col-resize;user-select:none}
+body.sidebar-resizing .sidebar,body.sidebar-resizing .main{transition:none}
 
 /* toggle / brand button */
 .sidebar-toggle{position:relative;overflow:hidden;display:flex;align-items:center;gap:10px;width:100%;height:64px;background:rgba(79,142,247,.10);cursor:pointer;color:var(--text);font-size:16px;font-weight:700;transition:background .15s,color .15s;flex-shrink:0;border:none;border-bottom:1px solid var(--border);padding:0 14px;line-height:1;z-index:102;text-align:left}
@@ -89,7 +100,7 @@ body:not(.sidebar-expanded) .sidebar-subitem::before{position:relative;left:auto
 
 /* ── Main column ── */
 .main{margin-left:69px;min-width:0;display:flex;flex-direction:column;height:100vh;transition:margin-left .3s ease}
-body.sidebar-expanded .main{margin-left:175px}
+body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 
 /* ── Page header ── */
 .page-head{flex-shrink:0;background:var(--bg2);border-bottom:1px solid var(--border);padding:7px 7px 10px 7px;min-height:95px;display:flex;flex-direction:column;justify-content:center;gap:12px}
@@ -124,7 +135,7 @@ body.sidebar-expanded .main{margin-left:175px}
 .select-wrap>svg.chev{position:absolute;right:9px;width:13px;height:13px;color:var(--muted);pointer-events:none}
 .sel{appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 30px 7px 11px;color:var(--text);font-family:var(--font-sans);font-size:var(--fs-table);font-weight:500;outline:none;cursor:pointer;transition:border-color .15s,background .15s;min-width:120px}
 .sel:hover{border-color:var(--border2);background:var(--bg4)}
-.sel:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.sel:focus{border-color:var(--border);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
 .sel option{background:var(--bg3);color:var(--text)}
 
 /* modal-tier button (Add Spending) */
@@ -204,8 +215,8 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .seg button.on-income{background:rgba(34,197,94,.16);color:var(--green)}
 .seg button.on-expense{background:rgba(239,68,68,.16);color:var(--red)}
 .amount-input-wrap{display:flex;gap:0}
-.amount-input-wrap .field-input:not(select){border-top-right-radius:0;border-bottom-right-radius:0}
-.amount-input-wrap select{width:90px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
+.amount-input-wrap .field-input:not(select):not(.ss-wrap){border-top-right-radius:0;border-bottom-right-radius:0}
+.amount-input-wrap select,.amount-input-wrap .ss-wrap{width:90px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
 
 /* ── Payment Method custom dropdown ── */
 .pm-select{position:relative;width:100%}
@@ -225,6 +236,32 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .pm-option.selected{background:rgba(79,142,247,.12);color:var(--accent)}
 .pm-option .pm-icon{flex-shrink:0}
 .pm-option .pm-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── StyledSelect — custom dropdown replacing native <select> ── */
+/* The .ss-wrap carries the caller's field class (.sel / .field-input / …) so
+   the closed control keeps its original border/background/padding/size. The
+   inner button is a bare flex trigger; the popup is fully themed with a
+   var(--border) border to match the calendar's bordered popup. */
+.ss-wrap{position:relative;cursor:pointer}
+.ss-wrap.sel{padding-right:11px}
+.ss-wrap.open{border-color:var(--accent)}
+.ss-wrap.disabled{opacity:.55;cursor:not-allowed}
+.ss-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0;margin:0;border:none;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;line-height:inherit}
+.ss-trigger:disabled{cursor:not-allowed}
+.ss-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-value.ss-placeholder{color:var(--muted)}
+.ss-chev{color:var(--muted);flex-shrink:0;transition:transform .15s}
+.ss-wrap.open .ss-chev{transform:rotate(180deg)}
+.ss-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);max-height:260px;padding:4px 0}
+.ss-dropdown.up{top:auto;bottom:calc(100% + 4px)}
+.ss-group-label{padding:7px 12px 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.ss-option{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s}
+.ss-option:hover{background:var(--bg3)}
+.ss-option.selected{background:rgba(79,142,247,.12);color:var(--accent)}
+.ss-option.disabled{opacity:.5;cursor:default}
+.ss-option.disabled:hover{background:none}
+.ss-option-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-check{color:var(--accent);flex-shrink:0}
+
 /* themed number stepper */
 .amt-num{position:relative;flex:1;display:flex;align-items:stretch}
 .amt-num .field-input{flex:1;width:100%;padding-right:34px}
@@ -335,7 +372,7 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .sidebar{top:auto;bottom:0;left:0;right:0;width:100%;height:var(--mnav);flex-direction:row;
            border-right:none;border-top:1px solid var(--border);z-index:200}
   body.sidebar-expanded .sidebar{width:100%}
-  .sidebar-toggle,.sidebar-float-btn{display:none}
+  .sidebar-toggle,.sidebar-float-btn,.sidebar-resizer{display:none}
   .sidebar-nav{flex-direction:row;flex:1;overflow:visible;padding:0}
   .sidebar-section{display:contents}
   .sidebar-section.bottom{margin-top:0;border-top:none;padding:0;height:auto;justify-content:initial}

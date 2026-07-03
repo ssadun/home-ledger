@@ -12,6 +12,12 @@
     const [detail, setDetail] = React.useState(null);       // record obj
     const [formModal, setFormModal] = React.useState(null);  // {mode, record}
     const [del, setDel] = React.useState(null);              // record to delete
+    // Mass-delete: ids of checkbox-selected rows + the batch-confirm dialog toggle.
+    const [selected, setSelected] = React.useState(() => new Set());
+    const [batchDel, setBatchDel] = React.useState(false);
+    const toggleSelect = React.useCallback((id) => setSelected(s => {
+      const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+    }), []);
 
     // Attach a human card label to each record from the loaded cards.
     const labelRecords = React.useCallback((recs, cardList) => {
@@ -67,6 +73,30 @@
         .catch(err => setLoadError(err.message));
     }
 
+    // Mass delete — loops the per-row API (no bulk endpoint needed); keeps rows that
+    // failed so the user sees exactly what remains, and never silently drops errors.
+    function confirmBatchDelete() {
+      const ids = records.filter(r => selected.has(r.id)).map(r => r.id);
+      Promise.allSettled(ids.map(id => CP_API.remove(id)))
+        .then(results => {
+          const failed = results.filter(r => r.status === 'rejected').length;
+          setSelected(new Set());
+          setBatchDel(false);
+          return reload().then(() => {
+            if (failed) setLoadError(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.');
+          });
+        });
+    }
+
+    // Select-all — no pagination on this page, so it spans every loaded record.
+    const selectedIds = records.filter(r => selected.has(r.id)).map(r => r.id);
+    const allSelected = records.length > 0 && selectedIds.length === records.length;
+    const someSelected = selectedIds.length > 0 && !allSelected;
+    const toggleSelectAll = () => setSelected(s => {
+      if (allSelected) return new Set();
+      return new Set(records.map(r => r.id));
+    });
+
     function openEdit(record) { setDetail(null); setFormModal({ mode: 'edit', record }); }
     function openDeleteFromDetail(record) { setDetail(null); setDel(record); }
 
@@ -91,11 +121,22 @@
 
           <div className="cp-body">
             {loadError && <div className="cp-error" id="cp-load-error"><Icon name="alert-triangle" size={13} />{loadError}</div>}
+            {selectedIds.length > 0 && (
+              <div className="bulk-bar" id="cp-bulk-bar">
+                <span className="bulk-count"><Icon name="check-square" size={14} />{selectedIds.length} selected</span>
+                <div className="bulk-actions">
+                  <button id="cp-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
+                  <button id="cp-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
+                </div>
+              </div>
+            )}
             <CreditPaymentTable
               records={records}
               onRowClick={setDetail}
               onEdit={(r) => setFormModal({ mode: 'edit', record: r })}
-              onDelete={setDel} />
+              onDelete={setDel}
+              selectable selected={selected} onToggleSelect={toggleSelect}
+              allSelected={allSelected} someSelected={someSelected} onToggleSelectAll={toggleSelectAll} />
           </div>
         </div>
 
@@ -106,6 +147,8 @@
           onClose={() => setFormModal(null)} onSave={handleSave} />}
         {del && <DeleteCreditPaymentConfirm record={del}
           onClose={() => setDel(null)} onConfirm={handleDelete} />}
+        {batchDel && <DeleteCreditPaymentConfirm count={selectedIds.length}
+          onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
       </div>
     );
   }

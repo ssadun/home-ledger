@@ -179,6 +179,15 @@
   .rec-table td.td-meta-mobile{display:flex !important;grid-column:1 / -1;grid-row:2;order:3;
        gap:5px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:nowrap;overflow:hidden}
 
+  /* Mass-delete: insert a leading checkbox column spanning both stacked rows.
+     The generic .selectable rules in tables.css target Description/Amount cells,
+     which the rec-table doesn't have, so scope the grid placement here. */
+  .rec-table.selectable tbody tr.tx-row{grid-template-columns:auto 1fr auto}
+  .rec-table.selectable td.td-select{display:flex;grid-column:1;grid-row:1 / span 2;align-items:center;justify-content:center;padding:0}
+  .rec-table.selectable td[data-label="Name"]{grid-column:2;grid-row:1}
+  .rec-table.selectable td[data-label="Amount"]{grid-column:3;grid-row:1}
+  .rec-table.selectable td.td-meta-mobile{grid-column:2 / -1;grid-row:2}
+
   /* empty state */
   .rec-table tbody tr.empty-row{display:block;background:none;border:none;padding:0;margin:0}
   .rec-table tr.empty-row td::before{display:none}
