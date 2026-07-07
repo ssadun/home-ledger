@@ -13,14 +13,16 @@ services:
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       TZ: Europe/Istanbul
-      VAPID_PUBLIC_KEY: replace_with_generated_vapid_public_key
-      VAPID_PRIVATE_KEY: replace_with_generated_vapid_private_key
-      VAPID_CLAIMS_EMAIL: sadunsevingen@gmail.com
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_CLAIMS_EMAIL: ${VAPID_CLAIMS_EMAIL}
     ports:
       - "8100:8000"
     volumes:
-      - ./data:/app/data        # SQLite dosyası burada — backup için sadece bu klasörü kopyala
-      - ./uploads:/app/uploads  # OCR fişleri
+      - /volume1/docker/resolv.conf:/etc/resolv.conf:ro
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    network_mode: nas
 
   frontend:
     build:
@@ -36,3 +38,4 @@ services:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on:
       - backend
+    network_mode: nas

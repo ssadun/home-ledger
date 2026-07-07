@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -73,8 +73,13 @@ def update_prefs(
 def send_test_push(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Send one test notification to the current user's subscriptions — for
     verifying VAPID keys + delivery without waiting for a real due date."""
-    send_to_user(db, current_user, "Home Ledger", "Test notification — push is working.", "/Dashboard.html")
-    return {"ok": True}
+    summary = send_to_user(db, current_user, "Home Ledger", "Test notification — push is working.", "/Dashboard.html")
+    if summary["total"] == 0:
+        raise HTTPException(status_code=400, detail="No subscribed devices — enable notifications on this device first.")
+    if summary["sent"] == 0:
+        detail = summary["errors"][0] if summary["errors"] else "delivery failed"
+        raise HTTPException(status_code=502, detail=f"Push delivery failed: {detail}")
+    return {"ok": True, **summary}
 
 
 @router.post("/run-check")

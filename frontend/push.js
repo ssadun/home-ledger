@@ -17,7 +17,9 @@
 
   async function getPublicKey() {
     const res = await fetch('/api/push/vapid-public-key');
-    const data = await res.json();
+    if (!res.ok) throw new Error('Notification service is unavailable — please try again later');
+    const data = await res.json().catch(() => ({}));
+    if (!data.public_key) throw new Error('Notification service is not configured');
     return data.public_key;
   }
 
@@ -76,8 +78,9 @@
 
   async function sendTest() {
     const res = await window.HL_AUTH.apiFetch('/api/push/test', { method: 'POST' });
-    if (!res.ok) throw new Error('Could not send test notification');
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Could not send test notification');
+    return data;
   }
 
   window.HL_PUSH = { isSupported, enable, disable, getPrefs, setLeadDays, sendTest };

@@ -8,9 +8,14 @@ from app.config import settings
 from app.models import CreditPayment, PushSubscription, RecurringExpense, User
 
 
-def send_to_user(db: Session, user: User, title: str, body: str, url: str) -> None:
+def send_to_user(db: Session, user: User, title: str, body: str, url: str) -> dict:
+    """Push a notification to every subscription this user has. Returns a summary
+    ``{"total", "sent", "failed", "removed", "errors"}`` so callers (e.g. the
+    /test endpoint) can surface delivery failures instead of reporting a blind
+    success. One bad endpoint never stops the others."""
     subs = db.query(PushSubscription).filter(PushSubscription.owner_id == user.id).all()
     payload = json.dumps({"title": title, "body": body, "url": url})
+    result = {"total": len(subs), "sent": 0, "failed": 0, "removed": 0, "errors": []}
     for sub in subs:
         try:
             webpush(
@@ -22,16 +27,23 @@ def send_to_user(db: Session, user: User, title: str, body: str, url: str) -> No
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIMS_EMAIL}"},
             )
+            result["sent"] += 1
         except WebPushException as ex:
             status_code = getattr(ex.response, "status_code", None)
+            result["failed"] += 1
+            result["errors"].append(f"push service returned {status_code}")
             if status_code in (404, 410):
                 # Browser expired/removed this subscription — stop trying it.
                 db.delete(sub)
                 db.commit()
-        except Exception:
-            # Network failure, timeout, etc. — one bad endpoint shouldn't stop
-            # reminders going out to this user's other devices or to other users.
-            pass
+                result["removed"] += 1
+        except Exception as ex:
+            # Network failure, DNS, timeout, etc. — record it (a silent swallow
+            # here is what once hid a broken-DNS outage where nothing delivered)
+            # but keep going so other devices/users still get their reminders.
+            result["failed"] += 1
+            result["errors"].append(f"{type(ex).__name__}: {ex}")
+    return result
 
 
 def run_due_date_check(db: Session) -> dict:
