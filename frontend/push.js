@@ -74,5 +74,11 @@
     }
   }
 
-  window.HL_PUSH = { isSupported, enable, disable, getPrefs, setLeadDays };
+  async function sendTest() {
+    const res = await window.HL_AUTH.apiFetch('/api/push/test', { method: 'POST' });
+    if (!res.ok) throw new Error('Could not send test notification');
+    return res.json();
+  }
+
+  window.HL_PUSH = { isSupported, enable, disable, getPrefs, setLeadDays, sendTest };
 })();

@@ -399,6 +399,10 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .sidebar-section.bottom .sidebar-item{margin:0}
   /* hide version label in the mobile bottom tab bar */
   .sidebar-version{display:none}
+  /* Notifications bell lives in the Configuration submenu on mobile instead —
+     the bottom tab bar is tuned for exactly 6 equal-width tabs (see the
+     ≤410px note below); a 7th tab would crowd it further. */
+  .sidebar-bell-wrap{display:none}
   /* ─── Mobile submenu popup ─── */
   .sidebar-parent{
     position:relative;flex:1;display:flex;min-width:0;height:100%
