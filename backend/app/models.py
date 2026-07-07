@@ -29,6 +29,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)  # login identifier (Members)
     role = Column(String, default="user")               # "admin" | "user"
     is_active = Column(Boolean, default=True)           # inactive members cannot log in
+    notify_lead_days = Column(Integer, default=0)       # push reminder lead time: 0 = same-day
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     transactions = relationship("Transaction", back_populates="owner")
@@ -260,3 +261,18 @@ class CreditPayment(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     transactions = relationship("Transaction", back_populates="credit_payment")
+
+
+class PushSubscription(Base):
+    """One row per browser/device subscribed to Web Push (a user may have several —
+    phone, desktop, multiple browsers). Unique by endpoint since a Push endpoint
+    URL is globally unique to the subscribed browser."""
+    __tablename__ = "push_subscriptions"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    endpoint = Column(String, unique=True, index=True, nullable=False)
+    p256dh = Column(String, nullable=False)
+    auth = Column(String, nullable=False)
+    user_agent = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

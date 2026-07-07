@@ -30,9 +30,9 @@ uvicorn app.main:app --reload --port 8000
 
 ### Database
 SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db` in container).
-**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`.
+**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free).
 
-9 tables, one per ORM model in `backend/app/models.py`:
+9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`/`push_subscriptions`, added later — see Data Models below):
 
 | Table | Model |
 |---|---|
@@ -45,6 +45,7 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 | `recurring_expenses` | RecurringExpense |
 | `exchange_rates` | ExchangeRate |
 | `currency_rates` | CurrencyRate |
+| `push_subscriptions` | PushSubscription |
 
 ### Environment variables
 | Variable | Default | Notes |
@@ -53,6 +54,16 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 | `SECRET_KEY` | `change_this_in_production_please` | Change in prod (set in `docker-compose.yml`) |
 | `ALGORITHM` | `HS256` | JWT signing algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | 24 h JWT lifetime |
+| `VAPID_PUBLIC_KEY` | `replace_with_generated_vapid_public_key` | Web Push public key, sent to the frontend via `/api/push/vapid-public-key` — generate a real keypair before push works (see below), don't commit it |
+| `VAPID_PRIVATE_KEY` | `replace_with_generated_vapid_private_key` | Web Push private key — signs push payloads server-side, never exposed to clients |
+| `VAPID_CLAIMS_EMAIL` | `sadunsevingen@gmail.com` | Contact address sent in the VAPID `sub` claim |
+
+**Generating a VAPID keypair** (one-time, never commit the real values to git):
+```bash
+openssl ecparam -name prime256v1 -genkey -noout -out vapid_priv.pem
+openssl ec -in vapid_priv.pem -text -noout   # read priv/pub hex, base64url-encode each (32-byte priv, 65-byte uncompressed pub)
+```
+Set the resulting base64url strings as `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` directly on the NAS's `docker-compose.yml` (not in the git-tracked copy) or via a local `.env` file (already gitignored).
 
 ---
 
@@ -61,7 +72,7 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 ### Backend (`backend/app/`)
 
 ```
-main.py        — FastAPI app, CORS, router registration, table creation on startup
+main.py        — FastAPI app, CORS, router registration, table creation on startup, APScheduler daily due-date check
 config.py      — Pydantic Settings (reads .env or env vars)
 database.py    — SQLAlchemy engine + get_db() dependency
 models.py      — ORM models
@@ -80,6 +91,7 @@ services/      — Business logic decoupled from HTTP
 | `services/tcmb.py` | Fetches USD/EUR→TRY from TCMB XML feed; falls back to previous trading day on weekends/holidays |
 | `services/bank_import.py` | Parses Garanti BBVA and ON Burgan exports (XLS/XLSX/CSV/PDF); generic fallback. Two-step: `/preview` → user reviews → `/confirm` |
 | `services/ocr.py` | Tesseract OCR (tur+eng) on receipt images; extracts amount, date, merchant |
+| `services/notify.py` | Web Push (VAPID via `pywebpush`); `run_due_date_check()` scans `RecurringExpense.next_due` / `CreditPayment.payment_date` against each user's `notify_lead_days` and sends reminders — run daily (08:00) by an `APScheduler` job started in `main.py`, or on demand via `POST /api/push/run-check` |
 
 ### Multi-currency design
 Every `Transaction` stores `amount` (original currency) + `amount_try` + `amount_usd` computed at save time. `_apply_rates()` in `routers/transactions.py` runs on every create/update using the closest available TCMB rate on or before the transaction date.
@@ -102,6 +114,7 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | `Budget` | `budgets` | name, amount, currency, period (monthly/yearly), year, month, category_id | Budget limits per category or global |
 | `RecurringExpense` | `recurring_expenses` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
 | `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name | Household accounts & cards; drives the "Payment Method" picker |
+| `PushSubscription` | `push_subscriptions` | owner_id, endpoint, p256dh, auth, user_agent | One row per subscribed browser/device (Web Push); `User.notify_lead_days` (0 = same-day) controls how far ahead of a due date the daily check fires |
 
 **Members** have no dedicated model — household members are `User` rows, exposed via `/api/members` (`MemberCreate/Update/Out` schemas).
 
@@ -194,6 +207,17 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | POST | `/` | Add currency |
 | PATCH | `/{currency_id}` | Update currency / rate |
 | DELETE | `/{currency_id}` | Delete currency |
+
+### Push Notifications — `/api/push`
+| Method | Path | Description |
+|---|---|---|
+| GET | `/vapid-public-key` | Public VAPID key for `pushManager.subscribe` |
+| POST | `/subscribe` | Upsert a browser's Push subscription (by endpoint) |
+| POST | `/unsubscribe` | Remove a subscription |
+| GET | `/prefs` | Current user's `notify_lead_days` + whether any subscription is active |
+| PATCH | `/prefs` | Update `notify_lead_days` |
+| POST | `/test` | Send one test push to the current user's subscriptions |
+| POST | `/run-check` | Manually trigger the daily due-date scan (normally runs on a schedule) |
 
 ---
 
