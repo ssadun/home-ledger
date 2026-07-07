@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
-from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statement_mappings
+from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statement_mappings, push
+from app.services.notify import run_due_date_check
 
 # SQLite dosyasının yaşadığı klasörü garantile
 Path("/app/data").mkdir(parents=True, exist_ok=True)
@@ -57,6 +59,28 @@ app.include_router(members.router)
 app.include_router(currencies.router)
 app.include_router(credit_payments.router)
 app.include_router(statement_mappings.router)
+app.include_router(push.router)
+
+scheduler = BackgroundScheduler()
+
+
+def _run_daily_due_date_check():
+    db = SessionLocal()
+    try:
+        run_due_date_check(db)
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+def start_scheduler():
+    scheduler.add_job(_run_daily_due_date_check, "cron", hour=8, minute=0, id="due_date_check", replace_existing=True)
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_scheduler():
+    scheduler.shutdown(wait=False)
 
 
 @app.get("/health")

@@ -1,0 +1,19 @@
+/* ============================================================================
+   Home Ledger — Notifications configuration page
+   ============================================================================ */
+.notif-scroll{flex:1;min-height:0;overflow-y:auto;padding:14px 12px;background:var(--bg2)}
+.notif-inner{display:flex;flex-direction:column;gap:14px;width:100%;max-width:640px;margin:0 auto}
+.notif-panel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:16px;display:flex;flex-direction:column;gap:14px}
+.notif-panel-title{font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--white)}
+.notif-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.notif-row-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.notif-row-label{font-size:13px;font-weight:600;color:var(--text)}
+.notif-row-desc{font-size:12px;color:var(--muted);line-height:1.4}
+.notif-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--bg4)}
+.notif-status.on{color:var(--green)}
+.notif-status.off{color:var(--muted)}
+.notif-lead-field{display:flex;align-items:center;gap:10px;min-width:180px}
+.notif-unsupported{font-size:12.5px;color:var(--muted);line-height:1.5}
+.notif-panel .action-modal-btn.secondary{color:var(--slate);border-color:var(--border2)}
+.notif-panel .action-modal-btn.secondary:hover{background:var(--bg4);color:var(--text)}
+.notif-panel .action-modal-btn:disabled{opacity:.42;cursor:not-allowed}

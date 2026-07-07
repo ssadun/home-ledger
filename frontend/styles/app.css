@@ -59,6 +59,15 @@ body:not(.sidebar-expanded) .sidebar-version{font-size:9px;letter-spacing:0;padd
 .sidebar-system-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);padding:10px 16px 4px}
 body:not(.sidebar-expanded) .sidebar-system-label{display:none}
 
+/* ─── Push-notification bell (sidebar bottom section) ─────────────────────── */
+.sidebar-bell-wrap{position:relative}
+.bell-lead-popover{position:absolute;bottom:calc(100% + 6px);left:6px;right:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;z-index:104;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.bell-lead-popover label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.3px;text-transform:uppercase}
+.bell-lead-popover-actions{display:flex;gap:6px;justify-content:flex-end}
+.bell-lead-popover-actions button{font-family:var(--font-sans);font-size:12px;font-weight:600;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--slate);cursor:pointer;transition:background .15s,color .15s}
+.bell-lead-popover-actions button:hover{background:var(--sidebar-active-bg,rgba(79,142,247,.12));color:var(--text)}
+body:not(.sidebar-expanded) .bell-lead-popover{left:60px;right:auto;width:180px;bottom:0}
+
 /* items */
 .sidebar-item{display:flex;align-items:center;gap:8px;padding:10px 8px;margin:6px 6px;border-radius:8px;background:none;border:none;color:var(--slate);font-family:var(--font-sans);font-size:13px;font-weight:600;line-height:1;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;width:calc(100% - 12px);box-sizing:border-box}
 .sidebar-item:hover{background:var(--sidebar-active-bg);color:var(--text)}
@@ -390,6 +399,10 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .sidebar-section.bottom .sidebar-item{margin:0}
   /* hide version label in the mobile bottom tab bar */
   .sidebar-version{display:none}
+  /* Notifications bell lives in the Configuration submenu on mobile instead —
+     the bottom tab bar is tuned for exactly 6 equal-width tabs (see the
+     ≤410px note below); a 7th tab would crowd it further. */
+  .sidebar-bell-wrap{display:none}
   /* ─── Mobile submenu popup ─── */
   .sidebar-parent{
     position:relative;flex:1;display:flex;min-width:0;height:100%

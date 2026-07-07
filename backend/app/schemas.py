@@ -415,3 +415,27 @@ class CreditPaymentOut(BaseModel):
     linked_count: int = 0
     created_at: datetime
     model_config = {"from_attributes": True}
+
+
+# ── Push Notifications ────────────────────────────────────────────────────────
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: dict                        # {"p256dh": "...", "auth": "..."} — raw PushSubscriptionJSON shape
+    user_agent: Optional[str] = None
+
+class PushSubscriptionOut(BaseModel):
+    id: int
+    endpoint: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+class PushUnsubscribe(BaseModel):
+    endpoint: str
+
+class NotifyPrefsOut(BaseModel):
+    notify_lead_days: int
+    subscribed: bool
+
+class NotifyPrefsUpdate(BaseModel):
+    notify_lead_days: int
