@@ -444,6 +444,8 @@
         const fi = A.FINANCIAL_INSTITUTIONS || {};
         return Object.entries(fi).map(([key, v]) => ({ id: key, key, name: v.name, swift: v.swift, logo: v.logo || '' }));
       }
+      case 'statement-mappings':
+        return []; // loaded from the backend on mount (see effect in App)
       default: return [];
     }
   }
@@ -458,6 +460,15 @@
     rows.forEach(({ id, key, ...rest }) => { if (key) map[key] = rest; });
     try { localStorage.setItem('hl-cfg-' + sectionId + '-data', JSON.stringify(map)); } catch (e) { /* quota/unavailable */ }
   }
+
+  // Statement Value Mapping option lists (built from the static category seed;
+  // DB-hydrated categories share the same keys so the picker stays valid).
+  const LANG_OPTIONS = [
+    { value: 'tr', label: 'Turkish (tr)' },
+    { value: 'en', label: 'English (en)' },
+  ];
+  const CATEGORY_OPTIONS = Object.entries((window.LEDGER && window.LEDGER.CATS) || {})
+    .map(([key, v]) => ({ value: key, label: v.label || key }));
 
   // ── Sections definition ──────────────────────────────────────────────────
   const SECTIONS = [
@@ -573,6 +584,23 @@
         { key: 'key',   label: 'Key',        type: 'text', required: true, placeholder: 'e.g. garanti', hint: 'Lowercase identifier' },
         { key: 'swift', label: 'SWIFT / BIC', type: 'text', placeholder: 'e.g. TGBATRIS', hint: '8 or 11-character bank code' },
         { key: 'logo',  label: 'Logo',        type: 'image', placeholder: 'Paste image URL (https://…)', hint: 'Paste an internet image URL or upload one from your computer' },
+      ],
+    },
+    {
+      id: 'statement-mappings', label: 'Statement Value Mapping', icon: 'file-symlink', color: 'var(--sky)', addLabel: 'Add Mapping',
+      desc: 'Map bank-statement tags (Etiket) to categories on import',
+      columns: [
+        { key: 'lang',   label: 'Lang', render: v => <span className={'cfg-badge'}>{String(v || 'tr').toUpperCase()}</span> },
+        { key: 'etiket', label: 'Statement Tag' },
+        { key: 'category_key', label: 'Category', render: v => {
+            const c = ((window.LEDGER && window.LEDGER.CATS) || {})[v];
+            return c ? c.label : v;
+          } },
+      ],
+      fields: [
+        { key: 'lang',   label: 'Language', type: 'select', required: true, options: LANG_OPTIONS, hint: 'Language of the statement this tag comes from' },
+        { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi', hint: 'The tag exactly as printed on the statement — spacing and diacritics are ignored when matching' },
+        { key: 'category_key', label: 'Category', type: 'select', required: true, options: CATEGORY_OPTIONS, hint: 'Matching statement lines are booked to this category' },
       ],
     },
   ];
@@ -1127,6 +1155,18 @@
       return () => { alive = false; };
     }, []);
 
+    // Statement value mappings persist to the backend statement_mappings table;
+    // load on mount (only on the Statement Value Mapping page, which includes
+    // statement-mappings-data.js).
+    React.useEffect(() => {
+      if (!window.HL_STATEMENT_MAPPINGS_API) return;
+      let alive = true;
+      window.HL_STATEMENT_MAPPINGS_API.list()
+        .then(maps => { if (alive) setSectionData(prev => ({ ...prev, 'statement-mappings': maps })); })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, []);
+
     const section = view ? SECTIONS.find(s => s.id === view) : null;
     const items = view ? (sectionData[view] || []) : [];
 
@@ -1188,6 +1228,25 @@
         }
         return;
       }
+      // Statement value mappings persist to the statement_mappings table.
+      if (view === 'statement-mappings' && window.HL_STATEMENT_MAPPINGS_API) {
+        try {
+          const exists = (sectionData['statement-mappings'] || []).some(x => x.id === item.id);
+          const saved = exists
+            ? await window.HL_STATEMENT_MAPPINGS_API.update(item.id, item)
+            : await window.HL_STATEMENT_MAPPINGS_API.create(item);
+          setSectionData(prev => {
+            const list = prev['statement-mappings'] || [];
+            const idx = list.findIndex(x => x.id === saved.id);
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            return { ...prev, 'statement-mappings': next };
+          });
+          setModal(null);
+        } catch (err) {
+          alert('Could not save mapping: ' + (err.message || err));
+        }
+        return;
+      }
       setSectionData(prev => {
         const list = prev[view];
         const idx = list.findIndex(x => x.id === item.id);
@@ -1232,6 +1291,17 @@
         }
         return;
       }
+      if (view === 'statement-mappings' && window.HL_STATEMENT_MAPPINGS_API) {
+        try {
+          await window.HL_STATEMENT_MAPPINGS_API.remove(item.id);
+          setSectionData(prev => ({ ...prev, 'statement-mappings': prev['statement-mappings'].filter(x => x.id !== item.id) }));
+          setModal(null);
+          setConfirmDel(null);
+        } catch (err) {
+          alert('Could not delete mapping: ' + (err.message || err));
+        }
+        return;
+      }
       setSectionData(prev => {
         const next = prev[view].filter(x => x.id !== item.id);
         persistClientSection(view, next);
@@ -1248,7 +1318,8 @@
       if (!ids.length) return;
       const api = view === 'categories' ? window.HL_CATEGORIES_API
         : view === 'members' ? window.HL_MEMBERS_API
-        : view === 'currencies' ? window.HL_CURRENCIES_API : null;
+        : view === 'currencies' ? window.HL_CURRENCIES_API
+        : view === 'statement-mappings' ? window.HL_STATEMENT_MAPPINGS_API : null;
       if (api) {
         const results = await Promise.allSettled(ids.map(id => api.remove(id)));
         const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));
@@ -1337,7 +1408,7 @@
                   <button id="cfg-delete-close-btn" className="m-close" onClick={() => setConfirmDel(null)}><Icon name="x" size={16} /></button>
                 </div>
                 <div className="cfg-confirm-body">
-                  Delete <b>{confirmDel.label || confirmDel.name || confirmDel.code}</b> from {section.label}? This cannot be undone.
+                  Delete <b>{confirmDel.label || confirmDel.name || confirmDel.code || confirmDel.etiket}</b> from {section.label}? This cannot be undone.
                 </div>
                 <div className="modal-foot">
                   <button id="cfg-delete-cancel-btn" className="amb cancel" onClick={() => setConfirmDel(null)}><Icon name="x" size={14} />Cancel</button>

@@ -126,22 +126,6 @@
 
   }
 
-  function OwnerBadge({ name }) {
-    if (name === 'Shared') {
-      return (
-        <span className="for-badge for-shared">
-          <Icon name="users" size={11} />Shared
-        </span>);
-
-    }
-    const cls = name === 'Sadun' ? 'payer-sadun' : 'payer-handan';
-    return (
-      <span className={'payer-badge ' + cls}>
-        <span className="avatar">{name[0]}</span>{name}
-      </span>);
-
-  }
-
   // ── Balance display ──
   function BalanceDisplay({ balance, cur, size = 'normal' }) {
     const neg = balance < 0;
@@ -201,7 +185,6 @@
           </div>
           <div className="acct-card-end">
             {account.primary && <span className="acct-primary-tag"><Icon name="star" size={10} />Primary</span>}
-            <OwnerBadge name={account.owner} />
             <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
           </div>
         </div>
@@ -227,7 +210,7 @@
     const t = ACCOUNT_TYPES[typeKey];
     return (
       <div className="acct-group-head">
-        <span className="acct-group-icon" style={{ color: t.color }}>
+        <span className="acct-group-icon" style={{ color: 'var(--text)' }}>
           <Icon name={t.icon} size={15} />
         </span>
         <span className="acct-group-label">{t.label === 'Cash' ? 'Cash' : t.label + 's'}</span>
@@ -295,10 +278,6 @@
               <div className="detail-info-item">
                 <span className="detail-info-k">Currency</span>
                 <span className="detail-info-v">{account.cur}</span>
-              </div>
-              <div className="detail-info-item">
-                <span className="detail-info-k">Owner</span>
-                <span className="detail-info-v"><OwnerBadge name={account.owner} /></span>
               </div>
               {(isCredit || isOverdraft) && account.limit > 0 &&
               <div className="detail-info-item">
@@ -762,6 +741,6 @@
 
   Object.assign(window, {
     AccountCard, AccountGroupHeader, AccountDetail, AccountsSummary,
-    AccountFormModal, DeleteAccountConfirm, OwnerBadge, BalanceDisplay
+    AccountFormModal, DeleteAccountConfirm, BalanceDisplay
   });
 })();

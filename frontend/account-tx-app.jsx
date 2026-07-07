@@ -258,9 +258,12 @@
   // ══════════════════════════════════════════════════════════════════════════
   function App() {
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-    // NOTE: Account Activity has no backend — rows are client-side seed data. Mass-delete
-    // here mutates local state only; removals do not persist across a reload.
-    const [rows, setRows] = React.useState(ACCT_TX);
+    // Rows are the real imported bank-account movements (transactions tagged
+    // note=="banka_import"), fetched per selected month from the backend.
+    const [rows, setRows] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [loadErr, setLoadErr] = React.useState(null);
+    const [accountsReady, setAccountsReady] = React.useState(false);
     const [month, setMonth] = React.useState(CURRENT_MONTH);
     const [year, setYear] = React.useState(CURRENT_YEAR);
     const [account, setAccount] = React.useState('all');
@@ -279,6 +282,41 @@
     }), []);
 
     React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
+
+    // Hydrate the household accounts once (starts empty in accounts-data.js).
+    // Mutate the shared array in place so AccountBadge / AcctFilterBar — which
+    // closed over the module-level ACCOUNTS reference — see the new entries.
+    React.useEffect(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const list = await window.HL_ACCOUNTS_API.list();
+          if (!alive) return;
+          ACCOUNTS.length = 0;
+          list.forEach(a => ACCOUNTS.push(a));
+        } catch (e) {
+          if (alive) setLoadErr(e.message || 'Failed to load accounts');
+        } finally {
+          if (alive) setAccountsReady(true);
+        }
+      })();
+      return () => { alive = false; };
+    }, []);
+
+    // Fetch imported bank-account activity for the selected month. Re-runs when
+    // the period changes; waits until accounts are hydrated so payment_method
+    // resolves to a named account.
+    const reload = React.useCallback(() => {
+      if (!accountsReady) return Promise.resolve();
+      setLoading(true);
+      return window.HL_ACCT_TX_API
+        .listActivity({ year, month: month + 1, accounts: ACCOUNTS })
+        .then(list => { setRows(list); setLoadErr(null); })
+        .catch(e => { setRows([]); setLoadErr(e.message || 'Failed to load account activity'); })
+        .finally(() => setLoading(false));
+    }, [accountsReady, year, month]);
+
+    React.useEffect(() => { reload(); }, [reload]);
 
     function monthStep(d) {
       let m = month + d, y = year;
@@ -331,13 +369,18 @@
     // Stable list of keys in the user's column order — drives <colgroup>, <thead>, and row cells.
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
 
-    // Mass delete — local-only (no backend for account activity); drops selected rows
-    // from client state. Removals do not persist across a reload.
-    function confirmBatchDelete() {
-      const ids = selected;
-      setRows(rs => rs.filter(r => !ids.has(r.id)));
-      setSelected(new Set());
-      setBatchDel(false);
+    // Mass delete — removes the selected transactions from the backend, then
+    // reloads the current month so the view reflects what persisted.
+    async function confirmBatchDelete() {
+      const targets = rows.filter(r => selected.has(r.id) && r._dbId != null);
+      try {
+        await Promise.all(targets.map(r => window.HL_ACCT_TX_API.remove(r._dbId)));
+        setSelected(new Set());
+        setBatchDel(false);
+        await reload();
+      } catch (e) {
+        setLoadErr(e.message || 'Failed to delete selected records');
+      }
     }
 
     // Select-all reflects only the rows on the current page.
@@ -420,12 +463,27 @@
                   </tr>
                 </thead>
                 <tbody>
-                  {pageRows.length === 0 ? (
+                  {loading ? (
+                    <tr className="empty-row"><td colSpan={COLS.length + 1}>
+                      <div className="empty-state">
+                        <Icon name="loader" size={32} className="spin" />
+                        <span className="et">Loading account activity…</span>
+                      </div>
+                    </td></tr>
+                  ) : loadErr ? (
+                    <tr className="empty-row"><td colSpan={COLS.length + 1}>
+                      <div className="empty-state">
+                        <Icon name="alert-triangle" size={32} style={{ color: 'var(--red)' }} />
+                        <span className="et">Couldn't load account activity</span>
+                        <span className="es">{loadErr}</span>
+                      </div>
+                    </td></tr>
+                  ) : pageRows.length === 0 ? (
                     <tr className="empty-row"><td colSpan={COLS.length + 1}>
                       <div className="empty-state">
                         <Icon name="landmark" size={32} />
                         <span className="et">No account activity matches</span>
-                        <span className="es">Try a different month or clear the filters above.</span>
+                        <span className="es">Import a bank statement, or try a different month or clear the filters above.</span>
                       </div>
                     </td></tr>
                   ) : !t.groupByWeek || sort.col !== 'date' ? (

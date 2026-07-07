@@ -1,9 +1,94 @@
 // credit-payments-app.jsx — Home Ledger Credit Payments page.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { Sidebar } = window.HL_NAV;
+  const { CURRENT_YEAR } = window.LEDGER;
   const CP_API = window.HL_CREDIT_PAYMENTS_API;
   const { CreditPaymentTable, CreditPaymentFormModal, CreditPaymentDetail, DeleteCreditPaymentConfirm } = window;
+
+  // ── Filter bar ────────────────────────────────────────────────────────────
+  // Same structure/classes as Account Activity's bar, but the only period filter
+  // is a Year stepper (no month) — statements are filtered by their statement year.
+  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards }) {
+    const [open, setOpen] = React.useState(false);
+    const anchorRef = React.useRef(null);
+    React.useEffect(() => {
+      if (!open) return;
+      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('keydown', onKey);
+      return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+    }, [open]);
+
+    const cardName = (c) => c.name + (c.number && c.number !== '–' ? ' ' + c.number : '');
+    const activeCard = cards.find(c => String(c._dbId) === String(cardFilter));
+    const active = [
+      cardFilter !== 'all' && { key: 'card', label: 'Card', val: activeCard ? cardName(activeCard) : cardFilter, clear: () => setCardFilter('all') },
+    ].filter(Boolean);
+    const clearAll = () => setCardFilter('all');
+
+    return (
+      <div className="filter-wrap">
+        <div className="filter-bar">
+          <div className="filter-field ff-period">
+            <span className="filter-label"><Icon name="calendar" size={11} />Year</span>
+            <div className="month-step">
+              <button id="cp-year-prev-btn" className="ms-btn" onClick={() => onYearStep(-1)} title="Previous year"><Icon name="chevron-left" size={14} /></button>
+              <span className="ms-label"><Icon name="calendar-days" size={13} />{year}</span>
+              <button id="cp-year-next-btn" className="ms-btn" onClick={() => onYearStep(1)} title="Next year"><Icon name="chevron-right" size={14} /></button>
+            </div>
+          </div>
+          <div className="filter-field ff-search">
+            <span className="filter-label"><Icon name="search" size={11} />Search</span>
+            <div className="search-wrap">
+              <Icon name="search" size={13} />
+              <input id="cp-filter-search-input" className="search-input" placeholder="Statement or card…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+          <div className="filter-field ff-filters">
+            <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
+            <div className="filters-anchor" ref={anchorRef}>
+              <button id="cp-filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+                <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
+                {active.length > 0 && <span className="filters-count">{active.length}</span>}
+                <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </button>
+              {open && (
+                <div className="filters-pop">
+                  <div className="filters-pop-head">
+                    <span>Filter By Column</span>
+                    {active.length > 0 && <button id="cp-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                  </div>
+                  <div className="filter-field">
+                    <span className="filter-label"><Icon name="credit-card" size={11} />Card</span>
+                    <div className="select-wrap">
+                      <StyledSelect id="cp-filter-card-select" className="sel" value={cardFilter} onChange={e => setCardFilter(e.target.value)}>
+                        <option value="all">All Cards</option>
+                        {cards.map(c => <option key={c._dbId} value={c._dbId}>{cardName(c)}</option>)}
+                      </StyledSelect>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        {active.length > 0 && (
+          <div className="active-chips">
+            <span className="chips-lead"><Icon name="filter" size={12} />Active</span>
+            {active.map(a => (
+              <button key={a.key} id={'cp-filter-chip-' + a.key} className="chip" onClick={a.clear} title={'Clear ' + a.label + ' filter'}>
+                <span className="chip-k">{a.label}:</span><span className="chip-v">{a.val}</span><Icon name="x" size={11} />
+              </button>
+            ))}
+            <button id="cp-filter-chips-clear-btn" className="chip chip-clear" onClick={clearAll}>Clear All</button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   function App() {
     const [records, setRecords] = React.useState([]);
@@ -18,6 +103,27 @@
     const toggleSelect = React.useCallback((id) => setSelected(s => {
       const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     }), []);
+
+    // Filter bar state — year stepper + card filter + free-text search.
+    const [year, setYear] = React.useState(CURRENT_YEAR);
+    const [cardFilter, setCardFilter] = React.useState('all');
+    const [search, setSearch] = React.useState('');
+    function yearStep(d) { setYear(y => y + d); }
+
+    // Rows after filtering; records without a statement year always pass the year check.
+    const visible = React.useMemo(() => records.filter(r => {
+      if (r.year != null && r.year !== year) return false;
+      if (cardFilter !== 'all' && String(r.accountId) !== String(cardFilter)) return false;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const hay = ((r.name || '') + ' ' + (r.cardLabel || '') + ' ' + (r.accountKey || '')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    }), [records, year, cardFilter, search]);
+
+    // Reset any checkbox selection when the filtered view changes.
+    React.useEffect(() => { setSelected(new Set()); }, [year, cardFilter, search]);
 
     // Attach a human card label to each record from the loaded cards.
     const labelRecords = React.useCallback((recs, cardList) => {
@@ -88,13 +194,13 @@
         });
     }
 
-    // Select-all — no pagination on this page, so it spans every loaded record.
-    const selectedIds = records.filter(r => selected.has(r.id)).map(r => r.id);
-    const allSelected = records.length > 0 && selectedIds.length === records.length;
+    // Select-all — no pagination on this page, so it spans every visible record.
+    const selectedIds = visible.filter(r => selected.has(r.id)).map(r => r.id);
+    const allSelected = visible.length > 0 && selectedIds.length === visible.length;
     const someSelected = selectedIds.length > 0 && !allSelected;
     const toggleSelectAll = () => setSelected(s => {
       if (allSelected) return new Set();
-      return new Set(records.map(r => r.id));
+      return new Set(visible.map(r => r.id));
     });
 
     function openEdit(record) { setDetail(null); setFormModal({ mode: 'edit', record }); }
@@ -117,6 +223,11 @@
                 <button id="cp-add-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>
               </div>
             </div>
+            <CreditPaymentFilterBar
+              year={year} onYearStep={yearStep}
+              cardFilter={cardFilter} setCardFilter={setCardFilter}
+              search={search} setSearch={setSearch}
+              cards={cards} />
           </header>
 
           <div className="cp-body">
@@ -131,7 +242,7 @@
               </div>
             )}
             <CreditPaymentTable
-              records={records}
+              records={visible}
               onRowClick={setDetail}
               onEdit={(r) => setFormModal({ mode: 'edit', record: r })}
               onDelete={setDel}

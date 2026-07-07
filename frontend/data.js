@@ -24,6 +24,7 @@
     travel:        { label: 'Travel',        icon: 'plane',            color: 'var(--accent)',    kind: 'expense' },
     education:     { label: 'Education',     icon: 'graduation-cap',   color: 'var(--steel)',     kind: 'expense' },
     gifts:         { label: 'Gifts',         icon: 'gift',             color: 'var(--rose)',      kind: 'expense' },
+    commission:    { label: 'Commission',    icon: 'percent',          color: 'var(--coral)',     kind: 'expense' },
     'wire-transfer': { label: 'Wire Transfer', icon: 'send',             color: 'var(--sky)',       kind: 'transfer' },
     'credit-card-payment': { label: 'Credit Card Payment', icon: 'credit-card', color: 'var(--orange)', kind: 'transfer' },
     debt:          { label: 'Debt',          icon: 'trending-down',    color: 'var(--red)',       kind: 'expense' },

@@ -32,7 +32,7 @@ uvicorn app.main:app --reload --port 8000
 SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db` in container).
 **No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`.
 
-9 tables, one per ORM model in `backend/app/models.py`:
+10 tables, one per ORM model in `backend/app/models.py`:
 
 | Table | Model |
 |---|---|
@@ -45,6 +45,7 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 | `recurring_expenses` | RecurringExpense |
 | `exchange_rates` | ExchangeRate |
 | `currency_rates` | CurrencyRate |
+| `statement_mappings` | StatementMapping |
 
 ### Environment variables
 | Variable | Default | Notes |
@@ -195,6 +196,15 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | PATCH | `/{currency_id}` | Update currency / rate |
 | DELETE | `/{currency_id}` | Delete currency |
 
+### Statement Value Mapping — `/api/statement-mappings`
+Drives the importer's Etiket→category rule (see _Supported Bank Import Formats_). Managed in **Configuration → Statement Value Mapping**.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | List Etiket→category mappings (seeded defaults) |
+| POST | `/` | Add mapping (`lang`, `etiket`, `category_key`) |
+| PATCH | `/{mapping_id}` | Update mapping |
+| DELETE | `/{mapping_id}` | Delete mapping |
+
 ---
 
 ## Frontend
@@ -261,7 +271,13 @@ Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user 
 
 > **Any line item whose description contains "virman" is always a Transfer** (category `wire-transfer`), never shopping/salary — for every import. "Virman" = internal account transfer; the type is kept per its sign (a virman may be incoming or outgoing). Enforced in the backend (`_cc_classify` → sets `category_key`, matched via `_fold` so `VİRMAN` casing works) and the frontend (`guessCategory` in `import-data.js`, overriding Etiket + the income/expense fallback).
 
+> **Any line item whose description is "KESİNTİ VE EKLERİ"** (bank deductions & additions) **is always Commission** (category `commission`) — for every import, type kept per its sign. Overrides the Etiket/Diğer rules so these fee lines aren't left as a generic "Other" tag. `commission` is a seeded default category (`Commission`, expense, `percent` icon; backfilled on existing DBs via `ensure_category` in `main.py`). Enforced in the backend (`_cc_classify`, matched via `_fold` on the stripped key `KESINTIVEEKLERI`) and the frontend (`guessCategory` in `import-data.js`, diacritic-tolerant `[iıİ]` regex).
+
 > **The importer first classifies each statement** (bank account / credit card / investment) — that's what the dispatch in `parse_bank_file` already does: Midas → `kind:"investments"`; card parsers emit `accounts[].type == "credit"`; account parsers emit `accounts[].type == "bank"`. **On BANK-account statements only,** a line item whose description contains "diğer"/"other" (whole word) is marked **Transfer** (`wire-transfer`), type kept per its sign. Scoped to bank because on CARD statements "Diğer" is a legitimate spending tag (tolls, misc. purchases) and must stay an expense. Enforced in the backend (`_normalize_row(account_type="bank")`, matched via `_fold` + `_DIGER_RE`) and the frontend (`guessCategory(…, isBank)`, bank sources computed in `goReview`).
+
+> **Garanti's "Etiket" column is a structured category tag** — when present it drives `category_key` (only the category; direction still follows the amount's sign). Default mapping: `Para Transferi`/`Döviz Al / Sat`→`wire-transfer`, `Kart Ödemesi`→`credit-card-payment`, `Faiz / Komisyon`→`interest`, `Telekomünikasyon`→`utilities`, `Ulaşım`/`Akaryakıt`→`transport`, `Market`→`groceries`, `Yeme / İçme`→`dining`, `Maaş`→`salary`, plus the shopping/health/entertainment card tags. `Diğer` and `Para Çekme` are intentionally **unmapped** (fall to the Diğer transfer rule / sign default). Precedence in `_normalize_row`: `_cc_classify` (virman/teşekkür/devir) → **Etiket map** → bank-Diğer rule → sign. Matching is diacritic/spacing-insensitive via `_fold` (`_etiket_category()`).
+>
+> **The Etiket→category map is DB-driven and user-editable** — the `statement_mappings` table (model `StatementMapping`: `lang`, `etiket`, `category_key`) behind `/api/statement-mappings`, managed in **Configuration → Statement Value Mapping** (a config section like Categories). `parse_bank_file(…, db=…)` calls `load_etiket_map(db)` to refresh a module-level runtime dict before parsing, so edits/deletes take effect on the next import (DB is authoritative once loaded; the hardcoded `_ETIKET_CATEGORY` is only the bootstrap fallback when no `db` is passed). Seeded on startup from `DEFAULT_STATEMENT_MAPPINGS` (`routers/statement_mappings.py`). The frontend `ETIKET_MAP` in `import-data.js` remains a *review-time fallback only* — the backend `category_key` wins in `import.jsx`.
 
 
 ## Local Environment & Dev Workflow

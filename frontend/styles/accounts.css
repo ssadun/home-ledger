@@ -85,6 +85,10 @@
 .detail-info-full{grid-column:1 / -1}
 .detail-iban{font-family:var(--font-mono, monospace);font-size:13px;letter-spacing:.8px;color:var(--accent)}
 
+/* Card/account number field: monospace + tabular figures so digits, spaces and
+   masking asterisks all share one width and align uniformly ("4870 75** **** 1011"). */
+#acct-form-number-input{font-family:var(--font-mono, monospace);font-variant-numeric:tabular-nums;letter-spacing:.5px}
+
 /* ── Activity list ── */
 .detail-activity{display:flex;flex-direction:column;gap:8px}
 .detail-section-label{display:flex;align-items:center;gap:7px;font-size:var(--fs-label);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}

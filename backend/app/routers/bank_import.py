@@ -32,6 +32,7 @@ async def preview_import(
         content=content,
         filename=filename,
         bank_hint=bank or "auto",
+        db=db,
     )
     return result
 

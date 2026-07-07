@@ -91,11 +91,17 @@
   ];
 
   // ── Garanti "Etiket" (Turkish category tag) → CATS key ──
-  // Unmapped/ambiguous tags (Emeklilik/Sigorta, Kurum Ödemesi, Kart Ödemesi,
-  // Diğer …) fall through to the keyword guesser below.
+  // Backend mirror: keep in sync with _ETIKET_CATEGORY in bank_import.py. "Diğer"
+  // is intentionally unmapped — on bank statements it falls to the Diğer transfer
+  // rule below, on card statements it stays a plain expense. Other unmapped tags
+  // (Emeklilik/Sigorta, Kurum Ödemesi …) fall through to the keyword guesser.
   const ETIKET_MAP = {
     'Maaş': 'salary',
     'Para Transferi': 'wire-transfer',
+    'Kart Ödemesi': 'credit-card-payment',
+    'Faiz / Komisyon': 'interest',
+    'Telekomünikasyon': 'utilities',
+    'Döviz Al / Sat': 'wire-transfer',
     'Market': 'groceries',
     'Yeme / İçme': 'dining',
     'Akaryakıt': 'transport',
@@ -112,6 +118,10 @@
     // "Virman" (internal account transfer) is ALWAYS a Transfer — this overrides
     // any Etiket tag and the income/expense fallback. Valid for every import.
     if (/virman/i.test(desc)) return 'wire-transfer';
+    // Bank fee/deduction lines ("KESİNTİ VE EKLERİ") → Commission. Diacritic-tolerant
+    // (İ/ı) so the bank's original casing matches. Wins over Etiket/Diğer + the
+    // income/expense fallback so these don't stay a generic "Other" tag.
+    if (/kes[iıİ]nt[iıİ]\s+ve\s+ekler[iıİ]/i.test(desc)) return 'commission';
     // BANK-account statements only: a "Diğer"/"Other" line item is a miscellaneous
     // transfer → Transfer. Scoped to bank because on CARD statements "Diğer" is a
     // real spending tag (tolls, etc.).

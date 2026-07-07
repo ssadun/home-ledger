@@ -7,7 +7,7 @@
 // `active` is the id of the current page. Valid ids:
 //   Top level : dashboard | transactions | recurring | accounts | budgets | configuration
 //   Tx sub    : spending | account-activity | credit-payments | subscriptions | recurring
-//   Config sub: members | categories | currencies | cc-types | debit-types | account-types | financial-institutions | backup-export
+//   Config sub: members | categories | currencies | cc-types | debit-types | account-types | financial-institutions | statement-mappings | backup-export
 //
 // To change a menu item's COLOR / LABEL / ICON / ORDER, edit the arrays below — once.
 (function () {
@@ -72,6 +72,7 @@
     { id: 'debit-types',   sectionId: 'debit-types',   icon: 'wallet-cards',       label: 'Debit Cards',   color: '#38bdf8', href: 'Debit Cards.html' },
     { id: 'account-types', sectionId: 'account-types', icon: 'landmark',           label: 'Account Types', color: '#4f8ef7', href: 'Account Types.html' },
     { id: 'financial-institutions', sectionId: 'financial-institutions', icon: 'building-2', label: 'Financial Institutions', color: '#94a3b8', href: 'Financial Institutions.html' },
+    { id: 'statement-mappings', sectionId: 'statement-mappings', icon: 'file-symlink', label: 'Statement Value Mapping', color: '#38bdf8', href: 'Statement Value Mapping.html' },
     { id: 'backup-export', sectionId: 'backup-export', icon: 'database-backup',    label: 'Backup & Export', color: '#34d399', href: 'Backup & Export.html' },
   ];
 

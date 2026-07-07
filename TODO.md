@@ -44,7 +44,28 @@ loop the per-row API (no bulk endpoint → no backend rebuild).
 
 ## 4. Table imporevements
 - [x] Can we assign Institude logo from internet or from local computer? — per-institution logo (Config → Financial Institutions gains a Logo `image` field: paste a URL or upload a local file, downscaled to a ≤96px PNG data-URI, persisted in the localStorage institutions map). Accounts match by institution name and render the logo in place of the type icon on cards + detail modal (desktop + mobile).
-- [ ] Account Activity screen is empty however imported bank account transactions should be here. Can you fix it. 
-- [ ] Also add group by Bank Accounts and make them collapsible
-- [ ] First find how many tables are using week-group-row. Then one by one make them collapsible in week-group-row. if you have any questions please ask.
-- [ ] Credit Payments screen add class="filter-bar" from Account Activity however add year add a period
+- [x] Account Activity screen is empty however imported bank account transactions should be here. Can you fix it. — the page was rendering an empty client-side seed. Now it hydrates household accounts, fetches the selected month's transactions from `/api/transactions`, keeps only imported bank-account movements (`note=="banka_import"` & no `credit_payment_id`, and matched account not `type:credit` so card interim-dumps stay on Credit Payments), maps `payment_method`→account by `account_key`, and derives Type/Direction. Loading/error states + backend-wired mass-delete. Verified desktop + mobile 360.
+- [x] Credit Payments screen add class="filter-bar" from Account Activity however add year add a period — added a filter-bar (Account Activity styling) with a Year stepper (year-only, no month per request), a Search box, and a Card filter in the Filters popup; records list filters client-side by year/card/search (desktop + mobile)
+- [] Accounts screen on detail modal add last account acitivities for more please give link to "Account Activity" screen with filter the account
+- [] Account Activity screen when you click on a record detail modal should pop-up and user should see when was this record added and name of the source file 
+- [ ] Spending, Subscriptions, Recurring and Account Activity using week-group-row. Then one by one make them collapsible in week-group-row.
+
+## 5. Bank-import parser regression fixtures
+
+Use the sample statements under `import/` as golden fixtures so parser changes can't silently regress a supported format. One fixture per format currently in the registry.
+
+- [x] fine tune `import/garanti-tl-hesaphareketleri.pdf` there is a "Etiket \ tag" based on that you can decide the category — the Garanti "Etiket" column now drives `category_key` (direction still follows the amount's sign) via `_ETIKET_CATEGORY`/`_etiket_category()` in `bank_import.py`, wired into `_normalize_row` (precedence: `_cc_classify` → Etiket map → bank-Diğer rule → sign) and mirrored in the frontend `ETIKET_MAP`. Mapping: Para Transferi & Döviz Al/Sat→wire-transfer, Kart Ödemesi→credit-card-payment, Faiz/Komisyon→interest, Telekomünikasyon→utilities, Ulaşım→transport; Diğer & Para Çekme intentionally unmapped. Verified end-to-end against the sample PDF (14/14 rows classified as expected).
+  1. Para Transferi = Money Transfer
+  2. Kart Ödemesi = Card Payment
+  3. Faiz / Komisyon = Interest / Commission
+  4. Telekomünikasyon = Telco Payment
+  5. Ulaşım = Transportation Fee
+  6. Döviz Al / Sat = Currency Exchange
+  7. Diğer = Other
+- [x] Can you create a new menu item under configuration like "satement value mapping" and include those definitions there with a language code. You can take other configuration modules design as referance. — added a **Statement Value Mapping** config section (mirrors Categories design): new `statement_mappings` table + `StatementMapping` model, `/api/statement-mappings` CRUD router (seeded from the Etiket defaults), and a config page (`Statement Value Mapping.html` + `statement-mappings-data.js` + SECTIONS entry + nav submenu item). Each row has a **Language** code (tr/en), the **Statement Tag** (Etiket), and a **Category** picker. The importer now reads this table: `parse_bank_file(db=…)` calls `load_etiket_map(db)` so edits/deletes take effect on the next import (hardcoded `_ETIKET_CATEGORY` stays as bootstrap fallback). Verified end-to-end: seed (16 rows), HTTP CRUD, live edit/delete reclassification, and desktop + mobile 360 rendering via Playwright.
+
+- [ ] `import/26.01-BonusCardEkstre.pdf` — Garanti credit-card statement (`_parse_garanti_cc_pdf`)
+- [ ] `import/on-Hesap Hareketleri-tl.pdf` — ON / Burgan checking account (`_parse_on_burgan_pdf`)
+- [ ] `import/Midas_Ekstre_Mayıs_2026.pdf` — Midas portfolio → investments (`_parse_midas_holdings`)
+- [ ] `import/garanti-tl-hesaphareketleri.pdf` — Garanti checking account, TL (`_parse_garanti_hesap_pdf`)
+- [ ] `import/garanti-usd-hesaphareketleri.pdf` — Garanti checking account, USD (`_parse_garanti_hesap_pdf`)

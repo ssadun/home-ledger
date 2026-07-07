@@ -15,3 +15,7 @@
   .ledger-table td[data-label="Type"],
   .ledger-table td[data-label="Direction"] { display: none; }
 }
+
+/* ── Loading spinner (Account Activity fetches per-month from the backend) ── */
+.empty-state .spin { animation: atx-spin .8s linear infinite; color: var(--muted); }
+@keyframes atx-spin { to { transform: rotate(360deg); } }

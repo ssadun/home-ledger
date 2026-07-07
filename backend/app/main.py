@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from app.database import engine, SessionLocal
 from app.models import Base
-from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments
+from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statement_mappings
 
 # SQLite dosyasının yaşadığı klasörü garantile
 Path("/app/data").mkdir(parents=True, exist_ok=True)
@@ -13,15 +13,20 @@ Path("/app/uploads").mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 # Seed shared default categories + currencies on first run
-from app.routers.categories import seed_default_categories, ensure_category
+from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index
 from app.routers.currencies import seed_default_currencies
+from app.routers.statement_mappings import seed_default_statement_mappings
 _seed_db = SessionLocal()
 try:
     seed_default_categories(_seed_db)
     # Backfill categories added after the initial seed (idempotent on existing DBs).
     ensure_category(_seed_db, "credit-card-payment", "Credit Card Payment", "transfer", "credit-card", "var(--orange)")
     ensure_category(_seed_db, "debt", "Debt", "expense", "trending-down", "var(--red)")
+    ensure_category(_seed_db, "commission", "Commission", "expense", "percent", "var(--coral)")
+    # Enforce category.key uniqueness on existing DBs (create_all only does new tables).
+    ensure_unique_key_index(_seed_db)
     seed_default_currencies(_seed_db)
+    seed_default_statement_mappings(_seed_db)
 finally:
     _seed_db.close()
 
@@ -51,6 +56,7 @@ app.include_router(accounts.router)
 app.include_router(members.router)
 app.include_router(currencies.router)
 app.include_router(credit_payments.router)
+app.include_router(statement_mappings.router)
 
 
 @app.get("/health")

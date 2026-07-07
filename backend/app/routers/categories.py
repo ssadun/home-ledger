@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Category, TransactionType, User
@@ -26,6 +27,8 @@ DEFAULT_CATEGORIES = [
     ("travel",        "Travel",        "expense",  "plane",            "var(--accent)"),
     ("education",     "Education",     "expense",  "graduation-cap",   "var(--steel)"),
     ("gifts",         "Gifts",         "expense",  "gift",             "var(--rose)"),
+    # Bank fees / deductions (e.g. Garanti "KESİNTİ VE EKLERİ").
+    ("commission",    "Commission",    "expense",  "percent",          "var(--coral)"),
     ("wire-transfer", "Wire Transfer", "transfer", "send",             "var(--sky)"),
     # Budget-exempt by design (kind=transfer, no budget targets it): one record per
     # imported credit-card statement total, dated on the statement's last payment date.
@@ -64,6 +67,20 @@ def ensure_category(db: Session, key: str, name: str, kind: str, icon: str, colo
     db.commit()
 
 
+def ensure_unique_key_index(db: Session) -> None:
+    """Upgrade the categories.key index to UNIQUE on existing (pre-migration) DBs.
+    `Base.metadata.create_all` only builds the unique index on a fresh table, so
+    older DBs keep the plain `ix_categories_key`. We drop and recreate it as UNIQUE
+    (same name SQLAlchemy uses, so fresh + migrated DBs converge). No-op if the key
+    column already has any duplicate values — logs are left to the caller."""
+    try:
+        db.execute(text("DROP INDEX IF EXISTS ix_categories_key"))
+        db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_categories_key ON categories(key)"))
+        db.commit()
+    except Exception:
+        db.rollback()  # duplicates present or DB busy — leave the old index in place
+
+
 @router.get("/", response_model=List[CategoryOut])
 def list_categories(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Category).order_by(Category.id).all()
@@ -75,6 +92,8 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if payload.key and db.query(Category).filter(Category.key == payload.key).first():
+        raise HTTPException(409, f"Kategori anahtarı '{payload.key}' zaten kullanılıyor")
     cat = Category(
         key=payload.key,
         name=payload.name,
@@ -102,6 +121,9 @@ def update_category(
     if not cat:
         raise HTTPException(404, "Kategori bulunamadı")
     data = payload.model_dump(exclude_none=True)
+    if data.get("key") and data["key"] != cat.key:
+        if db.query(Category).filter(Category.key == data["key"], Category.id != cat_id).first():
+            raise HTTPException(409, f"Kategori anahtarı '{data['key']}' zaten kullanılıyor")
     for field, value in data.items():
         setattr(cat, field, value)
     if "kind" in data:

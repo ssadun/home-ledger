@@ -82,6 +82,27 @@ class CategoryUpdate(BaseModel):
     color: Optional[str] = None
 
 
+# ── Statement Value Mapping (Etiket → category) ────────────────────────────────
+
+class StatementMappingOut(BaseModel):
+    id: int
+    lang: Optional[str]
+    etiket: str
+    category_key: str
+    is_default: Optional[bool] = None
+    model_config = {"from_attributes": True}
+
+class StatementMappingCreate(BaseModel):
+    lang: str = "tr"
+    etiket: str
+    category_key: str
+
+class StatementMappingUpdate(BaseModel):
+    lang: Optional[str] = None
+    etiket: Optional[str] = None
+    category_key: Optional[str] = None
+
+
 # ── Transaction ───────────────────────────────────────────────────────────────
 
 class TransactionCreate(BaseModel):

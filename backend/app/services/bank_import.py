@@ -140,6 +140,9 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
     - "ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR" (balance carried over) → expense, category "Debt"
     - "…VIRMAN…" (internal account transfer) → category "Wire Transfer" (type kept
       as-is: a virman may be incoming or outgoing per its sign). Valid for every import.
+    - "KESİNTİ VE EKLERİ" (bank deductions & additions) → category "Commission" (type
+      kept per its sign). Valid for every import; wins over the Etiket/Diğer rules so
+      these fee lines aren't left as a generic "Other" tag.
     """
     # Strip everything but letters/digits so interleaved spaces or stray
     # watermark punctuation ("TE ŞE-KKÜR") can't break the keyword match.
@@ -150,6 +153,8 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
         return "expense", "debt"
     if "VIRMAN" in f:
         return None, "wire-transfer"
+    if "KESINTIVEEKLERI" in f:
+        return None, "commission"
     return None, None
 
 
@@ -158,9 +163,76 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
 _DIGER_RE = re.compile(r"\b(DIGER|OTHER)\b")
 
 
+# Garanti's structured "Etiket" column (Turkish category tag) → our category_key.
+# Keys are diacritic-folded and stripped of every non-alphanumeric char so slash /
+# spacing variants ("Faiz / Komisyon", "Faiz/Komisyon") all collapse to one key.
+# "Diğer" is intentionally absent: on BANK statements it falls to the _DIGER_RE
+# transfer rule, on CARD statements it stays a plain expense. "Para Çekme" (ATM
+# withdrawal) is likewise left to the sign-based default.
+_ETIKET_CATEGORY = {
+    "MAAS":             "salary",              # Maaş
+    "PARATRANSFERI":    "wire-transfer",       # Para Transferi
+    "KARTODEMESI":      "credit-card-payment", # Kart Ödemesi
+    "FAIZKOMISYON":     "interest",            # Faiz / Komisyon
+    "TELEKOMUNIKASYON": "utilities",           # Telekomünikasyon
+    "ULASIM":           "transport",           # Ulaşım
+    "DOVIZALSAT":       "wire-transfer",       # Döviz Al / Sat
+    "MARKET":           "groceries",           # Market
+    "YEMEICME":         "dining",              # Yeme / İçme
+    "AKARYAKIT":        "transport",           # Akaryakıt
+    "GIYIMAKSESUAR":    "shopping",            # Giyim / Aksesuar
+    "EGLENCEHOBI":      "entertainment",       # Eğlence / Hobi
+    "SAGLIKBAKIM":      "health",              # Sağlık / Bakım
+    "ELEKTRONIK":       "shopping",            # Elektronik
+    "EVDEKORASYON":     "shopping",            # Ev / Dekorasyon
+    "KISISELHIZMET":    "shopping",            # Kişisel Hizmet
+}
+
+
+def _etiket_key(etiket: str) -> str:
+    """Diacritic/spacing-insensitive lookup key for an Etiket tag."""
+    return re.sub(r"[^A-Z0-9]", "", _fold(etiket))
+
+
+# Runtime Etiket→category_key map loaded from the DB (Configuration → Statement
+# Value Mapping). None until load_etiket_map() runs; the hardcoded _ETIKET_CATEGORY
+# above is the bootstrap fallback used when no DB session is available (e.g. tests).
+_ETIKET_RUNTIME: Optional[dict] = None
+
+
+def load_etiket_map(db) -> None:
+    """Refresh the runtime Etiket→category map from the statement_mappings table.
+    Once loaded, the DB is authoritative (deletions take effect); on any failure we
+    keep the previous map / hardcoded fallback so imports never break."""
+    global _ETIKET_RUNTIME
+    try:
+        from app.models import StatementMapping
+        m: dict[str, str] = {}
+        for row in db.query(StatementMapping).all():
+            if row.etiket and row.category_key:
+                m[_etiket_key(row.etiket)] = row.category_key
+        _ETIKET_RUNTIME = m
+    except Exception:
+        pass  # keep whatever we had; _etiket_category falls back to _ETIKET_CATEGORY
+
+
+def _etiket_category(etiket: str) -> Optional[str]:
+    """Map a Garanti Etiket tag to a category_key (diacritic/spacing-insensitive).
+    Prefers the DB-loaded map when present, else the hardcoded defaults."""
+    if not etiket:
+        return None
+    table = _ETIKET_RUNTIME if _ETIKET_RUNTIME is not None else _ETIKET_CATEGORY
+    return table.get(_etiket_key(etiket))
+
+
 def _normalize_row(date: str, description: str, amount: float, balance=None, raw=None,
                    currency="TRY", etiket=None, source=None, account_type=None) -> dict:
     type_override, category_override = _cc_classify(description)
+    # Garanti's "Etiket" column is a structured category tag — trust it when the
+    # description-based rules above didn't already classify the row. Only sets the
+    # category; direction (income/expense) still follows the amount's sign.
+    if category_override is None:
+        category_override = _etiket_category(etiket)
     # BANK-ACCOUNT statements only: a "Diğer"/"Other" line item is a miscellaneous
     # transfer → Transfer (category wire-transfer). Scoped to account_type == "bank"
     # because on CARD statements "Diğer" is a legitimate spending tag (tolls, etc.).
@@ -1152,7 +1224,7 @@ def _load_dataframe(content: bytes, ext: str):
     return None
 
 
-def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto") -> dict:
+def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=None) -> dict:
     """
     Ana giriş noktası. Dosyayı parse eder, önizleme döndürür.
 
@@ -1169,6 +1241,11 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto") -> d
     """
     if not PANDAS_OK:
         return {"error": "pandas kütüphanesi eksik. 'pip install pandas openpyxl xlrd' çalıştırın."}
+
+    # Refresh the Etiket→category map from the DB so the importer honours edits made
+    # in Configuration → Statement Value Mapping (falls back to hardcoded on failure).
+    if db is not None:
+        load_etiket_map(db)
 
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     errors = []

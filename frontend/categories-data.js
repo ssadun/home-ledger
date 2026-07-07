@@ -31,13 +31,21 @@
     return (await res.json()).map(fromApi);
   }
 
+  // Surface the backend's `detail` (e.g. the duplicate-key 409 message) so the
+  // caller's alert is actionable instead of a bare status code.
+  async function errMsg(res, fallback) {
+    let msg = fallback + ' (' + res.status + ')';
+    try { const j = await res.json(); if (j && j.detail) msg = j.detail; } catch (_) {}
+    return msg;
+  }
+
   async function create(item) {
     const res = await api()('/api/categories/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });
-    if (!res.ok) throw new Error('Failed to create category (' + res.status + ')');
+    if (!res.ok) throw new Error(await errMsg(res, 'Failed to create category'));
     return fromApi(await res.json());
   }
 
@@ -47,7 +55,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });
-    if (!res.ok) throw new Error('Failed to update category (' + res.status + ')');
+    if (!res.ok) throw new Error(await errMsg(res, 'Failed to update category'));
     return fromApi(await res.json());
   }
 

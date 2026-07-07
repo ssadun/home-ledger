@@ -219,7 +219,7 @@ async def preview_statement(
     rec.statement_mime = file.content_type
     db.commit()
 
-    result = parse_bank_file(content=content, filename=filename, bank_hint="auto")
+    result = parse_bank_file(content=content, filename=filename, bank_hint="auto", db=db)
     return result
 
 

@@ -99,8 +99,15 @@
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       // The menu is position:fixed (so it escapes ancestor overflow clipping —
       // modal body, scrollable review list — instead of hiding behind sibling
-      // rows). A fixed box can't follow a scroll, so close on any scroll/resize.
-      const onShift = () => setOpen(false);
+      // rows). A fixed box can't follow a scroll, so close on any outer scroll/
+      // resize — but NOT when the scroll happens inside the menu itself (the
+      // category list is taller than max-height:260px and scrolls internally;
+      // closing on that would make the dropdown vanish the moment you scroll it).
+      const onShift = (e) => {
+        if (e && e.target && menuRef.current &&
+            (menuRef.current === e.target || menuRef.current.contains(e.target))) return;
+        setOpen(false);
+      };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);
       window.addEventListener('resize', onShift);

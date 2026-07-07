@@ -39,7 +39,7 @@ class User(Base):
 class Category(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, index=True)
-    key = Column(String, index=True)  # frontend identifier, e.g. "groceries"
+    key = Column(String, unique=True, index=True)  # frontend identifier, e.g. "groceries" (unique)
     name = Column(String, nullable=False)
     name_tr = Column(String)          # Turkish display name
     type = Column(SAEnum(TransactionType), nullable=False)
@@ -51,6 +51,18 @@ class Category(Base):
     is_default = Column(Boolean, default=False)
 
     transactions = relationship("Transaction", back_populates="category")
+
+
+class StatementMapping(Base):
+    """Maps a bank-statement tag (Garanti "Etiket") to a category_key, per language.
+    Drives the importer's Etiket→category classification (see bank_import._etiket_category),
+    editable from Configuration → Statement Value Mapping instead of a hardcoded dict."""
+    __tablename__ = "statement_mappings"
+    id = Column(Integer, primary_key=True, index=True)
+    lang = Column(String, default="tr")            # statement language, e.g. "tr"
+    etiket = Column(String, nullable=False)        # tag text as printed on the statement
+    category_key = Column(String, nullable=False)  # target category, e.g. "wire-transfer"
+    is_default = Column(Boolean, default=False)
 
 
 class Transaction(Base):
