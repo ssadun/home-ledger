@@ -226,7 +226,9 @@ Drives the importer's Etiket→category rule (see _Supported Bank Import Formats
 | POST | `/unsubscribe` | Remove a subscription |
 | GET | `/prefs` | Current user's `notify_lead_days` + whether any subscription is active |
 | PATCH | `/prefs` | Update `notify_lead_days` |
-| POST | `/test` | Send one test push to the current user's subscriptions |
+| POST | `/test` | Send one generic test push to the current user's subscriptions |
+| POST | `/test-credit` | Preview the real credit-card due reminder — pushes the user's most recent `CreditPayment` in the enriched format, **ignoring its due date** (so you can see the format without waiting for the scan to match). Renders via `build_credit_message()` |
+| POST | `/test-recurring` | Preview the real recurring bill/subscription reminder — pushes the user's most recent `RecurringExpense`, **ignoring its due date**. Renders via `build_recurring_message()` |
 | POST | `/run-check` | Manually trigger the daily due-date scan (normally runs on a schedule) |
 
 ---

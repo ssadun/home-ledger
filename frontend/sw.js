@@ -18,6 +18,9 @@ self.addEventListener('push', (event) => {
     body: data.body || '',
     icon: 'assets/icon-192.png',
     badge: 'assets/icon-192.png',
+    vibrate: [200, 100, 200],
+    renotify: true,
+    tag: data.tag || 'home-ledger',
     data: { url: data.url || '/Dashboard.html' },
   };
   event.waitUntil(self.registration.showNotification(title, options));
