@@ -439,3 +439,9 @@ class NotifyPrefsOut(BaseModel):
 
 class NotifyPrefsUpdate(BaseModel):
     notify_lead_days: int
+
+class SnoozeCreate(BaseModel):
+    endpoint: str                     # push endpoint = capability that authenticates the SW
+    type: str                         # "recurring" | "credit"
+    id: int                           # RecurringExpense.id / CreditPayment.id
+    days: int                         # 1 | 3 | 7 (validated against SNOOZE_DAYS_ALLOWED)

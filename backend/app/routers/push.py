@@ -6,11 +6,12 @@ from app.config import settings
 from app.models import PushSubscription, User
 from app.schemas import (
     NotifyPrefsOut, NotifyPrefsUpdate,
-    PushSubscriptionCreate, PushSubscriptionOut, PushUnsubscribe,
+    PushSubscriptionCreate, PushSubscriptionOut, PushUnsubscribe, SnoozeCreate,
 )
 from app.services.auth import get_current_user
 from app.services.notify import (
-    run_due_date_check, send_credit_preview, send_recurring_preview, send_to_user,
+    apply_snooze, run_due_date_check, send_credit_preview, send_recurring_preview,
+    send_to_user,
 )
 
 router = APIRouter(prefix="/api/push", tags=["push"])
@@ -114,6 +115,25 @@ def send_test_recurring(db: Session = Depends(get_db), current_user: User = Depe
         detail = summary["errors"][0] if summary["errors"] else "delivery failed"
         raise HTTPException(status_code=502, detail=f"Push delivery failed: {detail}")
     return {"ok": True, **summary}
+
+
+@router.post("/snooze")
+def snooze_reminder(payload: SnoozeCreate, db: Session = Depends(get_db)):
+    """Snooze one bill/card reminder, triggered from the notification's Snooze
+    action button. **Deliberately unauthenticated by JWT** — the service worker
+    can't read localStorage, so it authenticates by the push ``endpoint`` string
+    (an unguessable capability, already stored per device) → ``owner_id``. This is
+    the ONE push route that must not use ``get_current_user``."""
+    sub = db.query(PushSubscription).filter(
+        PushSubscription.endpoint == payload.endpoint,
+    ).first()
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Unknown push endpoint.")
+    try:
+        snoozed_until = apply_snooze(db, sub.owner_id, payload.type, payload.id, payload.days)
+    except ValueError as ex:
+        raise HTTPException(status_code=400, detail=str(ex))
+    return {"ok": True, "snoozed_until": snoozed_until.isoformat()}
 
 
 @router.post("/run-check")

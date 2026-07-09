@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime, Boolean,
-    ForeignKey, Text, JSON, Enum as SAEnum
+    ForeignKey, Text, JSON, UniqueConstraint, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
@@ -287,4 +287,22 @@ class PushSubscription(Base):
     p256dh = Column(String, nullable=False)
     auth = Column(String, nullable=False)
     user_agent = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReminderSnooze(Base):
+    """A per-item snooze: suppress a bill/card reminder's normal fire and re-send it
+    once on ``snoozed_until``. One row per (owner, item) — snoozing again upserts.
+    Created from the notification's Snooze action button (see /api/push/snooze); the
+    daily scan skips normally-due items that have a row and re-fires (then deletes)
+    rows whose ``snoozed_until`` has arrived."""
+    __tablename__ = "reminder_snoozes"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "item_type", "item_id", name="uq_snooze_owner_item"),
+    )
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    item_type = Column(String, nullable=False)   # "recurring" | "credit"
+    item_id = Column(Integer, nullable=False)     # RecurringExpense.id / CreditPayment.id
+    snoozed_until = Column(Date, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

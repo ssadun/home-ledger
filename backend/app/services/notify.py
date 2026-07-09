@@ -5,7 +5,13 @@ from pywebpush import webpush, WebPushException
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import Account, CreditPayment, PushSubscription, RecurringExpense, User
+from app.models import (
+    Account, CreditPayment, PushSubscription, ReminderSnooze, RecurringExpense, User,
+)
+
+# Snooze durations offered by the notification action buttons, in days. The
+# /api/push/snooze route rejects anything not in this allowlist.
+SNOOZE_DAYS_ALLOWED = {1, 3, 7}
 
 _CURRENCY_SYMBOL = {"TRY": "₺", "USD": "$", "EUR": "€"}
 
@@ -18,13 +24,26 @@ def _fmt_amount(amount: float, currency: str) -> str:
     return f"{symbol}{value}" if symbol else f"{value} {currency}".strip()
 
 
-def send_to_user(db: Session, user: User, title: str, body: str, url: str) -> dict:
+def send_to_user(
+    db: Session, user: User, title: str, body: str, url: str,
+    item_type: str = None, item_id: int = None,
+) -> dict:
     """Push a notification to every subscription this user has. Returns a summary
     ``{"total", "sent", "failed", "removed", "errors"}`` so callers (e.g. the
     /test endpoint) can surface delivery failures instead of reporting a blind
-    success. One bad endpoint never stops the others."""
+    success. One bad endpoint never stops the others.
+
+    When ``item_type``/``item_id`` are given, the payload carries the item's
+    identity (`type`/`id`) so the service worker can offer Snooze action buttons,
+    plus a per-item ``tag`` (``"recurring-12"``) so distinct reminders no longer
+    collapse onto the shared ``"home-ledger"`` tag."""
     subs = db.query(PushSubscription).filter(PushSubscription.owner_id == user.id).all()
-    payload = json.dumps({"title": title, "body": body, "url": url})
+    data = {"title": title, "body": body, "url": url}
+    if item_type and item_id is not None:
+        data["type"] = item_type
+        data["id"] = item_id
+        data["tag"] = f"{item_type}-{item_id}"
+    payload = json.dumps(data)
     result = {"total": len(subs), "sent": 0, "failed": 0, "removed": 0, "errors": []}
     for sub in subs:
         try:
@@ -56,10 +75,25 @@ def send_to_user(db: Session, user: User, title: str, body: str, url: str) -> di
     return result
 
 
+def _snooze_for(db: Session, owner_id: int, item_type: str, item_id: int):
+    """The active snooze row for this exact item, or ``None``."""
+    return db.query(ReminderSnooze).filter(
+        ReminderSnooze.owner_id == owner_id,
+        ReminderSnooze.item_type == item_type,
+        ReminderSnooze.item_id == item_id,
+    ).first()
+
+
 def run_due_date_check(db: Session) -> dict:
     """Daily job body: for each user, push a reminder for any recurring bill/
     subscription or credit-card statement whose due date lands exactly on
-    today + that user's notify_lead_days."""
+    today + that user's notify_lead_days.
+
+    Two-phase, so per-item snoozes are respected:
+      1. Normally-due items are sent — unless a snooze row exists for that item,
+         in which case the snooze re-fire owns it and we skip here.
+      2. Any snooze whose ``snoozed_until <= today`` is re-sent, then its row is
+         deleted (``<=`` so a day the scan didn't run never strands a snooze)."""
     today = date.today()
     sent = {"recurring": 0, "credit": 0}
 
@@ -67,14 +101,18 @@ def run_due_date_check(db: Session) -> dict:
     for user in users:
         target = today + timedelta(days=user.notify_lead_days or 0)
 
+        # Phase 1 — normally-due items, skipping any that are being snoozed.
         recs = db.query(RecurringExpense).filter(
             RecurringExpense.owner_id == user.id,
             RecurringExpense.is_active == True,  # noqa: E712
             RecurringExpense.next_due == target,
         ).all()
         for rec in recs:
+            if _snooze_for(db, user.id, "recurring", rec.id):
+                continue
             title, body, url = build_recurring_message(rec, user)
-            send_to_user(db, user, title=title, body=body, url=url)
+            send_to_user(db, user, title=title, body=body, url=url,
+                         item_type="recurring", item_id=rec.id)
             sent["recurring"] += 1
 
         cps = db.query(CreditPayment).filter(
@@ -82,11 +120,73 @@ def run_due_date_check(db: Session) -> dict:
             CreditPayment.payment_date == target,
         ).all()
         for cp in cps:
+            if _snooze_for(db, user.id, "credit", cp.id):
+                continue
             title, body, url = build_credit_message(db, cp, user)
-            send_to_user(db, user, title=title, body=body, url=url)
+            send_to_user(db, user, title=title, body=body, url=url,
+                         item_type="credit", item_id=cp.id)
             sent["credit"] += 1
 
+        # Phase 2 — snooze re-fires that have come due.
+        due_snoozes = db.query(ReminderSnooze).filter(
+            ReminderSnooze.owner_id == user.id,
+            ReminderSnooze.snoozed_until <= today,
+        ).all()
+        for snooze in due_snoozes:
+            if snooze.item_type == "recurring":
+                rec = db.query(RecurringExpense).filter(
+                    RecurringExpense.id == snooze.item_id,
+                    RecurringExpense.owner_id == user.id,
+                ).first()
+                if rec is not None:
+                    title, body, url = build_recurring_message(rec, user)
+                    send_to_user(db, user, title=title, body=body, url=url,
+                                 item_type="recurring", item_id=rec.id)
+                    sent["recurring"] += 1
+            elif snooze.item_type == "credit":
+                cp = db.query(CreditPayment).filter(
+                    CreditPayment.id == snooze.item_id,
+                    CreditPayment.owner_id == user.id,
+                ).first()
+                if cp is not None:
+                    title, body, url = build_credit_message(db, cp, user)
+                    send_to_user(db, user, title=title, body=body, url=url,
+                                 item_type="credit", item_id=cp.id)
+                    sent["credit"] += 1
+            # One-shot: delete whether or not the item still exists (a deleted item
+            # should not keep the row around forever).
+            db.delete(snooze)
+        db.commit()
+
     return sent
+
+
+def apply_snooze(db: Session, owner_id: int, item_type: str, item_id: int, days: int) -> date:
+    """Upsert a one-shot snooze for an item owned by ``owner_id``, re-firing in
+    ``days`` days. Validates ``item_type``, the ``days`` allowlist, and that the
+    item actually belongs to the owner. Returns the ``snoozed_until`` date."""
+    if item_type not in ("recurring", "credit"):
+        raise ValueError(f"unknown item_type: {item_type!r}")
+    if days not in SNOOZE_DAYS_ALLOWED:
+        raise ValueError(f"days not allowed: {days!r}")
+
+    model = RecurringExpense if item_type == "recurring" else CreditPayment
+    owned = db.query(model).filter(model.id == item_id, model.owner_id == owner_id).first()
+    if owned is None:
+        raise ValueError(f"{item_type} {item_id} not found for this user")
+
+    snoozed_until = date.today() + timedelta(days=days)
+    snooze = _snooze_for(db, owner_id, item_type, item_id)
+    if snooze is None:
+        snooze = ReminderSnooze(
+            owner_id=owner_id, item_type=item_type, item_id=item_id,
+            snoozed_until=snoozed_until,
+        )
+        db.add(snooze)
+    else:
+        snooze.snoozed_until = snoozed_until
+    db.commit()
+    return snoozed_until
 
 
 def build_credit_message(db: Session, cp: CreditPayment, user: User):
@@ -140,7 +240,8 @@ def send_recurring_preview(db: Session, user: User):
     if rec is None:
         return None
     title, body, url = build_recurring_message(rec, user)
-    return send_to_user(db, user, title=title, body=body, url=url)
+    return send_to_user(db, user, title=title, body=body, url=url,
+                        item_type="recurring", item_id=rec.id)
 
 
 def send_credit_preview(db: Session, user: User):
@@ -156,4 +257,5 @@ def send_credit_preview(db: Session, user: User):
     if cp is None:
         return None
     title, body, url = build_credit_message(db, cp, user)
-    return send_to_user(db, user, title=title, body=body, url=url)
+    return send_to_user(db, user, title=title, body=body, url=url,
+                        item_type="credit", item_id=cp.id)

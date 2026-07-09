@@ -47,6 +47,7 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 | `currency_rates` | CurrencyRate |
 | `statement_mappings` | StatementMapping |
 | `push_subscriptions` | PushSubscription |
+| `reminder_snoozes` | ReminderSnooze |
 
 ### Environment variables
 | Variable | Default | Notes |
@@ -92,7 +93,7 @@ services/      — Business logic decoupled from HTTP
 | `services/tcmb.py` | Fetches USD/EUR→TRY from TCMB XML feed; falls back to previous trading day on weekends/holidays |
 | `services/bank_import.py` | Parses Garanti BBVA and ON Burgan exports (XLS/XLSX/CSV/PDF); generic fallback. Two-step: `/preview` → user reviews → `/confirm` |
 | `services/ocr.py` | Tesseract OCR (tur+eng) on receipt images; extracts amount, date, merchant |
-| `services/notify.py` | Web Push (VAPID via `pywebpush`); `run_due_date_check()` scans `RecurringExpense.next_due` / `CreditPayment.payment_date` against each user's `notify_lead_days` and sends reminders — run daily (08:00) by an `APScheduler` job started in `main.py`, or on demand via `POST /api/push/run-check` |
+| `services/notify.py` | Web Push (VAPID via `pywebpush`); `run_due_date_check()` scans `RecurringExpense.next_due` / `CreditPayment.payment_date` against each user's `notify_lead_days` and sends reminders — run daily (08:00) by an `APScheduler` job started in `main.py`, or on demand via `POST /api/push/run-check`. **Two-phase for snooze:** phase 1 sends normally-due items but skips any with an active `ReminderSnooze` row; phase 2 re-fires snoozes whose `snoozed_until <= today` then deletes them. `send_to_user(…, item_type, item_id)` puts the item identity + a per-item `tag` in the payload (fixes the old shared-`home-ledger`-tag collapse); `apply_snooze()` upserts a snooze (days ∈ {1,3,7}, validates item ownership) |
 
 ### Multi-currency design
 Every `Transaction` stores `amount` (original currency) + `amount_try` + `amount_usd` computed at save time. `_apply_rates()` in `routers/transactions.py` runs on every create/update using the closest available TCMB rate on or before the transaction date.
@@ -116,6 +117,7 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | `RecurringExpense` | `recurring_expenses` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
 | `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name | Household accounts & cards; drives the "Payment Method" picker |
 | `PushSubscription` | `push_subscriptions` | owner_id, endpoint, p256dh, auth, user_agent | One row per subscribed browser/device (Web Push); `User.notify_lead_days` (0 = same-day) controls how far ahead of a due date the daily check fires |
+| `ReminderSnooze` | `reminder_snoozes` | owner_id, item_type (`recurring`\|`credit`), item_id, snoozed_until | Per-item push-reminder snooze; unique on `(owner_id, item_type, item_id)`. Suppresses an item's normal reminder and re-fires it once on `snoozed_until` (then the row is deleted). Created from the notification's Snooze button via `POST /api/push/snooze` |
 
 **Members** have no dedicated model — household members are `User` rows, exposed via `/api/members` (`MemberCreate/Update/Out` schemas).
 
@@ -230,6 +232,7 @@ Drives the importer's Etiket→category rule (see _Supported Bank Import Formats
 | POST | `/test-credit` | Preview the real credit-card due reminder — pushes the user's most recent `CreditPayment` in the enriched format, **ignoring its due date** (so you can see the format without waiting for the scan to match). Renders via `build_credit_message()` |
 | POST | `/test-recurring` | Preview the real recurring bill/subscription reminder — pushes the user's most recent `RecurringExpense`, **ignoring its due date**. Renders via `build_recurring_message()` |
 | POST | `/run-check` | Manually trigger the daily due-date scan (normally runs on a schedule) |
+| POST | `/snooze` | Snooze one reminder from its notification action button. **The one push route with NO `get_current_user`** — the service worker has no JWT, so it authenticates by the push `endpoint` string (unguessable capability) → `owner_id`. Body `{endpoint, type, id, days}` (`days` ∈ {1,3,7}); upserts a `ReminderSnooze` via `apply_snooze()`, returns `{ok, snoozed_until}` |
 
 ---
 

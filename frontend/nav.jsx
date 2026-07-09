@@ -125,78 +125,6 @@
     return <button id={'sidebar-subitem-' + item.id + '-btn'} className={'sidebar-subitem' + (item.active ? ' active' : '')} title={item.label} style={{ '--item-color': item.color }}>{inner}</button>;
   }
 
-  function NotifyBell() {
-    const [enabled, setEnabled] = React.useState(false);
-    const [leadDays, setLeadDays] = React.useState(0);
-    const [open, setOpen] = React.useState(false);
-    const [busy, setBusy] = React.useState(false);
-
-    React.useEffect(() => {
-      if (!window.HL_PUSH) return;
-      window.HL_PUSH.getPrefs().then((p) => {
-        setEnabled(!!p.subscribed);
-        setLeadDays(p.notify_lead_days || 0);
-      }).catch(() => {});
-    }, []);
-
-    const toggle = async (e) => {
-      e.preventDefault();
-      if (busy || !window.HL_PUSH) return;
-      setBusy(true);
-      try {
-        if (enabled) {
-          await window.HL_PUSH.disable();
-          setEnabled(false);
-          setOpen(false);
-        } else {
-          await window.HL_PUSH.enable();
-          setEnabled(true);
-          setOpen(true);
-        }
-      } catch (err) {
-        console.error('Push notifications:', err.message);
-      }
-      setBusy(false);
-    };
-
-    const saveLead = async (v) => {
-      setLeadDays(v);
-      try { await window.HL_PUSH.setLeadDays(v); } catch (e) {}
-    };
-
-    if (!window.HL_PUSH || !window.HL_PUSH.isSupported()) return null;
-
-    const style = { '--sidebar-active-color': '#fbbf24', '--sidebar-idle-color': '#6b7fa3', '--sidebar-active-bg': rgba('#fbbf24', 0.12) };
-
-    return (
-      <div className="sidebar-bell-wrap">
-        <button id="sidebar-bell-btn" className={'sidebar-item' + (enabled ? ' active' : '')}
-          title={enabled ? 'Notifications on — click to configure' : 'Enable notifications'}
-          style={style}
-          onClick={enabled ? (e) => { e.preventDefault(); setOpen(o => !o); } : toggle}>
-          <span className="sidebar-item-icon"><Icon name={enabled ? 'bell' : 'bell-off'} size={20} color="currentColor" /></span>
-          <span className="sidebar-item-text">{enabled ? 'Notifications' : 'Enable Notifications'}</span>
-        </button>
-        {open && enabled && (
-          <div className="bell-lead-popover">
-            <label>Notify me</label>
-            <StyledSelect value={String(leadDays)} onChange={(e) => saveLead(Number(e.target.value))}>
-              <option value="0">Same day</option>
-              <option value="1">1 day before</option>
-              <option value="2">2 days before</option>
-              <option value="3">3 days before</option>
-              <option value="7">7 days before</option>
-            </StyledSelect>
-            <div className="bell-lead-popover-actions">
-              <button type="button" onClick={(e) => { e.preventDefault(); toggle(e); }}>Disable</button>
-              <button type="button" onClick={(e) => { e.preventDefault(); setOpen(false); }}>Done</button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   function Sidebar({ active }) {
     const inTx = active === 'transactions' || NAV_TX_SUB.some(n => n.id === active);
     const inCfg = active === 'configuration' || NAV_CFG_SUB.some(n => n.sectionId === active);
@@ -261,7 +189,6 @@
             </div>
           </div>
           <div className="sidebar-section bottom">
-            <NotifyBell />
             {NAV_BOTTOM.map(n => <SbItem key={n.id} item={n} />)}
             <div className="sidebar-version" id="sidebar-version" title={'Home Ledger ' + APP_VERSION}><span className="sidebar-version-name">Home Ledger </span>{APP_VERSION}</div>
           </div>
@@ -271,5 +198,5 @@
     );
   }
 
-  window.HL_NAV = { Sidebar, SbItem, SbSubItem, NotifyBell, rgba, NAV, NAV_TX_SUB, NAV_CFG_SUB, NAV_BOTTOM, usePersistentView };
+  window.HL_NAV = { Sidebar, SbItem, SbSubItem, rgba, NAV, NAV_TX_SUB, NAV_CFG_SUB, NAV_BOTTOM, usePersistentView };
 })();
