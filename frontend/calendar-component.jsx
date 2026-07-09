@@ -17,6 +17,18 @@
     const fx = FX && FX[cur];
     return fx && fx.toTRY != null ? +(amt * fx.toTRY).toFixed(2) : (amt || 0);
   }
+
+  // Combined balance across every account (bank, credit, debit, cash, wallet,
+  // investment) converted to TRY. Credit-card balances arrive negative
+  // (liabilities), so the sum nets to the household's current total worth.
+  // Snapshot of live balances — not tied to the visible calendar month.
+  function accountsTotalTRY() {
+    return accountsList().reduce((sum, a) => {
+      const fx = FX && FX[a.cur];
+      const rate = fx && fx.toTRY != null ? fx.toTRY : 1;
+      return sum + (a.balance || 0) * rate;
+    }, 0);
+  }
   const { grp, fmtDate, dowOf, SYM, MONTHS } = window.LEDGER_FMT;
 
   /* ── Transaction-type legend ────────────────────────────────────────── */
@@ -171,9 +183,17 @@
     // Open on the real current month (production data is current); the mock
     // LEDGER.TODAY is a dev-only fixture and would pin this to a stale month.
     const now = new Date();
-    const [year, setYear]   = React.useState(initialYear != null ? initialYear : now.getFullYear());
-    const [month, setMonth] = React.useState(initialMonth != null ? initialMonth : now.getMonth());
-    const [sel, setSel]     = React.useState(null);
+    const initY = initialYear != null ? initialYear : now.getFullYear();
+    const initM = initialMonth != null ? initialMonth : now.getMonth();
+    const [year, setYear]   = React.useState(initY);
+    const [month, setMonth] = React.useState(initM);
+    // Pre-select today on load so its transactions show immediately (only when
+    // the calendar opens on the current month — otherwise today isn't in view).
+    const [sel, setSel]     = React.useState(
+      (initY === now.getFullYear() && initM === now.getMonth())
+        ? pfxDate(now.getFullYear(), now.getMonth(), now.getDate())
+        : null
+    );
     const [pm, setPm]       = React.useState('');   // '' = all payment methods
 
     const pmOptions = React.useMemo(() => paymentMethodOptions(), []);
@@ -186,6 +206,10 @@
     Object.values(events).forEach(arr => {
       arr.forEach(ev => { mCnt++; if (ev.source === 'income') mInc += ev.amount; else if (ev.source === 'expense') mExp += ev.amount; });
     });
+
+    // Live combined balance across all accounts (independent of the shown month).
+    const acctTotal = accountsTotalTRY();
+    const acctCount = accountsList().length;
 
     function step(d) {
       let m = month + d, y = year;
@@ -223,6 +247,17 @@
             </div>
             <button id="cal-next-month-btn" className="cal-nav-btn" onClick={() => step(1)} title="Next Month"><Icon name="chevron-right" size={16} /></button>
           </div>
+
+          {acctCount > 0 && (
+            <div className="cal-total-row">
+              <span className={'cal-total-chip' + (acctTotal < 0 ? ' negative' : '')}>
+                <Icon name="wallet" size={13} />
+                <span className="cal-total-label">Total Balance</span>
+                <span className="cal-total-sub">{acctCount} account{acctCount !== 1 ? 's' : ''}</span>
+                <b>{acctTotal < 0 ? '−₺' : '₺'}{grp(Math.abs(acctTotal), 0)}</b>
+              </span>
+            </div>
+          )}
 
           <div className="cal-summary">
             <span className="cal-chip income"><Icon name="arrow-down-left" size={11} />Income<b>₺{grp(mInc, 0)}</b></span>
@@ -279,7 +314,6 @@
                         <span className="cal-ev-desc">{ev.desc}</span>
                         <span className="cal-ev-meta">
                           <span className={'cal-ev-badge cal-badge-' + ev.source}>{CAL_TYPES[ev.source].label}</span>
-                          {ev.payer && <span className="cal-ev-payer"><Icon name="user" size={9} />{ev.payer}</span>}
                           {ev.paymentMethod && (() => {
                             // Show only the account name (resolved label) — no icon.
                             const pm = resolvePM(ev.paymentMethod);
@@ -293,7 +327,6 @@
                           {ev.source === 'income' || (ev.source === 'account' && ev.direction === 'incoming') ? '+' : '−'}
                           {SYM[ev.cur] || '₺'}{grp(ev.rawAmt)}
                         </span>
-                        <span className={'cur-badge cur-' + ev.cur}>{ev.cur}</span>
                       </div>
                       <span className="cal-ev-go"><Icon name="external-link" size={11} /></span>
                     </a>

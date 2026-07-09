@@ -3,7 +3,7 @@
    ============================================================================ */
 
 /* ── Layout: grid + detail side-by-side ── */
-.cal-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;max-width:934px;margin-left:auto;margin-right:auto}
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;max-width:934px;margin-left:auto;margin-right:auto}
 
 /* ── Calendar card ── */
 .cal-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -21,6 +21,14 @@
 .cal-month-sub{font-size:11px;color:var(--muted);font-weight:500}
 .cal-nav-btn{width:32px;height:32px;border-radius:var(--radius);background:none;border:1px solid var(--border);color:var(--slate);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition)}
 .cal-nav-btn:hover{background:var(--bg4);border-color:var(--border2);color:var(--accent)}
+
+/* Combined balance total (all accounts, live snapshot) */
+.cal-total-row{display:flex}
+.cal-total-chip{flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius);font-size:12px;font-weight:600;letter-spacing:.3px;background:color-mix(in srgb, var(--accent) 12%, transparent);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);color:var(--accent)}
+.cal-total-chip.negative{background:color-mix(in srgb, var(--coral) 12%, transparent);border-color:color-mix(in srgb, var(--coral) 30%, transparent);color:var(--coral)}
+.cal-total-label{font-weight:700}
+.cal-total-sub{font-size:10px;font-weight:500;color:var(--text);letter-spacing:.2px;opacity:.7}
+.cal-total-chip b{margin-left:auto;font-size:15px;font-variant-numeric:tabular-nums;color:inherit}
 
 /* Summary chips */
 .cal-summary{display:flex;gap:8px}
@@ -73,7 +81,7 @@
 .cal-ev-desc{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-ev-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cal-ev-badge{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 6px;border-radius:var(--radius-xs)}
-.cal-badge-income{background:color-mix(in srgb, var(--green) 15%, transparent);color:var(--green)}
+.cal-badge-income{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
 .cal-badge-expense{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
 .cal-badge-account{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
 .cal-badge-recurring{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
@@ -103,6 +111,9 @@
   .cal-day.today .cal-day-num{width:20px;height:20px;font-size:10px}
   .cal-dot{width:4px;height:4px}
   .cal-dots{gap:2px}
+  .cal-total-chip{padding:8px 10px;font-size:11px;gap:6px}
+  .cal-total-chip b{font-size:13px}
+  .cal-total-sub{display:none}
   .cal-summary{gap:6px}
   .cal-chip{padding:6px 8px;font-size:10px;gap:4px}
   .cal-legend{gap:8px}
