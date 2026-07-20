@@ -34,6 +34,12 @@
     }
   }
 
+  async function hydratePayers() {
+    if (window.HL_MEMBERS_API && window.HL_MEMBERS_API.hydrateLedgerPayers) {
+      await window.HL_MEMBERS_API.hydrateLedgerPayers();   // mutates LEDGER.PAYERS in place
+    }
+  }
+
   async function hydrateFx() {
     if (!(window.HL_CURRENCIES_API && window.LEDGER && window.LEDGER.FX)) return;
     const rows = await window.HL_CURRENCIES_API.list();
@@ -94,7 +100,7 @@
   async function all() {
     const guard = (name, fn) => fn().catch(e =>
       console.warn('[hydrate] ' + name + ' failed:', (e && e.message) || e));
-    await Promise.all([guard('categories', hydrateCats), guard('currencies', hydrateFx)]);
+    await Promise.all([guard('categories', hydrateCats), guard('currencies', hydrateFx), guard('payers', hydratePayers)]);
     await Promise.all([
       guard('transactions', hydrateTx),
       guard('budgets', hydrateBudgets),
@@ -106,7 +112,7 @@
   }
 
   window.HL_HYDRATE = {
-    all, hydrateCats, hydrateFx, hydrateTx, hydrateBudgets, hydrateAccounts, hydrateRecurring,
+    all, hydrateCats, hydrateFx, hydratePayers, hydrateTx, hydrateBudgets, hydrateAccounts, hydrateRecurring,
     hydrateCreditPayments,
   };
 })();

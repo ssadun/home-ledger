@@ -131,6 +131,11 @@
       const loadCats = (window.HL_CATEGORIES_API && window.HL_CATEGORIES_API.hydrateLedgerCats)
         ? window.HL_CATEGORIES_API.hydrateLedgerCats().catch(() => { /* keep static fallback */ })
         : Promise.resolve();
+      // Payer / Paying For options come from the users table too — rehydrate
+      // LEDGER.PAYERS in place before the Payer/Paying For selects render.
+      const loadPayers = (window.HL_MEMBERS_API && window.HL_MEMBERS_API.hydrateLedgerPayers)
+        ? window.HL_MEMBERS_API.hydrateLedgerPayers().catch(() => { /* keep static fallback */ })
+        : Promise.resolve();
       const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
         ? window.HL_ACCOUNTS_API.list()
             .then(accts => {
@@ -140,7 +145,7 @@
             })
             .catch(() => { /* names just fall back to the raw id */ })
         : Promise.resolve();
-      Promise.all([loadCats, loadAccounts])
+      Promise.all([loadCats, loadPayers, loadAccounts])
         .then(() => window.HL_SPENDING_API.list())
         .then(data => { if (alive) { setRows(data); setLoadError(null); } })
         .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })

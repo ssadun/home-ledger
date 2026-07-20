@@ -10,6 +10,17 @@
   const { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakToggle } = window;
   const { useResizableColumns, ColResizer } = window;
 
+  // Resolve a paymentMethod value (account id like "acc-1") to a plain
+  // "Institution · Name" label for sorting and CSV export. The table cell itself
+  // renders the styled institution+name via the shared PaymentMethodCell.
+  function pmLabel(value) {
+    const accts = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
+    const acct = accts.find(a => a.id === value);
+    if (!acct) return value || '';
+    const inst = acct.institution && acct.institution !== '–' ? acct.institution + ' · ' : '';
+    return inst + acct.name;
+  }
+
   const TWEAK_DEFAULTS = {
     accent: '#4f8ef7',
     layout: 'table',
@@ -62,6 +73,7 @@
     { key: 'frequency', label: 'Frequency', size: 140, minSize: 130, maxSize: 240 },
     { key: 'weekendRule', label: 'Weekend Rule', size: 130, minSize: 100, maxSize: 220 },
     { key: 'payer', label: 'Payer', size: 120, minSize: 90, maxSize: 220 },
+    { key: 'paymentMethod', label: 'Payment Method', size: 185, minSize: 140, maxSize: 320 },
     { key: 'nextDue', label: 'Next Due', size: 130, minSize: 100, maxSize: 220 },
     { key: 'amount', label: 'Amount', num: true, size: 120, minSize: 90, maxSize: 220 },
   ];
@@ -76,6 +88,7 @@
     { key: 'paymentDay', label: 'Payment Day' },
     { key: 'weekendRule', label: 'Weekend Rule' },
     { key: 'payer', label: 'Payer' },
+    { key: 'paymentMethod', label: 'Payment Method', get: r => pmLabel(r.paymentMethod) },
     { key: 'nextDue', label: 'Next Due' },
     { key: 'cur', label: 'Currency' },
     { key: 'amount', label: 'Amount' },
@@ -196,7 +209,9 @@
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
       if (!open) return;
-      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      // Don't close on clicks inside a portaled StyledSelect dropdown (rendered to
+      // <body>), or picking a filter option would unmount the popover mid-click.
+      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setOpen(false); };
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);
@@ -319,6 +334,11 @@
       const loadCats = (window.HL_CATEGORIES_API && window.HL_CATEGORIES_API.hydrateLedgerCats)
         ? window.HL_CATEGORIES_API.hydrateLedgerCats().catch(() => { /* keep static fallback */ })
         : Promise.resolve();
+      // Payer / Paying For options come from the users table too — rehydrate
+      // LEDGER.PAYERS in place before the Payer/Paying For selects render.
+      const loadPayers = (window.HL_MEMBERS_API && window.HL_MEMBERS_API.hydrateLedgerPayers)
+        ? window.HL_MEMBERS_API.hydrateLedgerPayers().catch(() => { /* keep static fallback */ })
+        : Promise.resolve();
       const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
         ? window.HL_ACCOUNTS_API.list()
             .then(accts => {
@@ -328,7 +348,7 @@
             })
             .catch(() => { /* picker just stays empty if accounts fail to load */ })
         : Promise.resolve();
-      Promise.all([loadCats, loadAccounts])
+      Promise.all([loadCats, loadPayers, loadAccounts])
         .then(() => window.HL_SUBSCRIPTIONS_API.list())
         .then(data => { if (alive) setItems(data); })
         .catch(() => {});
@@ -382,6 +402,7 @@
         else if (col === 'frequency') { av = a.frequency; bv = b.frequency; }
         else if (col === 'weekendRule') { av = a.weekendRule; bv = b.weekendRule; }
         else if (col === 'payer') { av = a.payer; bv = b.payer; }
+        else if (col === 'paymentMethod') { av = pmLabel(a.paymentMethod).toLowerCase(); bv = pmLabel(b.paymentMethod).toLowerCase(); }
         else if (col === 'nextDue') { av = a.nextDue || 'z'; bv = b.nextDue || 'z'; }
         else if (col === 'amount') { av = a.tryAmount; bv = b.tryAmount; }
         else { av = a[col]; bv = b[col]; }

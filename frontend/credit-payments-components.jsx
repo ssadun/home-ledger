@@ -54,7 +54,15 @@
                 <td data-label="Statement">
                   <span className="cp-name"><Icon name="file-text" size={14} />{r.name || '–'}</span>
                 </td>
-                <td data-label="Card">{r.cardLabel || r.accountKey || '–'}</td>
+                <td data-label="Card">
+                  {r.cardNamePart ? (
+                    <span className="cp-card">
+                      {r.cardInst && <span className="cp-card-inst">{r.cardInst}</span>}
+                      {r.cardInst && <span className="cp-card-dot">·</span>}
+                      <span className="cp-card-name">{r.cardNamePart}</span>
+                    </span>
+                  ) : (r.cardLabel || r.accountKey || '–')}
+                </td>
                 <td data-label="Cutover">{fmtDate(r.cutoverDate)}</td>
                 <td data-label="Payment Due"><span className="cp-due">{fmtDate(r.paymentDate)}</span></td>
                 <td className="num" data-label="Total">{money(r.cur, r.total)}</td>

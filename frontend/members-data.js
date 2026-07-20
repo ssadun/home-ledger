@@ -12,6 +12,7 @@
       password: '',                       // never returned by the backend
       role: row.role || 'user',
       active: row.active !== false,
+      showAsPayer: row.show_as_payer !== false,
     };
   }
 
@@ -23,6 +24,7 @@
       username: item.username,
       role: item.role || 'user',
       active: item.active !== false,
+      show_as_payer: item.showAsPayer !== false,
     };
     if (withPassword && item.password) body.password = item.password;
     return body;
@@ -62,5 +64,27 @@
     return true;
   }
 
-  window.HL_MEMBERS_API = { list, create, update, remove, fromApi, toApi };
+  // Rebuild window.LEDGER.PAYERS (the Payer / Paying For option list other pages
+  // read) from the DB, mutating the existing array in place so references stay
+  // valid. Gated on showAsPayer (not active) — login access and being offered as
+  // a Payer/Paying For choice are independent settings.
+  // Uses each member's first name — existing transaction/recurring/subscription
+  // rows store the short form ("Sadun", not "Sadun Sevingen"), as does the
+  // PayerBadge color lookup, so the full users.name would silently stop
+  // matching saved data.
+  async function hydrateLedgerPayers() {
+    if (!(window.LEDGER && window.LEDGER.PAYERS)) return;
+    try {
+      const members = await list();
+      const names = members
+        .filter(m => m.showAsPayer)
+        .map(m => (m.name || '').trim().split(/\s+/)[0])
+        .filter(Boolean);
+      const arr = window.LEDGER.PAYERS;
+      arr.length = 0;
+      names.forEach(n => arr.push(n));
+    } catch (e) { /* keep static fallback on failure */ }
+  }
+
+  window.HL_MEMBERS_API = { list, create, update, remove, fromApi, toApi, hydrateLedgerPayers };
 })();

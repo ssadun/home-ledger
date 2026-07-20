@@ -6,8 +6,22 @@
   const { grp, SYM, MONTHS } = window.LEDGER_FMT;
 
   // ── Payment method icons map ───────────────────────────────────────────
-  const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote' };
-  const PM_TYPE_COLORS = { credit: '#4f8ef7', debit: '#22c55e', cash: '#f97316' };
+  const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote', bank: 'landmark' };
+  const PM_TYPE_COLORS = { credit: '#4f8ef7', debit: '#22c55e', cash: '#f97316', bank: '#8b5cf6' };
+
+  // Bank accounts read "Institution - Account# (Owner)"; other types keep the
+  // plain "Name [number] (Owner)" form.
+  function pmAccountLabel(a) {
+    const ownerSuffix = a.owner && a.owner !== 'Shared' ? ' (' + a.owner + ')' : '';
+    if (a.type === 'bank') {
+      const institution = a.institution && a.institution !== '–' ? a.institution : a.name;
+      const number = a.number && a.number !== '–' ? ' - ' + a.number : '';
+      return institution + number + ownerSuffix;
+    }
+    const number = a.number && (a.type === 'credit' || a.type === 'debit')
+      ? ' ' + window.HL_ACCOUNTS_API.maskCardNumber(a.number) : '';
+    return a.name + number + ownerSuffix;
+  }
 
   // ── Calendar enhancer — month + year dropdowns ─────────────────────────
   // Flatpickr ships a month dropdown but only a year spinner; this swaps the
@@ -113,7 +127,7 @@
             <span className="pm-trigger-inner">
               <span className="pm-icon" style={{ color: PM_TYPE_COLORS[selectedGroup.type] }}>
                 <Icon name={PM_TYPE_ICONS[selectedGroup.type]} size={14} /></span>
-              <span className="pm-name">{selected.name}{selected.number && (selected.type === 'credit' || selected.type === 'debit') ? ' ' + selected.number : ''}{selected.owner && selected.owner !== 'Shared' ? ' (' + selected.owner + ')' : ''}</span>
+              <span className="pm-name">{pmAccountLabel(selected)}</span>
             </span>
           ) : <span className="pm-placeholder">— Select —</span>}
           <Icon name="chevron-down" size={14} />
@@ -137,7 +151,7 @@
                       onClick={() => { onChange(String(a.id)); setOpen(false); }}>
                       <span className="pm-icon" style={{ color: PM_TYPE_COLORS[g.type] }}>
                         <Icon name={PM_TYPE_ICONS[g.type]} size={13} /></span>
-                      <span className="pm-name">{a.name}{a.number && (a.type === 'credit' || a.type === 'debit') ? ' ' + a.number : ''}{a.owner && a.owner !== 'Shared' ? ' (' + a.owner + ')' : ''}</span>
+                      <span className="pm-name">{pmAccountLabel(a)}</span>
                       {String(value) === String(a.id) && <Icon name="check" size={12} color="var(--accent)" />}
                     </div>
                   ))}
@@ -408,11 +422,12 @@
       if (!valid) return;
       onSave({ ...initial, date: f.date, payer: f.payer, payingFor: f.payingFor, cat: f.cat, desc: f.desc.trim(), type: f.type, cur: f.cur, amt: amtNum, paymentMethod: f.paymentMethod, tryV, usdV });
     }
-    const paymentAccounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type));
+    const paymentAccounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type) || (a.type === 'bank' && a.showInPaymentMethod));
     const pmGroups = [
-      { label: 'Credit Cards', type: 'credit', icon: 'credit-card' },
-      { label: 'Debit Cards',  type: 'debit',  icon: 'wallet-cards' },
-      { label: 'Cash',         type: 'cash',   icon: 'banknote' },
+      { label: 'Credit Cards',    type: 'credit', icon: 'credit-card' },
+      { label: 'Debit Cards',     type: 'debit',  icon: 'wallet-cards' },
+      { label: 'Cash',            type: 'cash',   icon: 'banknote' },
+      { label: 'Bank Accounts',   type: 'bank',   icon: 'landmark' },
     ];
 
     return (

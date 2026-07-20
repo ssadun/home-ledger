@@ -6,7 +6,10 @@
 /* Account Activity cells — plain: muted text + colorful icon (no bg / border) */
 .atx-plain { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-table); white-space: nowrap; }
 .atx-plain svg { flex-shrink: 0; }
-.atx-acct-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Account cell: institution (muted) next to the account name (emphasized) */
+.atx-acct-inst { flex-shrink: 0; }
+.atx-acct-dot { opacity: .6; flex-shrink: 0; }
+.atx-acct-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
 
 @media (max-width: 660px) {
   .atx-acct-name { max-width: 100px; }

@@ -51,9 +51,12 @@
     const typeColors = { bank: 'var(--accent)', credit: 'var(--orange)', debit: 'var(--sky)', wallet: 'var(--lavender)', cash: 'var(--green)', invest: 'var(--emerald)', overdraft: 'var(--coral)' };
     const typeIcons = { bank: 'landmark', credit: 'credit-card', debit: 'wallet-cards', wallet: 'smartphone', cash: 'banknote', invest: 'trending-up', overdraft: 'alert-circle' };
     const c = typeColors[acc.type] || 'var(--muted)';
+    const inst = acc.institution && acc.institution !== '–' ? acc.institution : null;
     return (
       <span className="atx-plain">
         <Icon name={typeIcons[acc.type] || 'circle'} size={13} style={{ color: c }} />
+        {inst && <span className="atx-acct-inst">{inst}</span>}
+        {inst && <span className="atx-acct-dot">·</span>}
         <span className="atx-acct-name">{acc.name}</span>
       </span>
     );
@@ -89,7 +92,13 @@
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
       if (!open) return;
-      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      // Ignore clicks inside a StyledSelect's dropdown — it's portaled to <body>
+      // (outside anchorRef), so without this guard picking Account/Type/Direction
+      // would close+unmount the popover on mousedown before the option's click
+      // could register, swallowing the selection.
+      const onDoc = (e) => {
+        if (anchorRef.current && !anchorRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setOpen(false);
+      };
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);
@@ -266,7 +275,14 @@
     const [accountsReady, setAccountsReady] = React.useState(false);
     const [month, setMonth] = React.useState(CURRENT_MONTH);
     const [year, setYear] = React.useState(CURRENT_YEAR);
-    const [account, setAccount] = React.useState('all');
+    // Deep-link support: Accounts → detail modal → "View All" opens this page as
+    // ?account=<id> so the Account filter starts pinned to that account.
+    const [account, setAccount] = React.useState(() => {
+      try {
+        const q = new URLSearchParams(window.location.search).get('account');
+        return q || 'all';
+      } catch (e) { return 'all'; }
+    });
     const [txType, setTxType] = React.useState('all');
     const [direction, setDirection] = React.useState('all');
     const [search, setSearch] = React.useState('');

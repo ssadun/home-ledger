@@ -504,3 +504,10 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 /* ── Lucide icon wrapper (static layout for the <Icon> component's .lc span;
    only a non-default color / caller style stays inline) ── */
 .lc { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+
+/* ── Checkbox label (shared app-wide — Accounts, Backup & Export, Members, …) ── */
+.acct-check-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
+.acct-check-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
+.acct-check-label input[type="checkbox"]:checked{background:var(--accent);border-color:var(--accent)}
+.acct-check-label input[type="checkbox"]:checked::after{content:'✓';color:var(--white);font-size:12px;font-weight:700;line-height:1}
+.acct-check-label svg{color:var(--gold)}

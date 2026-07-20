@@ -17,6 +17,7 @@ def _to_out(user: User) -> dict:
         "username": user.username or (user.email.split("@")[0] if user.email else None),
         "role": user.role or "user",
         "active": user.is_active if user.is_active is not None else True,
+        "show_as_payer": user.show_as_payer if user.show_as_payer is not None else True,
         "email": user.email,
     }
 
@@ -48,6 +49,7 @@ def create_member(
         username=payload.username,
         role=payload.role,
         is_active=payload.active,
+        show_as_payer=payload.show_as_payer,
         hashed_password=hash_password(payload.password),
     )
     db.add(user)
@@ -78,6 +80,8 @@ def update_member(
         user.role = data["role"]
     if "active" in data and data["active"] is not None:
         user.is_active = data["active"]
+    if "show_as_payer" in data and data["show_as_payer"] is not None:
+        user.show_as_payer = data["show_as_payer"]
     if "email" in data and data["email"]:
         user.email = data["email"]
     if data.get("password"):

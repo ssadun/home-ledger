@@ -410,6 +410,7 @@
           password: 'pass1234',
           role: i === 0 ? 'admin' : 'user',
           active: true,
+          showAsPayer: true,
         }));
       case 'currencies': {
         const fx = L.FX || {};
@@ -481,13 +482,15 @@
         { key: 'password', label: 'Password', render: v => <span className="cfg-pw-mask">••••••••</span> },
         { key: 'role', label: 'Role', render: v => <span className={'cfg-badge cfg-badge-' + (v || 'user')}>{v === 'admin' ? 'Admin' : 'User'}</span> },
         { key: 'active', label: 'Status', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Active' : 'Inactive'}</span>; } },
+        { key: 'showAsPayer', label: 'Payer Visibility', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Visible' : 'Hidden'}</span>; } },
       ],
       fields: [
         { key: 'name',     label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Alex' },
         { key: 'username', label: 'Username',  type: 'text', required: true, placeholder: 'e.g. alex', hint: 'Login identifier, no spaces' },
         { key: 'password', label: 'Password',  type: 'password', requiredOnCreate: true, placeholder: 'Enter password', editHint: 'Leave blank to keep the current password' },
         { key: 'role',     label: 'Role',       type: 'select', required: true, options: [{ value: 'admin', label: 'Admin — Full access including Configuration' }, { value: 'user', label: 'User — Standard access, no Configuration' }] },
-        { key: 'active',   label: 'Status',     type: 'checkbox', default: true, checkboxLabel: 'Active — Can Log In', checkboxIcon: 'log-in', hint: 'Inactive members are kept on file but cannot sign in' },
+        { key: 'active',   label: 'Status',     type: 'checkbox', default: true, checkboxLabel: 'Active - Can Log In', hint: 'Inactive members are kept on file but cannot sign in' },
+        { key: 'showAsPayer', label: 'Payer Visibility', type: 'checkbox', default: true, checkboxLabel: 'Show as Payer / Paying For option', hint: 'Uncheck to hide this member from the Payer and Paying For dropdowns, independent of login access' },
       ],
     },
     {
@@ -674,7 +677,7 @@
                         data-table="members" data-col={fd.key}
                         checked={f[fd.key] !== false}
                         onChange={e => set(fd.key, e.target.checked)} />
-                      {fd.checkboxIcon && <Icon name={fd.checkboxIcon} size={13} />}{fd.checkboxLabel || fd.label}
+                      {fd.checkboxLabel || fd.label}
                     </label>
                     {fd.hint && <span className="field-hint">{fd.hint}</span>}
                   </div>
@@ -803,7 +806,9 @@
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
       if (!open) return;
-      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      // Don't close on clicks inside a portaled StyledSelect dropdown (rendered to
+      // <body>), or picking a filter option would unmount the popover mid-click.
+      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setOpen(false); };
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);

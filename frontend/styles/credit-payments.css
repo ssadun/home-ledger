@@ -40,6 +40,11 @@
 
 .cp-name { display: inline-flex; align-items: center; gap: 7px; color: var(--white); font-weight: 600; }
 .cp-name svg { color: var(--muted); }
+/* CARD cell: institution (muted) next to the card name (emphasized) */
+.cp-card { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.cp-card-inst { color: var(--muted); flex-shrink: 0; }
+.cp-card-dot { color: var(--muted); opacity: .6; flex-shrink: 0; }
+.cp-card-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .cp-due { color: var(--white); font-weight: 600; }
 .cp-chip {
   display: inline-flex; align-items: center; justify-content: center;

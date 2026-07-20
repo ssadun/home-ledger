@@ -91,7 +91,7 @@
   }
 
   // ── Table row ─────────────────────────────────────────────────────────
-  const REC_DEFAULT_ORDER = ['name', 'status', 'frequency', 'weekendRule', 'payer', 'nextDue', 'amount'];
+  const REC_DEFAULT_ORDER = ['name', 'status', 'frequency', 'weekendRule', 'payer', 'paymentMethod', 'nextDue', 'amount'];
   const REC_CELLS = {
     name: (rec) => {
       const c = CATS[rec.cat] || CATS.subscriptions;
@@ -113,6 +113,7 @@
     frequency: (rec) => <td key="frequency" data-label="Frequency"><FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} /></td>,
     weekendRule: (rec) => <td key="weekendRule" data-label="Weekend"><WeekendBadge rule={rec.weekendRule} /></td>,
     payer: (rec) => <td key="payer" data-label="Payer"><PayerBadge name={rec.payer} /></td>,
+    paymentMethod: (rec) => <td key="paymentMethod" data-label="Payment Method"><PaymentMethodCell value={rec.paymentMethod} /></td>,
     nextDue: (rec) => (
       <td key="nextDue" data-label="Next Due">
         {rec.nextDue ? (
@@ -196,15 +197,16 @@
   }
 
   // ── Payment method select (reuse from controls.jsx via window) ────────
-  const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote' };
-  const PM_TYPE_COLORS = { credit: '#4f8ef7', debit: '#22c55e', cash: '#f97316' };
+  const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote', bank: 'landmark' };
+  const PM_TYPE_COLORS = { credit: '#4f8ef7', debit: '#22c55e', cash: '#f97316', bank: '#8b5cf6' };
 
   function RecPaymentMethodSelect({ value, onChange }) {
-    const accounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type));
+    const accounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type) || (a.type === 'bank' && a.showInPaymentMethod));
     const groups = [
-      { label: 'Credit Cards', type: 'credit' },
-      { label: 'Debit Cards',  type: 'debit' },
-      { label: 'Cash',         type: 'cash' },
+      { label: 'Credit Cards',  type: 'credit' },
+      { label: 'Debit Cards',   type: 'debit' },
+      { label: 'Cash',          type: 'cash' },
+      { label: 'Bank Accounts', type: 'bank' },
     ];
     const [open, setOpen] = React.useState(false);
     const ref = React.useRef();

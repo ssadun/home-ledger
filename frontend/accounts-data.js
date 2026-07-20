@@ -57,6 +57,7 @@
       number: row.number || '–',
       institution: row.institution || '–',
       primary: !!row.is_primary,
+      showInPaymentMethod: !!row.show_in_payment_method,
       limit: row.credit_limit != null ? row.credit_limit : undefined,
       iban: row.iban || null,
       linked: row.linked_key || undefined,
@@ -81,6 +82,7 @@
       number: item.number || null,
       institution: item.institution || null,
       is_primary: !!item.primary,
+      show_in_payment_method: !!item.showInPaymentMethod,
       credit_limit: item.limit ? Number(item.limit) : null,   // empty/0 → null, never a stray 0
       iban: item.iban || null,
       linked_key: item.linked || null,
@@ -125,6 +127,17 @@
     return true;
   }
 
+  // Normalizes a stored card number's masking so every screen (Accounts,
+  // Payment Method picker, Credit Payments) shows the same pattern regardless
+  // of how it was typed or extracted from an import — first/last groups stay
+  // verbatim, every group between them is fully masked (e.g. "4870 75** ****
+  // 1011" -> "4870 **** **** 1011").
+  function maskCardNumber(raw) {
+    if (!raw || raw === '–') return raw;
+    const groups = raw.trim().split(/\s+/);
+    return groups.map((g, i) => (i === 0 || i === groups.length - 1) ? g : '*'.repeat(g.length)).join(' ');
+  }
+
   // These four maps have no backend table; edits from the Configuration screens
   // persist to localStorage (see config-app.jsx persistClientSection). Apply any
   // saved override here so edits survive reload and propagate to every page that
@@ -147,5 +160,5 @@
     FINANCIAL_INSTITUTIONS: withOverrides('financial-institutions', FINANCIAL_INSTITUTIONS),
     ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX,
   };
-  window.HL_ACCOUNTS_API = { list, create, update, remove, fromApi, toApi };
+  window.HL_ACCOUNTS_API = { list, create, update, remove, fromApi, toApi, maskCardNumber };
 })();

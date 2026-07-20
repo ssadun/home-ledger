@@ -103,6 +103,11 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 /* ── Payment method (plain text) ── */
 .pm-plain{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:var(--fs-table);white-space:nowrap}
 .pm-plain svg{flex-shrink:0}
+/* Payment-method cell: institution (muted) next to the account name (emphasized) */
+.pm-acct-cell{max-width:100%;min-width:0}
+.pm-inst{color:var(--muted);flex-shrink:0}
+.pm-dot{color:var(--muted);opacity:.6;flex-shrink:0}
+.pm-acct{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pm-num{color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.3px;font-size:11px}
 
 /* ── Week-of-month group header ── */

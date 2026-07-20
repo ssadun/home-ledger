@@ -112,8 +112,19 @@
   }
   function PaymentMethodCell({ value }) {
     const acct = !PM_MAP[value] ? accountById(value) : null;
-    // Show only the account name (fixed label for legacy keys) — no icon or card number.
-    const label = acct ? acct.name : ((PM_MAP[value] || {}).label || value || '–');
+    // Show the institution and account name next to each other (institution muted,
+    // name emphasized). Fixed labels for legacy keys / cash render as plain text.
+    if (acct) {
+      const inst = acct.institution && acct.institution !== '–' ? acct.institution : null;
+      return (
+        <span className="pm-plain pm-acct-cell">
+          {inst && <span className="pm-inst">{inst}</span>}
+          {inst && <span className="pm-dot">·</span>}
+          <span className="pm-acct">{acct.name}</span>
+        </span>
+      );
+    }
+    const label = (PM_MAP[value] || {}).label || value || '–';
     return <span className="pm-plain">{label}</span>;
   }
 

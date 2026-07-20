@@ -31,7 +31,9 @@
 
     React.useEffect(() => {
       if (!filtersOpen) return;
-      const onDoc = (e) => { if (filtersRef.current && !filtersRef.current.contains(e.target)) setFiltersOpen(false); };
+      // Don't close on clicks inside a portaled StyledSelect dropdown (rendered to
+      // <body>), or picking a filter option would unmount the popover mid-click.
+      const onDoc = (e) => { if (filtersRef.current && !filtersRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setFiltersOpen(false); };
       const onKey = (e) => { if (e.key === 'Escape') setFiltersOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);

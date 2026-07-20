@@ -31,6 +31,7 @@ class MemberCreate(BaseModel):
     password: str
     role: str = "user"                     # "admin" | "user"
     active: bool = True                    # → is_active
+    show_as_payer: bool = True             # appears as a Payer/Paying For option
     email: Optional[EmailStr] = None       # synthesized from username when absent
 
 class MemberUpdate(BaseModel):
@@ -39,6 +40,7 @@ class MemberUpdate(BaseModel):
     password: Optional[str] = None         # only re-hashed when provided
     role: Optional[str] = None
     active: Optional[bool] = None
+    show_as_payer: Optional[bool] = None
     email: Optional[EmailStr] = None
 
 class MemberOut(BaseModel):
@@ -47,6 +49,7 @@ class MemberOut(BaseModel):
     username: Optional[str] = None
     role: Optional[str] = None
     active: bool = True                    # mapped from is_active
+    show_as_payer: bool = True             # mapped from show_as_payer
     email: str
     model_config = {"from_attributes": True}
 
@@ -336,6 +339,7 @@ class AccountCreate(BaseModel):
     number: Optional[str] = None
     institution: Optional[str] = None
     is_primary: bool = False
+    show_in_payment_method: bool = False
     credit_limit: Optional[float] = None
     iban: Optional[str] = None
     linked_key: Optional[str] = None
@@ -357,6 +361,7 @@ class AccountUpdate(BaseModel):
     number: Optional[str] = None
     institution: Optional[str] = None
     is_primary: Optional[bool] = None
+    show_in_payment_method: Optional[bool] = None
     credit_limit: Optional[float] = None
     iban: Optional[str] = None
     linked_key: Optional[str] = None

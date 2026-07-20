@@ -29,6 +29,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)  # login identifier (Members)
     role = Column(String, default="user")               # "admin" | "user"
     is_active = Column(Boolean, default=True)           # inactive members cannot log in
+    show_as_payer = Column(Boolean, default=True)       # appears as a Payer/Paying For option; independent of is_active
     notify_lead_days = Column(Integer, default=0)       # push reminder lead time: 0 = same-day
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -227,6 +228,7 @@ class Account(Base):
     number = Column(String)                     # masked, e.g. "****3847"
     institution = Column(String)
     is_primary = Column(Boolean, default=False)
+    show_in_payment_method = Column(Boolean, default=False)  # bank accounts are opt-in on the Payment Method picker (cards/cash always show)
     credit_limit = Column(Float)                # credit / overdraft limit
     iban = Column(String)
     linked_key = Column(String)                 # account_key of a linked account (debit→bank, overdraft→bank)

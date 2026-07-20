@@ -2,7 +2,11 @@
 (function () {
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
-  const { ACCOUNT_TYPES, ACCOUNT_ACTIVITY, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
+  const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
+  const maskCardNumber = window.HL_ACCOUNTS_API.maskCardNumber;
+  function displayNumber(account) {
+    return (account.type === 'credit' || account.type === 'debit') ? maskCardNumber(account.number) : account.number;
+  }
 
   function grp(v, dec = 2) {
     return Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -180,7 +184,7 @@
           <div className="acct-card-meta">
             <span className="acct-card-name">{account.name}</span>
             <span className="acct-card-inst">
-              {account.institution !== '–' ? account.institution : ''}{account.number !== '–' ? ' · ' + account.number : ''}
+              {account.institution !== '–' ? account.institution : ''}{account.number !== '–' ? ' · ' + displayNumber(account) : ''}
             </span>
           </div>
           <div className="acct-card-end">
@@ -225,10 +229,32 @@
   // ── Account detail modal ──
   function AccountDetail({ account, onClose, onEdit, onDelete, onImport }) {
     const t = ACCOUNT_TYPES[account.type];
-    const activity = ACCOUNT_ACTIVITY[account.id] || [];
     const isCredit = account.type === 'credit';
     const isOverdraft = account.type === 'overdraft';
     const isInvest = account.type === 'invest';
+
+    // Recent imported bank-account movements for this account (real data, across
+    // all months). Credit-card activity lives on Credit Payments, not Account
+    // Activity, so it's skipped here. Full history is one click away via the
+    // "View All" link, which deep-links into Account Activity pre-filtered to
+    // this account (?account=<id>).
+    const showActivity = !isInvest && !isCredit;
+    const [recentAct, setRecentAct] = React.useState([]);
+    const [actLoading, setActLoading] = React.useState(showActivity);
+    const [actErr, setActErr] = React.useState(null);
+    React.useEffect(() => {
+      if (!showActivity) return;
+      let alive = true;
+      setActLoading(true);
+      const txApi = window.HL_ACCT_TX_API;
+      if (!txApi || !txApi.listRecentForAccount) { setActLoading(false); return; }
+      txApi.listRecentForAccount(account, 5)
+        .then((list) => { if (alive) { setRecentAct(list); setActErr(null); } })
+        .catch((e) => { if (alive) setActErr(e.message || 'Failed to load activity'); })
+        .finally(() => { if (alive) setActLoading(false); });
+      return () => { alive = false; };
+    }, [account.id, showActivity]);
+    const activityHref = 'Account Activity.html?account=' + encodeURIComponent(account.id);
 
     return (
       <div className="backdrop" onMouseDown={(e) => {if (e.target.classList.contains('backdrop')) onClose();}}>
@@ -254,7 +280,7 @@
                 })()}
                 {account.name}
               </span>
-              <span className="modal-sub">{account.institution} · {account.number} · {account.owner}</span>
+              <span className="modal-sub">{account.institution} · {displayNumber(account)} · {account.owner}</span>
             </div>
             <button id="acct-detail-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
@@ -331,27 +357,42 @@
                 transaction-style activity list. */}
             {isInvest && window.AccountHoldings && <window.AccountHoldings account={account} />}
 
-            {!isInvest && activity.length > 0 &&
+            {showActivity &&
             <div className="detail-activity">
-                <span className="detail-section-label"><Icon name="activity" size={12} />Recent Activity</span>
-                <div className="detail-activity-list">
-                  {activity.map((a, i) =>
-                <div className="detail-act-row" key={i}>
-                      <span className="act-date">{fmtDate(a.date)}</span>
-                      <span className="act-desc">{a.desc}</span>
-                      <span className={'act-amt ' + (a.amt > 0 ? 'income' : 'expense')}>
-                        {a.amt > 0 ? '+' : '−'}{SYM.TRY}{grp(Math.abs(a.amt))}
-                      </span>
-                    </div>
-                )}
+                <div className="detail-activity-head">
+                  <span className="detail-section-label"><Icon name="activity" size={12} />Recent Activity</span>
+                  <a id="acct-detail-activity-more" className="detail-activity-more" href={activityHref}>
+                    View All<Icon name="arrow-right" size={12} />
+                  </a>
                 </div>
-              </div>
-            }
-
-            {!isInvest && activity.length === 0 &&
-            <div className="detail-empty">
-                <Icon name="inbox" size={28} />
-                <span>No recent activity for this account.</span>
+                {actLoading ?
+                <div className="detail-act-loading"><Icon name="loader" size={16} className="spin" />Loading activity…</div>
+                : actErr ?
+                <div className="detail-empty">
+                    <Icon name="alert-triangle" size={26} style={{ color: 'var(--red)' }} />
+                    <span>{actErr}</span>
+                  </div>
+                : recentAct.length > 0 ?
+                <div className="detail-activity-list">
+                    {recentAct.map((a, i) => {
+                      const isIn = a.direction === 'incoming';
+                      return (
+                        <div className="detail-act-row" key={a.id || i}>
+                          <span className="act-date">{fmtDate(a.date)}</span>
+                          <span className="act-desc" title={a.desc}>{a.desc}</span>
+                          <span className={'act-amt ' + (isIn ? 'income' : 'expense')}>
+                            {isIn ? '+' : '−'}{SYM[a.cur] || SYM.TRY}{grp(a.amt)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                :
+                <div className="detail-empty">
+                    <Icon name="inbox" size={28} />
+                    <span>No recent activity for this account.</span>
+                  </div>
+                }
               </div>
             }
           </div>
@@ -384,6 +425,7 @@
       number: initial.number || '',
       institution: initial.institution || '',
       primary: initial.primary || false,
+      showInPaymentMethod: initial.showInPaymentMethod || false,
       limit: initial.limit != null ? String(initial.limit) : '',
       iban: initial.iban || '',
       ccType: initial.ccType || 'visa',
@@ -418,6 +460,7 @@
         number: f.number.trim() || '–',
         institution: f.institution.trim() || '–',
         primary: f.primary,
+        showInPaymentMethod: f.showInPaymentMethod,
         iban: f.iban.trim() || null,
         ccType: f.ccType || 'visa',
         debitType: f.debitType || 'visa',
@@ -559,7 +602,7 @@
                 }}>
                   <option value="">None — main card</option>
                   {parentCardOptions.map((a) =>
-                  <option key={a.id} value={a.id}>{a.name + ' · ' + a.number}</option>
+                  <option key={a.id} value={a.id}>{a.name + ' · ' + maskCardNumber(a.number)}</option>
                   )}
                 </StyledSelect>
               </div>
@@ -665,6 +708,12 @@
                   <Icon name="star" size={12} />Mark As Primary Account
                 </label>
               </div>
+              <div className="form-field full">
+                <label className="acct-check-label">
+                  <input id="acct-form-show-payment-method-checkbox" type="checkbox" checked={f.showInPaymentMethod} onChange={(e) => set('showInPaymentMethod', e.target.checked)} />
+                  <Icon name="wallet" size={12} />Show On Payment Method
+                </label>
+              </div>
             </React.Fragment>
             }
 
@@ -699,7 +748,7 @@
           <div className="confirm-body">
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
             <div className="confirm-text">
-              Delete <b>{account.name}</b> ({account.institution} · {account.number})?
+              Delete <b>{account.name}</b> ({account.institution} · {displayNumber(account)})?
               <span className="warn">⚠ This cannot be undone.</span>
             </div>
           </div>

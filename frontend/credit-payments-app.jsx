@@ -15,7 +15,9 @@
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
       if (!open) return;
-      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      // Don't close on clicks inside a portaled StyledSelect dropdown (rendered to
+      // <body>), or picking a filter option would unmount the popover mid-click.
+      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setOpen(false); };
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);
@@ -131,8 +133,13 @@
       cardList.forEach(c => { byId[c._dbId] = c; byId[c.id] = c; });
       return recs.map(r => {
         const c = byId[r.accountId] || byId[r.accountKey];
-        const label = c ? (c.name + (c.number && c.number !== '–' ? ' ' + c.number : '')) : null;
-        return { ...r, cardLabel: label };
+        const inst = c && c.institution && c.institution !== '–' ? c.institution : null;
+        const cNumber = c && c.number && c.number !== '–' ? window.HL_ACCOUNTS_API.maskCardNumber(c.number) : null;
+        const namePart = c ? (c.name + (cNumber ? ' ' + cNumber : '')) : null;
+        // cardLabel is the full plain string (institution + name) — used for search
+        // and the modal subtitle; cardInst/cardNamePart drive the styled CARD cell.
+        const label = namePart ? ((inst ? inst + ' · ' : '') + namePart) : null;
+        return { ...r, cardLabel: label, cardInst: inst, cardNamePart: namePart };
       });
     }, []);
 

@@ -30,7 +30,7 @@ uvicorn app.main:app --reload --port 8000
 
 ### Database
 SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db` in container).
-**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free).
+**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free). Likewise the Payer/Paying For visibility toggle added `users.show_as_payer`, needing: `ALTER TABLE users ADD COLUMN show_as_payer BOOLEAN DEFAULT 1;` Likewise the Payment Method visibility toggle for bank accounts added `accounts.show_in_payment_method`, needing: `ALTER TABLE accounts ADD COLUMN show_in_payment_method BOOLEAN DEFAULT 0;`
 
 9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`, `statement_mappings`, and `push_subscriptions`, added later — see Data Models below):
 
@@ -115,7 +115,7 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | `Investment` | `investments` | name, platform, asset_type, currency, amount, purchase_price, purchase_date | Tracks stocks, funds, crypto, deposits, gold |
 | `Budget` | `budgets` | name, amount, currency, period (monthly/yearly), year, month, category_id | Budget limits per category or global |
 | `RecurringExpense` | `recurring_expenses` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
-| `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name | Household accounts & cards; drives the "Payment Method" picker |
+| `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name, show_in_payment_method | Household accounts & cards; drives the "Payment Method" picker. Credit/debit/cash accounts always appear there; `bank` accounts are opt-in via `show_in_payment_method` (checkbox in the Accounts edit form) |
 | `PushSubscription` | `push_subscriptions` | owner_id, endpoint, p256dh, auth, user_agent | One row per subscribed browser/device (Web Push); `User.notify_lead_days` (0 = same-day) controls how far ahead of a due date the daily check fires |
 | `ReminderSnooze` | `reminder_snoozes` | owner_id, item_type (`recurring`\|`credit`), item_id, snoozed_until | Per-item push-reminder snooze; unique on `(owner_id, item_type, item_id)`. Suppresses an item's normal reminder and re-fires it once on `snoozed_until` (then the row is deleted). Created from the notification's Snooze button via `POST /api/push/snooze` |
 

@@ -60,7 +60,7 @@
 .util-label{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* ── Credit card dates ── */
-.cc-dates-row{display:flex;gap:12px;padding-top:4px;border-top:1px solid var(--border)}
+.cc-dates-row{display:flex;gap:12px;padding-top:4px}
 .cc-date-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--slate)}
 .cc-date-item svg{width:11px;height:11px;color:var(--muted);flex-shrink:0}
 .cc-date-k{color:var(--muted);font-weight:600;letter-spacing:.3px}
@@ -91,6 +91,13 @@
 
 /* ── Activity list ── */
 .detail-activity{display:flex;flex-direction:column;gap:8px}
+.detail-activity-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.detail-activity-more{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;border:1px solid transparent;transition:all .15s}
+.detail-activity-more:hover{background:rgba(79,142,247,.12);border-color:var(--accent)}
+.detail-activity-more svg{width:12px;height:12px}
+.detail-act-loading{display:flex;align-items:center;justify-content:center;gap:8px;padding:20px 16px;color:var(--muted);font-size:12px}
+.detail-act-loading .spin{display:inline-flex;animation:acct-detail-spin .8s linear infinite}
+@keyframes acct-detail-spin{to{transform:rotate(360deg)}}
 .detail-section-label{display:flex;align-items:center;gap:7px;font-size:var(--fs-label);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
 .detail-section-label svg{width:12px;height:12px}
 .detail-activity-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
@@ -123,12 +130,6 @@
 #acct-form-medium-physical-btn.on-acct-medium{background:color-mix(in srgb, var(--accent) 16%, transparent);color:var(--accent)}
 #acct-form-medium-virtual-btn.on-acct-medium{background:color-mix(in srgb, var(--lavender) 16%, transparent);color:var(--lavender)}
 
-/* ── Checkbox label ── */
-.acct-check-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
-.acct-check-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
-.acct-check-label input[type="checkbox"]:checked{background:var(--accent);border-color:var(--accent)}
-.acct-check-label input[type="checkbox"]:checked::after{content:'✓';color:var(--white);font-size:12px;font-weight:700;line-height:1}
-.acct-check-label svg{color:var(--gold)}
 
 /* ── List vs grid is purely the column count (set on .acct-grid); the card
    itself is always a single horizontal line, with the credit util bar / dates

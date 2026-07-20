@@ -94,6 +94,23 @@
       .filter(r => r.accountType !== 'credit');
   }
 
+  // Most recent imported movements for a single account, across all months —
+  // powers the Accounts detail modal's mini "Recent Activity" list. Matching a
+  // single account only needs [account] to resolve payment_method → accountId.
+  async function listRecentForAccount(account, limit = 5) {
+    const apiFetch = api();
+    if (!apiFetch) throw new Error('Not authenticated');
+    const res = await apiFetch('/api/transactions/?limit=200', { method: 'GET' });
+    if (!res.ok) throw new Error('Failed to load account activity (' + res.status + ')');
+    const data = await res.json();
+    return data
+      .filter(isBankImport)
+      .map(tx => toRow(tx, [account]))
+      .filter(r => r.accountId === account.id)
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+      .slice(0, limit);
+  }
+
   async function remove(dbId) {
     const apiFetch = api();
     const res = await apiFetch('/api/transactions/' + dbId, { method: 'DELETE' });
@@ -104,5 +121,5 @@
   // ACCT_TX kept as an empty default for any guarded reads; real rows are loaded
   // per-month by the page via HL_ACCT_TX_API.listActivity().
   window.ACCT_TX_DATA = { ACCT_TX: [], ACCT_TX_TYPES };
-  window.HL_ACCT_TX_API = { listActivity, remove, toRow, isBankImport };
+  window.HL_ACCT_TX_API = { listActivity, listRecentForAccount, remove, toRow, isBankImport };
 })();
