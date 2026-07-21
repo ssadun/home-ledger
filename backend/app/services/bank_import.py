@@ -773,7 +773,7 @@ def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], lis
     iban = None
     mib = _HESAP_IBAN_RE.search(text)
     if mib:
-        iban = " ".join(mib.group(1).split())
+        iban = _clean_iban(mib.group(1))
     branch = None
     msu = _HESAP_SUBE_RE.search(text)
     if msu:
@@ -874,7 +874,7 @@ def _parse_on_burgan_pdf(content: bytes, text: str) -> tuple[list[dict], list[di
     iban = None
     mib = _ON_IBAN_RE.search(text)
     if mib:
-        iban = mib.group(1)
+        iban = _clean_iban(mib.group(1))
     holder = None
     mh = _ON_HOLDER_RE.search(text)
     if mh:
@@ -969,7 +969,7 @@ def _parse_teb_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
     """
     rows: list[dict] = []
 
-    iban       = _teb_field(text, _TEB_IBAN_RE)
+    iban       = _clean_iban(_teb_field(text, _TEB_IBAN_RE))
     account_no = _teb_field(text, _TEB_NO_RE)
     holder     = _teb_field(text, _TEB_HOLDER_RE)
     branch     = _teb_field(text, _TEB_SUBE_RE)
@@ -1051,6 +1051,49 @@ def _account_no_from_hesap(val: str) -> Optional[str]:
     return max(nums, key=len) if nums else None
 
 
+_IBAN_TR_RE = re.compile(r"TR\d{24}")
+
+
+def _clean_iban(value) -> Optional[str]:
+    """IBAN'ın tek biçimi: boşluksuz, büyük harf, en fazla 26 karakter.
+
+    Aynı hesap Garanti ekstresinde "TR65 0006 2000 …", ON dökümünde bitişik
+    gelir; kimlik eşleştirmesi ve tekrar kontrolü ham dizeyi karşılaştırdığı
+    için tek bir biçime indirgenir.
+    """
+    clean = re.sub(r"[^0-9A-Za-z]", "", str(value or "")).upper()[:26]
+    return clean or None
+
+
+def _account_no_from_iban(iban: Optional[str]) -> Optional[str]:
+    """26 haneli TR IBAN'ının son 6 hanesi hesap numarası olarak kullanılır.
+
+    Yapı: TR + 2 kontrol + 5 banka + 1 rezerve + 16 hesap numarası. Bu 16 hanenin
+    baş tarafı sıfır dolgusudur, bu yüzden hesabı ayırt eden son 6 hane alınır —
+    içe aktarma sihirbazının hesap etiketleriyle de aynı kuyruk. Ekstre hesap
+    numarasını ayrıca basmıyorsa (ör. ON Burgan dökümü yalnızca IBAN yazar)
+    kimlik bu yolla tamamlanır.
+    """
+    clean = _clean_iban(iban) or ""
+    return clean[-6:] if _IBAN_TR_RE.fullmatch(clean) else None
+
+
+def _normalize_account_identity(accounts: list[dict]) -> list[dict]:
+    """Kimlik kayıtlarını tek biçime getir: boşluksuz IBAN + dolu hesap numarası.
+
+    Tüm çözümleyiciler için tek noktadan uygulanır (`parse_bank_file`), böylece
+    yeni bir banka formatı eklendiğinde ayrıca hatırlanması gerekmez.
+    """
+    for acc in accounts or []:
+        if acc.get("iban"):
+            acc["iban"] = _clean_iban(acc["iban"])
+        if not (acc.get("number") or "").strip():
+            derived = _account_no_from_iban(acc.get("iban"))
+            if derived:
+                acc["number"] = derived
+    return accounts
+
+
 def _parse_garanti_export(grid: list[list]) -> tuple[list[dict], list[dict]]:
     """
     Garanti hesap hareketleri / kredi kartı ekstresini parse eder.
@@ -1127,7 +1170,7 @@ def _parse_garanti_export(grid: list[list]) -> tuple[list[dict], list[dict]]:
         if col0.upper() == "IBAN":
             val = next((c.strip() for c in cells[1:] if c.strip()), "")
             if val and current_source:
-                _acc(current_source)["iban"] = val
+                _acc(current_source)["iban"] = _clean_iban(val)
             continue
 
         # Şube satırı (ör. ["Şube", "İÇERENKÖY"])
@@ -1601,6 +1644,7 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
         # yerine çöp satırlar üretirdi.
         if text and _is_teb_pdf(text):
             _, accounts = _parse_teb_pdf(content, text)
+            _normalize_account_identity(accounts)
             # `has_movements` distinguishes "hesap gerçekten hareketsiz" from
             # "hareket var ama çözümleyicimiz yok" — arayüz metnini buna göre
             # seçer, böylece yerelleştirilmiş dize arayüze sızmaz.
@@ -1677,6 +1721,10 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
 
     if not rows:
         errors.append("İşlem satırı bulunamadı. Banka formatını manuel seçmeyi deneyin.")
+
+    # IBAN'ı boşluksuz biçime indirge; hesap numarası basmayan formatlarda
+    # numarayı IBAN'ın son 6 hanesinden türet.
+    _normalize_account_identity(accounts)
 
     income_total  = sum(r["amount"] for r in rows if r["type"] == "income")
     expense_total = sum(r["amount"] for r in rows if r["type"] == "expense")
@@ -1903,12 +1951,20 @@ def import_pension(
     if not contract:
         return {"error": "Sözleşme numarası okunamadı", "created": 0, "updated": 0}
 
-    acc = (
+    rows = (
         db.query(Account)
         .filter(Account.owner_id == owner_id, Account.type == "pension")
         .all()
     )
-    acc = next((a for a in acc if (a.pension or {}).get("contract_no") == contract), None)
+    # `number` is the pension account's unique key (routers/accounts.UNIQUE_FIELD), so
+    # match on it too — a plan added by hand through the Accounts form has the contract
+    # in `number` but no `pension` blob yet, and matching only the blob would open a
+    # second account carrying the same contract number.
+    acc = next(
+        (a for a in rows
+         if (a.pension or {}).get("contract_no") == contract or (a.number or "").strip() == contract),
+        None,
+    )
 
     name = (pension.get("plan") or pension.get("provider") or "BES").strip()
     total = pension.get("total")

@@ -153,10 +153,23 @@
 
   const TYPE_ORDER = ['bank', 'overdraft', 'debit', 'credit', 'wallet', 'invest', 'pension', 'cash'];
 
+  // Which account groups are collapsed, keyed by account type and persisted so the
+  // choice survives a reload. Stored as a plain array of type keys — the set of
+  // groups on screen depends on the active filters, and a key for a group that is
+  // currently filtered out simply sits idle until that group reappears.
+  const COLLAPSE_KEY = 'hl-accounts-collapsed-groups';
+  function loadCollapsed() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]');
+      return new Set(Array.isArray(raw) ? raw.filter(k => TYPE_ORDER.includes(k)) : []);
+    } catch (e) { return new Set(); }
+  }
+
   function App() {
     const [layout, setLayout] = window.HL_NAV.usePersistentView('list');
     const [accounts, setAccounts] = React.useState(INITIAL_ACCOUNTS);
     const [loadError, setLoadError] = React.useState(null);
+    const [saveError, setSaveError] = React.useState(null);   // rejected save, shown inside the form modal
     const [owner, setOwner] = React.useState('all');
     const [typeFilter, setTypeFilter] = React.useState('all');
     const [search, setSearch] = React.useState('');
@@ -165,6 +178,16 @@
     const [del, setDel] = React.useState(null);              // account to delete
     const [importWiz, setImportWiz] = React.useState(null);  // {preAccId} or {} when open
     const [flashId, setFlashId] = React.useState(null);
+    const [collapsed, setCollapsed] = React.useState(loadCollapsed);
+
+    function toggleGroup(type) {
+      setCollapsed(prev => {
+        const next = new Set(prev);
+        if (next.has(type)) next.delete(type); else next.add(type);
+        try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next])); } catch (e) {}
+        return next;
+      });
+    }
 
     React.useEffect(() => { document.documentElement.style.setProperty('--accent', '#4f8ef7'); }, []);
 
@@ -210,6 +233,7 @@
     function flash(id) { setFlashId(id); setTimeout(() => setFlashId(null), 1500); }
 
     function handleSave(acc) {
+      setSaveError(null);
       const op = acc._dbId
         ? window.HL_ACCOUNTS_API.update(acc._dbId, acc)
         : window.HL_ACCOUNTS_API.create(acc);
@@ -220,7 +244,11 @@
         flash(saved.id);
         setFormModal(null);
         setDetail(null);
-      }).catch(err => setLoadError(err.message));
+      })
+        // Keep the form open and show why — a rejected save (most often the
+        // per-type unique IBAN / card number) used to land in `loadError`, which
+        // nothing renders, so Save simply appeared to do nothing.
+        .catch(err => setSaveError(err.message));
     }
 
     function handleDelete() {
@@ -303,13 +331,16 @@
             )}
 
             {grouped.map(g => (
-              <div className="acct-group" key={g.type}>
-                <AccountGroupHeader typeKey={g.type} count={g.accounts.length} total={g.total} cur="TRY" />
-                <div className={'card-grid acct-grid' + (layout === 'list' ? ' card-grid--list acct-list' : '')}>
-                  {g.accounts.map(a => (
-                    <AccountCard key={a.id} account={a} onClick={setDetail} flash={a.id === flashId} />
-                  ))}
-                </div>
+              <div className={'acct-group' + (collapsed.has(g.type) ? ' is-collapsed' : '')} key={g.type}>
+                <AccountGroupHeader typeKey={g.type} count={g.accounts.length} total={g.total} cur="TRY"
+                  collapsed={collapsed.has(g.type)} onToggle={() => toggleGroup(g.type)} />
+                {!collapsed.has(g.type) && (
+                  <div className={'card-grid acct-grid' + (layout === 'list' ? ' card-grid--list acct-list' : '')}>
+                    {g.accounts.map(a => (
+                      <AccountCard key={a.id} account={a} onClick={setDetail} flash={a.id === flashId} />
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -318,7 +349,8 @@
         {detail && <AccountDetail account={detail} onClose={() => setDetail(null)}
           onEdit={openEdit} onDelete={openDeleteFromDetail} onImport={openImport} />}
         {formModal && <AccountFormModal initial={formModal.account} accounts={accounts}
-          onClose={() => setFormModal(null)} onSave={handleSave} />}
+          error={saveError} onClearError={() => setSaveError(null)}
+          onClose={() => { setSaveError(null); setFormModal(null); }} onSave={handleSave} />}
         {del && <DeleteAccountConfirm account={del}
           onClose={() => setDel(null)} onConfirm={handleDelete} />}
         {importWiz && <ImportWizard preAccId={importWiz.preAccId}

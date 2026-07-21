@@ -18,7 +18,11 @@ Base.metadata.create_all(bind=engine)
 from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index
 from app.routers.currencies import seed_default_currencies
 from app.routers.statement_mappings import seed_default_statement_mappings, ensure_statement_mapping
-from app.routers.institutions import seed_default_institutions, ensure_institution
+from app.routers.institutions import (
+    seed_default_institutions,
+    ensure_institution,
+    normalize_institution_names,
+)
 _seed_db = SessionLocal()
 try:
     seed_default_categories(_seed_db)
@@ -38,6 +42,9 @@ try:
     # Backfill institutions added after the initial seed (idempotent).
     ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik")
     ensure_institution(_seed_db, "teb", "TEB Türk Ekonomi Bankası", "TEBUTRIS")
+    # Heal institution names padded with whitespace, which break the name-based
+    # match from accounts.institution and duplicate the entry in the picker.
+    normalize_institution_names(_seed_db)
 finally:
     _seed_db.close()
 

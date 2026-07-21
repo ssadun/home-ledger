@@ -103,9 +103,12 @@
       // resize — but NOT when the scroll happens inside the menu itself (the
       // category list is taller than max-height:260px and scrolls internally;
       // closing on that would make the dropdown vanish the moment you scroll it).
+      // `resize` fires with e.target === window, which is not a Node — passing it
+      // to contains() throws. Only a real Node can be "inside" the menu anyway.
       const onShift = (e) => {
-        if (e && e.target && menuRef.current &&
-            (menuRef.current === e.target || menuRef.current.contains(e.target))) return;
+        const t = e && e.target;
+        if (t instanceof Node && menuRef.current &&
+            (menuRef.current === t || menuRef.current.contains(t))) return;
         setOpen(false);
       };
       document.addEventListener('mousedown', onDoc);

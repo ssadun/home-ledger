@@ -86,7 +86,7 @@
 .imp-src-meta{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .imp-src-id{font-size:13px;font-weight:600;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .imp-src-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.imp-src-sel{flex:0 0 200px;max-width:200px}
+.imp-src-sel{flex:0 0 250px;max-width:250px}
 .imp-src-flag{flex-shrink:0;display:inline-flex}
 .imp-src-flag.ok{color:var(--green)}
 .imp-src-flag.warn{color:var(--orange)}

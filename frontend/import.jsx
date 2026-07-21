@@ -73,7 +73,23 @@
   }
 
   // ── Account option helpers ──
-  function accLabel(a) { return a.name + ' · ' + a.number; }
+  // Dropdown labels are keyed on institution + the tail of the IBAN/card number,
+  // NOT on `name` — every account of one household member is named after that
+  // member, so a name-based label renders several indistinguishable
+  // "Sadun Sevingen · —" options. The label has a 26-char budget — as much as the
+  // 250px select shows without ellipsizing. With digits that splits 17 + ' · ' + 6;
+  // with none, the separator and digit slots are dropped and the whole 26 goes to
+  // the name ("Midas Menkul Değerler A.Ş." fits exactly, vs "Midas Menkul Değe · —").
+  // A dash is the app's own "not applicable" placeholder for institution/number
+  // (the Cash account carries institution '–'), so it must read as blank here or
+  // the option renders as a bare '– · —'.
+  const ACC_BLANK = /^[-–—\s]*$/;
+  function accLabel(a) {
+    const src = [a.institution, a.name].find(v => v && !ACC_BLANK.test(String(v))) || '';
+    const digits = String(a.iban || a.number || '').replace(/\D/g, '');
+    const inst = String(src).trim().slice(0, digits ? 17 : 26).trim();
+    return digits ? inst + ' · ' + digits.slice(-6) : inst;
+  }
   function findByNumber(accounts, num) { return num ? accounts.find(a => a.number === num) : null; }
 
   // Match a statement "source" ref (account/card number, e.g. "440 - 9059576 USD"
@@ -105,24 +121,35 @@
     return lower.split(/\s+/).map(w => w ? w.charAt(0).toLocaleUpperCase('tr') + w.slice(1) : w).join(' ');
   }
 
+  // Statements that print only an IBAN (ON/Burgan) leave `number` empty, so the
+  // account number is derived from the IBAN's tail — same canonical helpers the
+  // Accounts form uses, so a drafted account and a hand-typed one agree.
+  const { cleanIban, accountNoFromIban } = window.HL_ACCOUNTS_API;
+
   // Pre-fill an AccountFormModal `initial` from a parsed statement identity record,
   // so the user only confirms/edits before the account is created.
   function accountDraftFromRecord(rec) {
     const isCard = rec.type === 'credit' || rec.type === 'debit';
     const inst = (FINANCIAL_INSTITUTIONS || {})[rec.institution];
-    const instName = inst ? inst.name : '';
+    // Trimmed: the Accounts form saves `institution` trimmed, so an untrimmed name
+    // here would be written as an institution that matches nothing in the picker.
+    // Unknown key → '', leaving the picker empty for the user to choose from.
+    const instName = inst ? String(inst.name || '').trim() : '';
     const holder = rec.holder ? titleCase(rec.holder) : '';
     const last4 = String(rec.card_number || rec.number || '').replace(/\D/g, '').slice(-4);
+    // Bank accounts are named after their holder alone — the institution is a
+    // field of its own and the Accounts page already renders it beside the name,
+    // so folding it in produced a doubled "Burgan Bank · Sadun Sevingen".
     const name = isCard
       ? (instName || 'Card') + (last4 ? ' ••' + last4 : '')
-      : (instName || 'Bank') + (holder ? ' · ' + holder : '');
+      : (holder || instName || 'Bank');
     return {
       type: rec.type || 'bank',
       name,
       owner: 'Sadun',
       cur: rec.currency || 'TRY',
-      number: rec.number || rec.card_number || '',
-      iban: rec.iban || '',
+      number: rec.number || rec.card_number || accountNoFromIban(rec.iban),
+      iban: cleanIban(rec.iban),
       institution: instName,
       // Closing balance, when the statement prints one (TEB cüzdan does).
       balance: rec.balance != null ? rec.balance : undefined,

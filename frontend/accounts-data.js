@@ -65,7 +65,7 @@
       primary: !!row.is_primary,
       showInPaymentMethod: !!row.show_in_payment_method,
       limit: row.credit_limit != null ? row.credit_limit : undefined,
-      iban: row.iban || null,
+      iban: cleanIban(row.iban) || null,   // legacy rows may still carry spacing
       linked: row.linked_key || undefined,
       ccType: row.cc_type || undefined,
       isPrepaid: !!row.is_prepaid,
@@ -92,7 +92,7 @@
       is_primary: !!item.primary,
       show_in_payment_method: !!item.showInPaymentMethod,
       credit_limit: item.limit ? Number(item.limit) : null,   // empty/0 → null, never a stray 0
-      iban: item.iban || null,
+      iban: cleanIban(item.iban) || null,
       linked_key: item.linked || null,
       cc_type: item.ccType || null,
       is_prepaid: !!item.isPrepaid,
@@ -113,12 +113,21 @@
     return (await res.json()).map(fromApi);
   }
 
+  // Surface the API's own `detail` rather than a bare status code — the per-type
+  // unique-identity check (409) explains WHICH account already holds the IBAN /
+  // card number, and that text is the whole value of the error.
+  async function errText(res, what) {
+    let msg = 'Failed to ' + what + ' (' + res.status + ')';
+    try { const j = await res.json(); if (j && j.detail) msg = j.detail; } catch (e) { /* non-JSON body */ }
+    return msg;
+  }
+
   async function create(item) {
     const res = await api()('/api/accounts/', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });
-    if (!res.ok) throw new Error('Failed to create account (' + res.status + ')');
+    if (!res.ok) throw new Error(await errText(res, 'create account'));
     return fromApi(await res.json());
   }
 
@@ -127,7 +136,7 @@
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });
-    if (!res.ok) throw new Error('Failed to update account (' + res.status + ')');
+    if (!res.ok) throw new Error(await errText(res, 'update account'));
     return fromApi(await res.json());
   }
 
@@ -135,6 +144,41 @@
     const res = await api()('/api/accounts/' + dbId, { method: 'DELETE' });
     if (!res.ok && res.status !== 404) throw new Error('Failed to delete account (' + res.status + ')');
     return true;
+  }
+
+  // ── IBAN / account-number normalization ───────────────────────────────────
+  // One canonical IBAN form: no spacing, upper-case, capped at the 26 characters
+  // a Turkish IBAN has. The same account reaches the app spaced ("TR65 0006 …"
+  // from a Garanti statement) and unspaced ("TR8100125…" from ON), and the
+  // duplicate check, the statement→account match and the derived account number
+  // all compare raw strings.
+  // Shape is enforced, not just spacing: a Turkish IBAN is two country LETTERS
+  // followed by 24 DIGITS, so letters are only accepted in the first two slots
+  // and everything after them must be numeric ("TR65ABCD…" keeps "TR65").
+  function cleanIban(v) {
+    const raw = String(v == null ? '' : v).replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+    const cc = raw.slice(0, 2).replace(/[^A-Z]/g, '');
+    return (cc + raw.slice(cc.length).replace(/\D/g, '')).slice(0, 26);
+  }
+
+  // An account number is digits only.
+  function cleanAccountNo(v) {
+    return String(v == null ? '' : v).replace(/\D/g, '');
+  }
+
+  // A CARD number keeps its mask ("4870 **** **** 1011"), so digits, spaces and
+  // the masking asterisk are all it may contain — letters are still rejected.
+  // Capped at 19 digits + the 3 group spaces of the longest real card number.
+  function cleanCardNo(v) {
+    return String(v == null ? '' : v).replace(/[^0-9* ]/g, '').replace(/\s{2,}/g, ' ').slice(0, 22);
+  }
+
+  // A Turkish IBAN is TR + 2 check + 5 bank + 1 reserved + 16 account digits, so
+  // its tail identifies the account. The app shows the LAST 6 as the account
+  // number — the same tail the import wizard's dropdown labels use.
+  function accountNoFromIban(iban) {
+    const clean = cleanIban(iban);
+    return /^TR\d{24}$/.test(clean) ? clean.slice(-6) : '';
   }
 
   // Normalizes a stored card number's masking so every screen (Accounts,
@@ -176,5 +220,8 @@
     FINANCIAL_INSTITUTIONS,
     ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX,
   };
-  window.HL_ACCOUNTS_API = { list, create, update, remove, fromApi, toApi, maskCardNumber };
+  window.HL_ACCOUNTS_API = {
+    list, create, update, remove, fromApi, toApi, maskCardNumber,
+    cleanIban, cleanAccountNo, cleanCardNo, accountNoFromIban,
+  };
 })();

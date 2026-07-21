@@ -3,9 +3,16 @@
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
   const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
-  const maskCardNumber = window.HL_ACCOUNTS_API.maskCardNumber;
+  const { maskCardNumber, cleanIban, cleanAccountNo, cleanCardNo } = window.HL_ACCOUNTS_API;
   function displayNumber(account) {
     return (account.type === 'credit' || account.type === 'debit') ? maskCardNumber(account.number) : account.number;
+  }
+
+  // Join metadata bits with " · ", dropping the ones that are unset — the API
+  // layer stores '–' for a blank field (accounts-data.js), so a missing value
+  // must not leave a dangling separator ("ON Dijital Bankacılık · –").
+  function joinMeta(...parts) {
+    return parts.filter((p) => p && p !== '–').join(' · ');
   }
 
   function grp(v, dec = 2) {
@@ -17,10 +24,18 @@
   // Resolve an account's institution logo (set per-institution on the Config →
   // Financial Institutions screen). Returns a URL / data-URI, or null to fall back
   // to the generic account-type icon. Matched by institution name.
+  // Matched on the TRIMMED name: the Accounts form saves `institution` trimmed, so
+  // an institution whose configured name carries stray whitespace would otherwise
+  // never match and would silently lose its logo.
+  function instName(fi) {
+    return String((fi && fi.name) || '').trim();
+  }
+
   function instLogo(institution) {
     if (!institution || institution === '–') return null;
     const map = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS) || {};
-    const hit = Object.values(map).find((fi) => fi && fi.name === institution);
+    const wanted = String(institution).trim();
+    const hit = Object.values(map).find((fi) => fi && instName(fi) === wanted);
     return hit && hit.logo ? hit.logo : null;
   }
 
@@ -193,7 +208,7 @@
           <div className="acct-card-meta">
             <span className="acct-card-name">{account.name}</span>
             <span className="acct-card-inst">
-              {account.institution !== '–' ? account.institution : ''}{account.number !== '–' ? ' · ' + displayNumber(account) : ''}
+              {joinMeta(account.institution, displayNumber(account))}
             </span>
           </div>
           <div className="acct-card-end">
@@ -220,10 +235,16 @@
   }
 
   // ── Account group header ──
-  function AccountGroupHeader({ typeKey, count, total, cur }) {
+  // Doubles as the group's expand/collapse toggle, so it is a <button> rather
+  // than a <div> — keyboard and screen readers get the affordance for free.
+  function AccountGroupHeader({ typeKey, count, total, cur, collapsed, onToggle }) {
     const t = ACCOUNT_TYPES[typeKey];
     return (
-      <div className="acct-group-head">
+      <button type="button" id={'acct-group-head-' + typeKey}
+        className={'acct-group-head' + (collapsed ? ' is-collapsed' : '')}
+        aria-expanded={!collapsed} onClick={onToggle}
+        title={collapsed ? 'Expand group' : 'Collapse group'}>
+        <Icon name="chevron-down" size={13} className="acct-group-chevron" />
         <span className="acct-group-icon" style={{ color: 'var(--text)' }}>
           <Icon name={t.icon} size={15} />
         </span>
@@ -232,7 +253,7 @@
         <span className="acct-group-total">
           {total < 0 ? '−' : ''}{SYM[cur || 'TRY']}{grp(Math.abs(total))}
         </span>
-      </div>);
+      </button>);
 
   }
 
@@ -294,7 +315,7 @@
                 })()}
                 {account.name}
               </span>
-              <span className="modal-sub">{account.institution} · {displayNumber(account)} · {account.owner}</span>
+              <span className="modal-sub">{joinMeta(account.institution, displayNumber(account), account.owner)}</span>
             </div>
             <button id="acct-detail-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
@@ -438,7 +459,7 @@
   }
 
   // ── Add / Edit Account modal ──
-  function AccountFormModal({ initial, accounts = [], onClose, onSave }) {
+  function AccountFormModal({ initial, accounts = [], error = null, onClearError, onClose, onSave }) {
     const editing = !!initial.id;
     const [f, setF] = React.useState({
       name: initial.name || '',
@@ -451,7 +472,7 @@
       primary: initial.primary || false,
       showInPaymentMethod: initial.showInPaymentMethod || false,
       limit: initial.limit != null ? String(initial.limit) : '',
-      iban: initial.iban || '',
+      iban: cleanIban(initial.iban),   // a legacy spaced IBAN normalizes on open
       ccType: initial.ccType || 'visa',
       isPrepaid: initial.isPrepaid || false,
       debitType: initial.debitType || 'visa',
@@ -464,7 +485,9 @@
       linked: initial.linked || '',
       pension: initial.pension ? { ...initial.pension } : {}
     });
-    const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+    // Any edit dismisses a previous save error — it described the values as they
+    // were, and leaving it up next to changed fields reads as a live complaint.
+    const set = (k, v) => { if (onClearError) onClearError(); setF((p) => ({ ...p, [k]: v })); };
     // BES fields live in a nested object (accounts.pension JSON column), so they
     // get their own setter rather than going through `set`.
     const setPen = (k, v) => setF((p) => ({ ...p, pension: { ...p.pension, [k]: v } }));
@@ -473,6 +496,9 @@
     // they have no credit line to spend against.
     const isPrepaid = isCredit && f.isPrepaid;
     const isOverdraft = f.type === 'overdraft';
+    // Cards keep their masked number ("4870 **** **** 1011"); every other type's
+    // number is digits only.
+    const isCard = isCredit || f.type === 'debit';
     const isCash = f.type === 'cash';
     const isPension = f.type === 'pension';
     // Other credit-card accounts that a supplementary/virtual card can hang off of
@@ -490,11 +516,11 @@
         type: f.type,
         cur: f.cur,
         balance: (isCredit || isOverdraft) && !isPrepaid && bal > 0 ? -bal : bal,
-        number: f.number.trim() || '–',
+        number: (isCard ? cleanCardNo(f.number).trim() : cleanAccountNo(f.number)) || '–',
         institution: f.institution.trim() || '–',
         primary: f.primary,
         showInPaymentMethod: f.showInPaymentMethod,
-        iban: f.iban.trim() || null,
+        iban: cleanIban(f.iban) || null,
         ccType: f.ccType || 'visa',
         isPrepaid: isCredit ? !!f.isPrepaid : false,
         debitType: f.debitType || 'visa',
@@ -562,11 +588,17 @@
                   <option value="">— Select Institution —</option>
                   {Object.keys(FINANCIAL_INSTITUTIONS || {}).map((k) => {
                     const fi = FINANCIAL_INSTITUTIONS[k];
-                    return <option key={k} value={fi.name}>{fi.swift ? fi.name + ' (' + fi.swift + ')' : fi.name}</option>;
+                    const nm = instName(fi);
+                    return <option key={k} value={nm}>{fi.swift ? nm + ' (' + fi.swift + ')' : nm}</option>;
                   })}
+                  {/* The account carries an institution that isn't in the list (an
+                      import wrote a name since renamed, or a hand-typed one). Keep it
+                      selectable so nothing is lost on save, but LABEL it — an
+                      unlabelled copy is indistinguishable from the real entry above
+                      and the user cannot tell which one they are picking. */}
                   {f.institution && f.institution !== '–' &&
-                    !Object.values(FINANCIAL_INSTITUTIONS || {}).some((fi) => fi.name === f.institution) &&
-                    <option value={f.institution}>{f.institution}</option>}
+                    !Object.values(FINANCIAL_INSTITUTIONS || {}).some((fi) => instName(fi) === f.institution.trim()) &&
+                    <option value={f.institution}>{f.institution + ' — Not In List'}</option>}
                 </StyledSelect>
               </div>
             </div>
@@ -582,7 +614,11 @@
               </div>
               <div className="form-field">
                 <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}</span>
-                <input id="acct-form-number-input" className="field-input" placeholder="e.g. ****3847" value={f.number} onChange={(e) => set('number', e.target.value)} />
+                <input id="acct-form-number-input" className="field-input"
+                  inputMode={isCard ? 'text' : 'numeric'}
+                  placeholder={isCard ? 'e.g. ****3847' : 'e.g. 300377'}
+                  value={f.number}
+                  onChange={(e) => set('number', isCard ? cleanCardNo(e.target.value) : cleanAccountNo(e.target.value))} />
               </div>
             </div>
 
@@ -663,8 +699,10 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Contract No</span>
-                  <input id="acct-form-pension-contract-input" className="field-input" placeholder="e.g. 17943452"
-                    value={f.pension.contract_no || ''} onChange={(e) => setPen('contract_no', e.target.value)} />
+                  {/* BES sözleşme no — an account number by another name, so it
+                      follows the same digits-only rule. */}
+                  <input id="acct-form-pension-contract-input" className="field-input" inputMode="numeric" placeholder="e.g. 17943452"
+                    value={f.pension.contract_no || ''} onChange={(e) => setPen('contract_no', cleanAccountNo(e.target.value))} />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Plan</span>
@@ -724,7 +762,7 @@
                 }}>
                   <option value="">None — main card</option>
                   {parentCardOptions.map((a) =>
-                  <option key={a.id} value={a.id}>{a.name + ' · ' + maskCardNumber(a.number)}</option>
+                  <option key={a.id} value={a.id}>{joinMeta(a.name, maskCardNumber(a.number))}</option>
                   )}
                 </StyledSelect>
               </div>
@@ -799,7 +837,10 @@
             <React.Fragment>
               <div className="form-field full">
                 <span className="field-label">IBAN</span>
-                <input id="acct-form-iban-input" className="field-input" placeholder="e.g. TR00 0000 0000 0000 0000 0000 00" value={f.iban} onChange={(e) => set('iban', e.target.value)} />
+                {/* No maxLength: it would clip a PASTED spaced IBAN at 26 raw
+                    characters (spaces included) before the strip runs, silently
+                    dropping digits. cleanIban() caps at 26 after despacing. */}
+                <input id="acct-form-iban-input" className="field-input" placeholder="e.g. TR000000000000000000000000" value={f.iban} onChange={(e) => set('iban', cleanIban(e.target.value))} />
               </div>
               <div className="form-grid">
                 <div className="form-field">
@@ -818,7 +859,10 @@
             <React.Fragment>
               <div className="form-field full">
                 <span className="field-label">IBAN</span>
-                <input id="acct-form-iban-input" className="field-input" placeholder="e.g. TR00 0000 0000 0000 0000 0000 00" value={f.iban} onChange={(e) => set('iban', e.target.value)} />
+                {/* No maxLength: it would clip a PASTED spaced IBAN at 26 raw
+                    characters (spaces included) before the strip runs, silently
+                    dropping digits. cleanIban() caps at 26 after despacing. */}
+                <input id="acct-form-iban-input" className="field-input" placeholder="e.g. TR000000000000000000000000" value={f.iban} onChange={(e) => set('iban', cleanIban(e.target.value))} />
               </div>
               <div className="form-field full">
                 <span className="field-label">Current Balance</span>
@@ -847,6 +891,14 @@
             }
           </div>
 
+          {/* A rejected save (most often the per-type unique IBAN / card number)
+              names the account already holding it, so show it where the user is
+              looking instead of closing the form. */}
+          {error &&
+          <div id="acct-form-error" className="acct-form-error">
+            <Icon name="alert-triangle" size={14} />{error}
+          </div>}
+
           <div className="modal-foot">
             <button id="acct-form-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
             <button id="acct-form-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />{editing ? 'Save Changes' : 'Add Account'}</button>
@@ -858,6 +910,7 @@
 
   // ── Delete confirm ──
   function DeleteAccountConfirm({ account, onClose, onConfirm }) {
+    const meta = joinMeta(account.institution, displayNumber(account));
     return (
       <div className="backdrop">
         <div className="modal confirm-modal">
@@ -870,7 +923,7 @@
           <div className="confirm-body">
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
             <div className="confirm-text">
-              Delete <b>{account.name}</b> ({account.institution} · {displayNumber(account)})?
+              Delete <b>{account.name}</b>{meta ? ` (${meta})` : ''}?
               <span className="warn">⚠ This cannot be undone.</span>
             </div>
           </div>

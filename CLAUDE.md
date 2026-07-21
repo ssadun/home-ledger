@@ -100,6 +100,22 @@ services/      — Business logic decoupled from HTTP
 ### Multi-currency design
 Every `Transaction` stores `amount` (original currency) + `amount_try` + `amount_usd` computed at save time. `_apply_rates()` in `routers/transactions.py` runs on every create/update using the closest available TCMB rate on or before the transaction date.
 
+### Account identity (unique keys)
+An account kind that has a real-world identifier is **keyed on it**, so the same account can't be added twice — the usual cause being a re-imported statement the wizard didn't auto-match. Enforced in `routers/accounts.py` (`UNIQUE_FIELD`) on both POST and PATCH, returning **409** with the name of the account already holding the value.
+
+| Type | Unique key |
+|---|---|
+| `bank`, `overdraft` | `iban` |
+| `credit`, `debit` | `number` (card number) |
+| `pension` | `number` (BES contract no) |
+| `wallet`, `cash`, `invest` | — none; a household can hold several |
+
+- **Scoped by identifier, not by type** (`_TYPES_BY_FIELD`). An IBAN is unique in the real world whether a `bank` or an `overdraft` row claims it, and one card number cannot be both a credit and a debit card — checking per-type would let the same IBAN in twice under two different types.
+- **Compared normalized** (`_ident()`: alphanumerics only, upper-cased). The same IBAN arrives as `TR65 0006 2000 …` from Garanti and `TR810012502002025673300377` from ON, so a raw string compare would miss the duplicate it exists to catch.
+- **Unique, not required.** A blank identifier is never compared, so an account can be created before its IBAN/number is known and several may sit blank.
+- `import_pension()` matches an existing plan on `pension.contract_no` **or** `number`, so the BES import can't sidestep the key by opening a second account for the same contract.
+- A rejected save is rendered in the Accounts form (`#acct-form-error`, cleared on the next edit) — `accounts-data.js` passes the API's `detail` through instead of a bare status code. Before this, `handleSave`'s error went to an unrendered `loadError` and **Save silently did nothing**.
+
 ### Prepaid cards
 A **prepaid card** is a credit card flagged `accounts.is_prepaid` — loaded with funds rather than backed by a credit line. Consequences, all of which are the *inverse* of a normal credit card:
 
@@ -136,7 +152,7 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | `Investment` | `investments` | name, platform, asset_type, currency, amount, purchase_price, purchase_date | Tracks stocks, funds, crypto, deposits, gold |
 | `Budget` | `budgets` | name, amount, currency, period (monthly/yearly), year, month, category_id | Budget limits per category or global |
 | `RecurringExpense` | `recurring_expenses` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
-| `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name, show_in_payment_method, is_prepaid | Household accounts & cards; drives the "Payment Method" picker. Credit/debit/cash accounts always appear there; `bank` accounts are opt-in via `show_in_payment_method` (checkbox in the Accounts edit form). `is_prepaid` marks a **prepaid card** — see _Prepaid cards_ below. `pension` (JSON, `type == "pension"` only) holds a BES contract's figures — see _Retirement plans (BES)_ below |
+| `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name, show_in_payment_method, is_prepaid | Household accounts & cards; drives the "Payment Method" picker. Credit/debit/cash accounts always appear there; `bank` accounts are opt-in via `show_in_payment_method` (checkbox in the Accounts edit form). `is_prepaid` marks a **prepaid card** — see _Prepaid cards_ below. `pension` (JSON, `type == "pension"` only) holds a BES contract's figures — see _Retirement plans (BES)_ below. `iban`/`number` are **per-type unique keys** — see _Account identity (unique keys)_ below. `institution` references a `FinancialInstitution` **by display name**, so that name is kept whitespace-trimmed on both sides and a rename cascades to accounts |
 | `PushSubscription` | `push_subscriptions` | owner_id, endpoint, p256dh, auth, user_agent | One row per subscribed browser/device (Web Push); `User.notify_lead_days` (0 = same-day) controls how far ahead of a due date the daily check fires |
 | `ReminderSnooze` | `reminder_snoozes` | owner_id, item_type (`recurring`\|`credit`), item_id, snoozed_until | Per-item push-reminder snooze; unique on `(owner_id, item_type, item_id)`. Suppresses an item's normal reminder and re-fires it once on `snoozed_until` (then the row is deleted). Created from the notification's Snooze button via `POST /api/push/snooze` |
 
@@ -310,6 +326,15 @@ Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user 
 | ON Burgan (single header) | column signature | Same shape, different column names | `_parse_on_burgan` |
 | Generic | heuristic | Guesses date + numeric columns | `_parse_generic` |
 
+> **IBAN is stored in ONE canonical form — unspaced, upper-case, 26 characters max**, and the account number is derived from it. A Turkish IBAN is `TR` + 2 check + 5 bank + 1 reserved + 16 account digits; the leading part of that tail is zero padding, so the app uses the **LAST 6 digits** as the account number (the same tail the import wizard's dropdown labels show). **Account numbers are digits only** — except **card** numbers (`credit`/`debit`), which stay masked (`4870 **** **** 1011`) and are exempt from both rules.
+>
+> - **Backend** (`bank_import.py`): `_clean_iban()` normalizes at every capture site (Garanti hesap, ON/Burgan, TEB, Garanti grid export); `_account_no_from_iban()` returns the last 6; `_normalize_account_identity()` applies both to every parser's identity records at the end of `parse_bank_file` (and in the TEB identity-only early return). It only fills a **blank** `number` and never overwrites one the statement printed.
+> - **Frontend** (`accounts-data.js`): `cleanIban()` / `cleanAccountNo()` / `cleanCardNo()` / `accountNoFromIban()` are the shared implementations, exported on `window.HL_ACCOUNTS_API` and used by both the Accounts form (`accounts-components.jsx`, sanitizing as you type + in `submit()`, and normalizing legacy values in `fromApi`) and the import wizard's draft (`accountDraftFromRecord()` in `import.jsx`). A drafted account and a hand-typed one therefore agree. **Character classes are enforced, not just spacing:** letters are accepted only in the IBAN's two country-code slots (`TR65ABCD2000` → `TR652000`), an account number and a BES contract no take digits only, and a card number takes digits/spaces/`*`.
+> - **API** (`routers/accounts.py`): `_clean_iban()` / `_clean_number()` re-apply the same rules on POST and PATCH — the form is the convenience, the router is the guarantee (a stale tab or a direct call must not store junk). A `number` that cleans to nothing becomes the `–` "unknown" placeholder rather than an empty string.
+> - **Do NOT put `maxLength={26}` on the IBAN input.** The browser clips the *raw* typed string — spaces included — before the strip runs, so a pasted `TR33 0006 …` silently loses its last digits. `cleanIban()` caps at 26 *after* despacing.
+>
+> This is why ON/Burgan statements, which print only an IBAN, still arrive at the wizard with an account number. Same file: a bank-account draft is named after the **holder alone** (`Sadun Sevingen`, not `Burgan Bank · Sadun Sevingen`) — institution is its own field and the Accounts page already renders it next to the name; only card drafts keep `institution ••last4`.
+
 ### Turkish number & date cheat-sheet
 
 - **Dates:** `15.03.2026`, `15/03/2026`, `2026-03-15`, `15-03-2026`, and TR month names `02 Haziran 2026` — all via `_parse_turkish_date`.
@@ -320,7 +345,7 @@ Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user 
 1. Add a `_is_<name>_pdf(text)` detector and a `_parse_<name>_pdf(content, text)` (or grid) parser in `bank_import.py`; reuse `_parse_turkish_date`, `_normalize_row`, `_fold`, and account-identity extraction.
 2. **Make the detector specific** so it doesn't shadow another bank (e.g. `HESAP HAREKETLERI` alone is ambiguous — Garanti's also requires `GARANTIBBVA`).
 3. Wire it into `parse_bank_file`'s PDF branch **in priority order** (`if not rows and text and _is_…`).
-4. Emit an `accounts` identity record (IBAN for banks, card number for cards). Set `interim:true` for non-billed/in-period card dumps so the frontend skips Credit Payment creation.
+4. Emit an `accounts` identity record (IBAN for banks, card number for cards). Set `interim:true` for non-billed/in-period card dumps so the frontend skips Credit Payment creation. **A missing `number` needs no work** — `parse_bank_file` fills it from the IBAN centrally (see the IBAN rule above).
 5. **Add a row to the tables above in the same commit.** Then rebuild the backend image (baked, not mounted) and run `graphify update .`.
 
 > **Never convert the casing of imported line-item descriptions.** Preserve the bank's original text verbatim — no Title-casing, upper-casing, or lower-casing — for every source (bank accounts and cards alike). Some line items carry meaningful mixed casing (e.g. `Sadun Sevıngen--EFT-CEP ŞUBE`, `K.Kartı Ödeme`) that must survive the import exactly as sent.

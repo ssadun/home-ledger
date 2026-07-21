@@ -14,7 +14,13 @@
 
 /* ── Account groups ── */
 .acct-group{display:flex;flex-direction:column;gap:10px}
-.acct-group-head{display:flex;align-items:center;gap:10px;padding:0 2px}
+/* The header is the group's expand/collapse toggle, so it is a <button>: reset the
+   UA button chrome back to the flat row it was as a <div>. */
+.acct-group-head{display:flex;align-items:center;gap:10px;width:100%;padding:3px 6px;border:1px solid transparent;border-radius:var(--radius);background:none;font-family:var(--font-sans);text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
+.acct-group-head:hover{background:var(--bg3);border-color:var(--border)}
+.acct-group-chevron{flex-shrink:0;color:var(--muted);transition:transform .15s ease}
+.acct-group-head.is-collapsed .acct-group-chevron{transform:rotate(-90deg)}
+.acct-group-head:hover .acct-group-chevron{color:var(--text)}
 .acct-group-icon{display:inline-flex;align-items:center}
 .acct-group-icon svg{width:15px;height:15px}
 .acct-group-label{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text)}
