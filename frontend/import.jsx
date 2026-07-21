@@ -40,6 +40,14 @@
     { key: 'done',   label: 'Done', icon: 'check-check' },
   ];
 
+  // Statements that carry an account identity but no movements (e.g. a TEB
+  // dijital hesap cüzdanı for a dormant account). Nothing to review or import —
+  // the wizard only offers to create/match the account the file describes.
+  const ID_STEPS = [
+    { key: 'choose',   label: 'Choose File', icon: 'upload' },
+    { key: 'identity', label: 'Add Account', icon: 'scan-search' },
+  ];
+
   // Investment asset types accepted by the backend (models.Investment.asset_type).
   const ASSET_TYPES = [
     ['stock', 'Stock'], ['fund', 'Fund'], ['gold', 'Gold'],
@@ -116,6 +124,8 @@
       number: rec.number || rec.card_number || '',
       iban: rec.iban || '',
       institution: instName,
+      // Closing balance, when the statement prints one (TEB cüzdan does).
+      balance: rec.balance != null ? rec.balance : undefined,
       cardName: isCard ? (rec.holder ? rec.holder.trim() : '') : undefined,
       // Statement's actual last payment date (Son Ödeme Tarihi); the form derives the
       // Statement Cutoff Week from it when no week is otherwise set.
@@ -309,6 +319,43 @@
             <span className="imp-hint"><Icon name="info" size={11} />This becomes the default account for every row — you can still change individual rows in the next step.</span>
           </div>
         )}
+      </div>
+    );
+  }
+
+  // ═══════════════ STEP 2' — Account identity only (no movements) ═══════════════
+  // Terminal step for statements that describe an account but carry no rows.
+  function IdentityStep({ doc, accounts, resolveSource, onPick, onCreate }) {
+    const detected = doc.statementAccounts || [];
+    const unresolved = detected.filter(rec => !resolveSource(rec.source)).length;
+    return (
+      <div className="imp-detect">
+        <div className="imp-doc-card">
+          <span className="imp-doc-ico"><Icon name="file-text" size={18} /></span>
+          <div className="imp-doc-meta">
+            <span className="imp-doc-name">{doc.fileName}</span>
+            <span className="imp-doc-sub">{doc.institution} · no transactions</span>
+          </div>
+        </div>
+
+        <div className="imp-nomatch-banner" id="imp-identity-note">
+          <Icon name="info" size={14} />
+          {doc.note || 'This statement contains no transactions.'}
+        </div>
+
+        <div className="imp-field">
+          <span className="field-label">Detected Account{detected.length > 1 ? 's' : ''}</span>
+          {unresolved === 0
+            ? <div className="imp-match-banner"><Icon name="badge-check" size={14} />Account is set up — nothing further to import from this file.</div>
+            : null}
+          <div className="imp-src-list">
+            {detected.map(rec => (
+              <SourceRow key={rec.source} rec={rec} accounts={accounts}
+                value={resolveSource(rec.source)} onPick={onPick} onCreate={onCreate} />
+            ))}
+          </div>
+          <span className="imp-hint"><Icon name="info" size={11} />Create the account now and it will be matched by IBAN when you import a statement that does have movements.</span>
+        </div>
       </div>
     );
   }
@@ -680,7 +727,7 @@
     const [rows, setRows] = React.useState([]);
     const [doc, setDoc] = React.useState(null);               // normalized statement
     const [result, setResult] = React.useState(null);
-    const [mode, setMode] = React.useState('tx');             // 'tx' | 'inv' (broker portfolio) | 'pen' (BES)
+    const [mode, setMode] = React.useState('tx');             // 'tx' | 'inv' (broker portfolio) | 'pen' (BES) | 'identity' (account, no movements)
     const [invRows, setInvRows] = React.useState([]);         // editable holdings
     const [invSummary, setInvSummary] = React.useState(null); // { cash, total, period_* }
     const [invResult, setInvResult] = React.useState(null);   // { created, updated, holdings }
@@ -801,6 +848,25 @@
             return;
           }
           if (!res.rows || !res.rows.length) {
+            // A statement can legitimately carry an account identity but no
+            // movements (e.g. a TEB dijital hesap cüzdanı for a dormant or
+            // newly-opened account). Don't dead-end — let the user create or
+            // match the account the file describes.
+            const idOnly = (res.accounts || []).filter(a => a && a.source);
+            if (idOnly.length) {
+              setMode('identity');
+              // Keyed `statementAccounts` like the tx path, so resolveSource()
+              // auto-matches these by IBAN rather than falling back to last-4.
+              setDoc({ fileName: pickedFile.name, format: formatOf(pickedFile.name),
+                institution: res.bank_detected || 'Bank',
+                note: res.has_movements
+                  ? 'This statement lists movements, but no transaction parser exists for its layout yet — only the account was read.'
+                  : 'This statement covers a period with no movements — only the account was read.',
+                statementAccounts: idOnly });
+              setStep('identity');
+              setBusy(false);
+              return;
+            }
             setError('No transactions could be parsed from this file.');
             setBusy(false);
             return;
@@ -1041,6 +1107,14 @@
           <button id="imp-detect-review-btn" className="amb ok" disabled={!allResolved} onClick={goReview}><Icon name="arrow-right" size={14} />Review</button>
         </React.Fragment>
       );
+      // Identity-only files have nothing to import — the account is created via
+      // the modal, so this step is terminal.
+      if (step === 'identity') return (
+        <React.Fragment>
+          <button id="imp-identity-back-btn" className="amb cancel" onClick={() => { setMode('tx'); setStep('choose'); }}><Icon name="arrow-left" size={14} />Back</button>
+          <button id="imp-identity-done-btn" className="amb ok" onClick={onClose}><Icon name="check" size={14} />Done</button>
+        </React.Fragment>
+      );
       if (step === 'review') return (
         <React.Fragment>
           <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep(mode === 'tx' ? 'detect' : 'choose')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
@@ -1058,13 +1132,13 @@
         <div className="modal imp-modal">
           <div className="modal-head">
             <div className="modal-head-l">
-              <span className="modal-title"><Icon name="file-down" size={16} />{mode === 'pen' ? 'Import Retirement Plan' : mode === 'inv' ? 'Import Portfolio' : 'Import Transactions'}</span>
+              <span className="modal-title"><Icon name="file-down" size={16} />{mode === 'pen' ? 'Import Retirement Plan' : mode === 'inv' ? 'Import Portfolio' : mode === 'identity' ? 'Add Account From Statement' : 'Import Transactions'}</span>
               <span className="modal-sub">{doc ? doc.fileName : 'From CSV, Excel, or PDF statement'}</span>
             </div>
             <button id="imp-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
-          <div className="imp-stepper-wrap"><Stepper current={step} steps={mode === 'pen' ? PEN_STEPS : mode === 'inv' ? INV_STEPS : STEPS} /></div>
+          <div className="imp-stepper-wrap"><Stepper current={step} steps={mode === 'pen' ? PEN_STEPS : mode === 'inv' ? INV_STEPS : mode === 'identity' ? ID_STEPS : STEPS} /></div>
 
           <div className="modal-body imp-body">
             {error && <div className="imp-error-banner"><Icon name="alert-triangle" size={14} />{error}</div>}
@@ -1072,6 +1146,8 @@
               pickedFile={pickedFile} setPickedFile={setPickedFile} />}
             {step === 'detect' && mode === 'tx' && doc && <DetectStep doc={doc} accId={accId} setAccId={setAccId} accounts={accounts}
               sourceMap={sourceMap} resolveSource={resolveSource} onPick={pickSource} onCreate={openCreate} />}
+            {step === 'identity' && mode === 'identity' && doc && <IdentityStep doc={doc} accounts={accounts}
+              resolveSource={resolveSource} onPick={pickSource} onCreate={openCreate} />}
             {step === 'review' && mode === 'tx' && <ReviewStep rows={rows} setRows={setRows} accounts={accounts} />}
             {step === 'review' && mode === 'inv' && <InvReviewStep rows={invRows} setRows={setInvRows} summary={invSummary} />}
             {step === 'review' && mode === 'pen' && penSummary && <PenReviewStep pension={penSummary} rows={penRows} setRows={setPenRows} />}

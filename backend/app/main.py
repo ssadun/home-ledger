@@ -37,6 +37,7 @@ try:
     seed_default_institutions(_seed_db)
     # Backfill institutions added after the initial seed (idempotent).
     ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik")
+    ensure_institution(_seed_db, "teb", "TEB Türk Ekonomi Bankası", "TEBUTRIS")
 finally:
     _seed_db.close()
 

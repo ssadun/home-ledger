@@ -917,6 +917,76 @@ def _parse_on_burgan_pdf(content: bytes, text: str) -> tuple[list[dict], list[di
     return rows, accounts
 
 
+# ─── TEB "Dijital Hesap Cüzdanı" (vadesiz hesap cüzdanı — PDF) ───────────────
+# 1. sayfa "Etiket: Değer" künye bloğu (IBAN, hesap/müşteri no, şube, para kodu,
+# bakiye) + gerçek bir tablo başlığı:
+#     Sıra No | Tarih | Açıklama | İşlem Tutarı | Bakiye
+# 2. sayfa tamamen mevzuat metnidir (işlem içermez).
+#
+# DİKKAT — şu an YALNIZCA HESAP KİMLİĞİ çözümlenir, işlem satırları değil.
+# Eldeki üç örnek cüzdanın üçü de yeni açılmış/hareketsiz hesaplara ait: tablo
+# başlığı var, gövde satırı yok, "Bakiye: 0,00". Dolayısıyla satır biçiminin
+# doğrulanamayan yanları var — "İşlem Tutarı" işareti nasıl taşıyor (önek '-/+'
+# mı, yoksa yön yalnızca Bakiye farkından mı okunuyor), ondalık basamak sayısı,
+# uzun açıklamaların satıra bölünüp bölünmediği. Bunları tahmin edip yanlış
+# yönde işlem üretmektense satır üretmiyoruz; hareketli bir cüzdan örneği
+# geldiğinde _parse_teb_pdf'e gövde çözümlemesi eklenecek (bkz. CLAUDE.md).
+_TEB_IBAN_RE    = re.compile(r"IBAN\s*:\s*(TR\d{24})")
+_TEB_NO_RE      = re.compile(r"Hesap Numaras[ıi]\s*:\s*(\d+)")
+_TEB_HOLDER_RE  = re.compile(r"M[üu]şteri Ad[ıi]\s*-\s*Soyad[ıi]\s*:\s*([^\n]+)")
+_TEB_SUBE_RE    = re.compile(r"Şube\s*:\s*([^\n]+)")
+_TEB_CUR_RE     = re.compile(r"Para Kodu\s*:\s*([A-Za-z]{2,3})")
+_TEB_BALANCE_RE = re.compile(r"Bakiye\s*:\s*(-?[\d.]*\d,\d{2})")
+# Gövde satırı: "1  21/07/2026  AÇIKLAMA  -1.234,56  2.345,67" (Sıra No + tarih).
+_TEB_ROW_RE     = re.compile(r"^\s*\d+\s+\d{2}/\d{2}/\d{4}\s")
+
+
+def _is_teb_pdf(text: str) -> bool:
+    """TEB 'Dijital Hesap Cüzdanı' dökümü mü? (diakritikten bağımsız).
+
+    'Dijital Hesap Cüzdanı' tek başına başka bankalarda da geçebileceği için
+    TEB ünvanı ile birlikte aranır.
+    """
+    f = _fold(text)
+    return "DIJITAL HESAP CUZDANI" in f and "TURK EKONOMI BANKASI" in f
+
+
+def _teb_field(text: str, rx: re.Pattern) -> Optional[str]:
+    """Künye bloğundan tek satırlık bir alanı boşlukları sadeleştirerek okur."""
+    m = rx.search(text)
+    return " ".join(m.group(1).split()) if m else None
+
+
+def _teb_has_movements(text: str) -> bool:
+    """Cüzdanda gerçekten hareket var mı? (tablo gövdesinde Sıra No + tarih satırı)."""
+    return any(_TEB_ROW_RE.match(ln) for ln in text.splitlines())
+
+
+def _parse_teb_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    """TEB 'Dijital Hesap Cüzdanı' PDF'ini hesap kimliğine çevirir.
+
+    İşlem satırı üretmez — gerekçe için yukarıdaki bölüm başlığına bakın.
+    """
+    rows: list[dict] = []
+
+    iban       = _teb_field(text, _TEB_IBAN_RE)
+    account_no = _teb_field(text, _TEB_NO_RE)
+    holder     = _teb_field(text, _TEB_HOLDER_RE)
+    branch     = _teb_field(text, _TEB_SUBE_RE)
+    # "Para Kodu: TL" → TRY; USD/EUR cüzdanlar için _detect_currency devreye girer.
+    currency   = _detect_currency(_teb_field(text, _TEB_CUR_RE) or "TL")
+    balance    = _parse_amount(_teb_field(text, _TEB_BALANCE_RE) or "")
+
+    accounts: list[dict] = []
+    if iban or account_no:
+        accounts.append({
+            "source": iban or account_no, "type": "bank", "number": account_no,
+            "card_number": None, "iban": iban, "branch": branch, "holder": holder,
+            "currency": currency, "balance": balance, "institution": "teb",
+        })
+    return rows, accounts
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Garanti BBVA "export" parser (hesap hareketleri + kredi kartı ekstresi)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1524,6 +1594,35 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
                 "rows": [],
                 "accounts": [],
                 "errors": [] if funds else ["Fon dağılımı okunamadı."],
+            }
+        # TEB dijital hesap cüzdanı → şimdilik yalnızca hesap kimliği (işlem yok).
+        # Kendi dalında erken döner: satır üretmediği için aşağıdaki "if not rows"
+        # zincirine bırakılsa jenerik tablo/OCR yoluna düşer ve TEB künyesi
+        # yerine çöp satırlar üretirdi.
+        if text and _is_teb_pdf(text):
+            _, accounts = _parse_teb_pdf(content, text)
+            # `has_movements` distinguishes "hesap gerçekten hareketsiz" from
+            # "hareket var ama çözümleyicimiz yok" — arayüz metnini buna göre
+            # seçer, böylece yerelleştirilmiş dize arayüze sızmaz.
+            moved = _teb_has_movements(text)
+            if not accounts:
+                notes = ["Hesap künyesi okunamadı."]
+            elif moved:
+                notes = ["TEB cüzdanında hesap hareketi görünüyor, ancak işlem "
+                         "satırı çözümleyicisi henüz yok — yalnızca hesap tanımlandı."]
+            else:
+                notes = ["Cüzdanda hesap hareketi yok — yalnızca hesap tanımlandı."]
+            return {
+                "kind": "identity",
+                "bank_detected": "teb (dijital hesap cüzdanı PDF)",
+                "total_rows": 0,
+                "income_total": 0.0,
+                "expense_total": 0.0,
+                "date_range": {"from": None, "to": None},
+                "rows": [],
+                "accounts": accounts,
+                "has_movements": moved,
+                "errors": notes,
             }
         if text and _is_garanti_cc_pdf(text):
             rows, accounts = _parse_garanti_cc_pdf(text)
