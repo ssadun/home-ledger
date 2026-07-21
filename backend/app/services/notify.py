@@ -8,6 +8,7 @@ from app.config import settings
 from app.models import (
     Account, CreditPayment, PushSubscription, ReminderSnooze, RecurringExpense, User,
 )
+from app.services.recurring import roll_forward_due_dates
 
 # Snooze durations offered by the notification action buttons, in days. The
 # /api/push/snooze route rejects anything not in this allowlist.
@@ -96,6 +97,11 @@ def run_due_date_check(db: Session) -> dict:
          deleted (``<=`` so a day the scan didn't run never strands a snooze)."""
     today = date.today()
     sent = {"recurring": 0, "credit": 0}
+
+    # Self-heal any next_due that's fallen behind before matching against it —
+    # otherwise an item whose due date was missed once (scheduler downtime,
+    # etc.) would never fire again.
+    roll_forward_due_dates(db)
 
     users = db.query(User).filter(User.is_active == True).all()  # noqa: E712
     for user in users:

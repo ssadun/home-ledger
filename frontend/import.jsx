@@ -11,6 +11,8 @@
 
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
   const grp = (v, d = 2) => Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  // ISO → Turkish display date ("2026-08-16" → "16.08.2026").
+  const fmtDateTr = (iso) => { if (!iso) return '—'; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; };
   const FMT = { csv: { label: 'CSV', icon: 'file-spreadsheet', color: 'var(--green)' },
                 excel: { label: 'Excel', icon: 'sheet', color: 'var(--emerald)' },
                 pdf: { label: 'PDF', icon: 'file-text', color: 'var(--red)' } };
@@ -27,6 +29,14 @@
   const INV_STEPS = [
     { key: 'choose', label: 'Choose File', icon: 'upload' },
     { key: 'review', label: 'Review Holdings', icon: 'list-checks' },
+    { key: 'done',   label: 'Done', icon: 'check-check' },
+  ];
+
+  // BES birikim özeti: like the broker path, the account is identified by the
+  // statement itself (contract number), so there is no Detect Account step.
+  const PEN_STEPS = [
+    { key: 'choose', label: 'Choose File', icon: 'upload' },
+    { key: 'review', label: 'Review Funds', icon: 'list-checks' },
     { key: 'done',   label: 'Done', icon: 'check-check' },
   ];
 
@@ -562,6 +572,104 @@
     );
   }
 
+  // ═══════════════ STEP 3″ — Review BES funds (retirement plan) ═══════════════
+  function PenReviewStep({ pension, rows, setRows }) {
+    const update = (i, patch) => setRows(prev => prev.map((r, j) => j === i ? { ...r, ...patch } : r));
+    const remove = (i) => setRows(prev => prev.filter((_, j) => j !== i));
+    const total = rows.reduce((s, r) => s + (Number(r.value) || 0), 0);
+    // Investment return is derived exactly as the detail view derives it, so what
+    // you see here is what the account will show.
+    const ret = (pension.total != null && pension.state_contribution != null && pension.total_paid != null)
+      ? +(pension.total - pension.state_contribution - pension.total_paid).toFixed(2) : null;
+
+    return (
+      <div className="imp-pane imp-review">
+        <div className="imp-pen-id" id="imp-pen-identity">
+          <Icon name="piggy-bank" size={14} />
+          <span className="imp-pen-plan">{pension.plan || 'Retirement Plan'}</span>
+          <span className="imp-pen-contract mono">Contract {pension.contract_no || '—'}</span>
+        </div>
+
+        <div className="imp-inv-summary">
+          <div className="imp-stat"><span className="imp-stat-k">Total Savings</span><span className="imp-stat-v">₺{grp(pension.total || 0)}</span></div>
+          <div className="imp-stat"><span className="imp-stat-k">Paid In</span><span className="imp-stat-v">₺{grp(pension.total_paid || 0)}</span></div>
+          <div className="imp-stat"><span className="imp-stat-k">State Contrib.</span><span className="imp-stat-v pos">₺{grp(pension.state_contribution || 0)}</span></div>
+          {ret != null && <div className="imp-stat"><span className="imp-stat-k">Return</span><span className={'imp-stat-v ' + (ret < 0 ? 'neg' : 'pos')}>{ret < 0 ? '−' : ''}₺{grp(ret)}</span></div>}
+        </div>
+
+        {(pension.next_payment_date || pension.next_payment_amount != null) && (
+          <div className="imp-pen-next" id="imp-pen-next-payment">
+            <Icon name="calendar-clock" size={12} />
+            Next payment {fmtDateTr(pension.next_payment_date)}
+            {pension.next_payment_amount != null && <b> · ₺{grp(pension.next_payment_amount)}</b>}
+          </div>
+        )}
+
+        <div className="imp-rev-head">
+          <span className="imp-rev-count">
+            {rows.length} fund{rows.length !== 1 ? 's' : ''} · the plan's fund split is replaced by this statement
+          </span>
+        </div>
+        <div className="imp-rev-table imp-pen-table">
+          <div className="imp-pen-thead">
+            <span>FUND</span><span className="ar">SHARE</span><span className="ar">VALUE</span><span></span>
+          </div>
+          <div className="imp-rev-body">
+            {rows.map((r, i) => (
+              <div className="imp-pen-row" key={r.key}>
+                <input id={'imp-pen-' + i + '-name-input'} className="imp-cell imp-pen-name" title="Fund name"
+                  value={r.name} onChange={(e) => update(i, { name: e.target.value })} />
+                <span className="imp-pen-pct mono" title={r.state ? 'State contribution fund' : 'Participant fund'}>
+                  {r.state && <Icon name="landmark" size={10} />}{grp(r.pct)}%
+                </span>
+                <div className="imp-pen-val-wrap">
+                  <span className="imp-amt-sign">₺</span>
+                  <input id={'imp-pen-' + i + '-value-input'} type="number" step="0.01" className="imp-cell imp-pen-val" title="Value in TRY"
+                    value={r.value} onChange={(e) => update(i, { value: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <button id={'imp-pen-' + i + '-delete-btn'} className="imp-del" onClick={() => remove(i)} title="Remove fund"><Icon name="trash-2" size={13} /></button>
+              </div>
+            ))}
+            {rows.length === 0 && <div className="imp-rev-empty"><Icon name="inbox" size={24} />All funds removed.</div>}
+          </div>
+        </div>
+        <div className="imp-pen-foot" id="imp-pen-reconcile">
+          <span>Funds total</span>
+          <span className={'mono' + (Math.abs(total - (pension.total || 0)) < 0.01 ? ' ok' : ' warn')}>
+            ₺{grp(total)}{Math.abs(total - (pension.total || 0)) >= 0.01 ? ' ≠ ₺' + grp(pension.total || 0) : ''}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  function PenDoneStep({ result }) {
+    return (
+      <div className="imp-pane imp-done">
+        <div className="imp-done-ico"><Icon name="check-check" size={34} /></div>
+        <span className="imp-done-t">Retirement Plan Imported</span>
+        <span className="imp-done-s">
+          {result.account_name} · ₺{grp(result.balance || 0)}
+        </span>
+        <div className="imp-done-grid">
+          {result.funds.map(f => (
+            <div className="imp-done-row" key={f.key}>
+              <span className="imp-done-acc">{f.name}</span>
+              <span className="imp-done-n">{grp(f.pct)}%</span>
+              <span className="imp-done-delta pos">₺{grp(f.value)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="imp-done-cp" id="imp-done-pension-account">
+          <Icon name="piggy-bank" size={13} />
+          {result.account_created ? 'Created' : 'Updated'} retirement plan account — {result.funds_created} fund{result.funds_created !== 1 ? 's' : ''} added
+          {result.funds_updated ? ', ' + result.funds_updated + ' updated' : ''}
+          {result.funds_removed ? ', ' + result.funds_removed + ' removed' : ''}. Open it on the Accounts page.
+        </div>
+      </div>
+    );
+  }
+
   // ═══════════════ Wizard shell ═══════════════
   function ImportWizard({ preAccId, onClose, onCommit }) {
     const [step, setStep] = React.useState('choose');
@@ -572,10 +680,13 @@
     const [rows, setRows] = React.useState([]);
     const [doc, setDoc] = React.useState(null);               // normalized statement
     const [result, setResult] = React.useState(null);
-    const [mode, setMode] = React.useState('tx');             // 'tx' | 'inv' (broker portfolio)
+    const [mode, setMode] = React.useState('tx');             // 'tx' | 'inv' (broker portfolio) | 'pen' (BES)
     const [invRows, setInvRows] = React.useState([]);         // editable holdings
     const [invSummary, setInvSummary] = React.useState(null); // { cash, total, period_* }
     const [invResult, setInvResult] = React.useState(null);   // { created, updated, holdings }
+    const [penSummary, setPenSummary] = React.useState(null); // BES figures (accounts.pension shape)
+    const [penRows, setPenRows] = React.useState([]);         // editable funds
+    const [penResult, setPenResult] = React.useState(null);   // confirm-pension response + funds
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState(null);
     const [sourceMap, setSourceMap] = React.useState({});     // statement source → chosen account id
@@ -636,6 +747,31 @@
         setBusy(true);
         try {
           const res = await window.HL_IMPORT_API.preview(pickedFile, 'auto');
+          // BES birikim özeti → a "pension" Account + its fund split. Like the
+          // broker path, the statement identifies its own account (by contract
+          // number), so the account-detection step is skipped.
+          if (res.kind === 'pension') {
+            const funds = res.funds || [];
+            if (!funds.length) {
+              setError('No funds could be parsed from this retirement plan statement.');
+              setBusy(false);
+              return;
+            }
+            setMode('pen');
+            setPenSummary(res.pension || {});
+            setPenRows(funds.map((f, i) => ({
+              key: 'f' + i,
+              name: f.name || '',
+              pct: Number(f.pct) || 0,
+              state: !!f.state,
+              value: Number(f.value) || 0,
+            })));
+            setDoc({ fileName: pickedFile.name, format: formatOf(pickedFile.name),
+              institution: res.bank_detected || 'Pension' });
+            setStep('review');
+            setBusy(false);
+            return;
+          }
           // Broker portfolio statement (Midas) → holdings become Investments,
           // skipping the account-detection step entirely.
           if (res.kind === 'investments') {
@@ -717,6 +853,29 @@
       setStep('review');
     }
 
+    // Persist a reviewed BES statement: the backend upserts the pension Account by
+    // contract number and rewrites its fund split in one call.
+    async function commitPension() {
+      setError(null);
+      setBusy(true);
+      let outcome;
+      try {
+        outcome = await window.HL_IMPORT_API.confirmPension(
+          { ...penSummary, total: penRows.reduce((s, r) => s + (Number(r.value) || 0), 0) },
+          penRows.map(r => ({ name: r.name, pct: r.pct, state: r.state, value: r.value })),
+        );
+      } catch (e) {
+        setError(e.message || 'Import failed.');
+        setBusy(false);
+        return;
+      }
+      setBusy(false);
+      setPenResult({ ...outcome, funds: penRows });
+      // Re-hydrate the parent Accounts list so the plan and its new balance show.
+      onCommit && onCommit([], {});
+      setStep('done');
+    }
+
     // Persist reviewed broker holdings as Investments (upsert by platform+symbol).
     async function commitInvestments() {
       setError(null);
@@ -789,7 +948,7 @@
       setBusy(true);
       let outcome;
       try {
-        outcome = await window.HL_IMPORT_API.confirm(backendRows, true);
+        outcome = await window.HL_IMPORT_API.confirm(backendRows, true, doc.fileName);
       } catch (e) {
         setError(e.message || 'Import failed.');
         setBusy(false);
@@ -861,7 +1020,10 @@
       setStep('done');
     }
 
-    const inclCount = (mode === 'inv' ? invRows : rows).filter(r => r.include).length;
+    // BES funds have no per-row include toggle (the split is all-or-nothing — it has
+    // to reconcile to the balance), so the count is simply how many rows remain.
+    const inclCount = mode === 'pen' ? penRows.length
+      : (mode === 'inv' ? invRows : rows).filter(r => r.include).length;
 
     // Footer buttons per step
     function Footer() {
@@ -881,8 +1043,9 @@
       );
       if (step === 'review') return (
         <React.Fragment>
-          <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep(mode === 'inv' ? 'choose' : 'detect')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
-          <button id="imp-review-import-btn" className="amb ok" disabled={inclCount === 0 || busy} onClick={mode === 'inv' ? commitInvestments : commit}>
+          <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep(mode === 'tx' ? 'detect' : 'choose')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
+          <button id="imp-review-import-btn" className="amb ok" disabled={inclCount === 0 || busy}
+            onClick={mode === 'pen' ? commitPension : mode === 'inv' ? commitInvestments : commit}>
             <Icon name={busy ? 'loader' : 'check'} size={14} />{busy ? 'Importing…' : 'Import'}
           </button>
         </React.Fragment>
@@ -895,13 +1058,13 @@
         <div className="modal imp-modal">
           <div className="modal-head">
             <div className="modal-head-l">
-              <span className="modal-title"><Icon name="file-down" size={16} />{mode === 'inv' ? 'Import Portfolio' : 'Import Transactions'}</span>
+              <span className="modal-title"><Icon name="file-down" size={16} />{mode === 'pen' ? 'Import Retirement Plan' : mode === 'inv' ? 'Import Portfolio' : 'Import Transactions'}</span>
               <span className="modal-sub">{doc ? doc.fileName : 'From CSV, Excel, or PDF statement'}</span>
             </div>
             <button id="imp-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
 
-          <div className="imp-stepper-wrap"><Stepper current={step} steps={mode === 'inv' ? INV_STEPS : STEPS} /></div>
+          <div className="imp-stepper-wrap"><Stepper current={step} steps={mode === 'pen' ? PEN_STEPS : mode === 'inv' ? INV_STEPS : STEPS} /></div>
 
           <div className="modal-body imp-body">
             {error && <div className="imp-error-banner"><Icon name="alert-triangle" size={14} />{error}</div>}
@@ -911,8 +1074,10 @@
               sourceMap={sourceMap} resolveSource={resolveSource} onPick={pickSource} onCreate={openCreate} />}
             {step === 'review' && mode === 'tx' && <ReviewStep rows={rows} setRows={setRows} accounts={accounts} />}
             {step === 'review' && mode === 'inv' && <InvReviewStep rows={invRows} setRows={setInvRows} summary={invSummary} />}
+            {step === 'review' && mode === 'pen' && penSummary && <PenReviewStep pension={penSummary} rows={penRows} setRows={setPenRows} />}
             {step === 'done' && mode === 'tx' && result && <DoneStep result={result} />}
             {step === 'done' && mode === 'inv' && invResult && <InvDoneStep result={invResult} />}
+            {step === 'done' && mode === 'pen' && penResult && <PenDoneStep result={penResult} />}
           </div>
 
           <div className="modal-foot"><Footer /></div>

@@ -106,6 +106,30 @@ class StatementMappingUpdate(BaseModel):
     category_key: Optional[str] = None
 
 
+# ── Financial Institution (bank / provider + logo) ────────────────────────────
+
+class FinancialInstitutionOut(BaseModel):
+    id: int
+    key: str
+    name: str
+    swift: Optional[str] = None
+    logo: Optional[str] = None       # data: URI or https URL
+    is_default: Optional[bool] = None
+    model_config = {"from_attributes": True}
+
+class FinancialInstitutionCreate(BaseModel):
+    key: str
+    name: str
+    swift: Optional[str] = None
+    logo: Optional[str] = None
+
+class FinancialInstitutionUpdate(BaseModel):
+    key: Optional[str] = None
+    name: Optional[str] = None
+    swift: Optional[str] = None
+    logo: Optional[str] = None
+
+
 # ── Transaction ───────────────────────────────────────────────────────────────
 
 class TransactionCreate(BaseModel):
@@ -142,6 +166,7 @@ class TransactionOut(BaseModel):
     category: Optional[CategoryOut]
     receipt_path: Optional[str]
     credit_payment_id: Optional[int]
+    source_filename: Optional[str]
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -344,6 +369,7 @@ class AccountCreate(BaseModel):
     iban: Optional[str] = None
     linked_key: Optional[str] = None
     cc_type: Optional[str] = None
+    is_prepaid: bool = False
     debit_type: Optional[str] = None
     card_name: Optional[str] = None
     card_medium: Optional[str] = None
@@ -351,6 +377,7 @@ class AccountCreate(BaseModel):
     validity_year: Optional[str] = None
     statement_cutoff: Optional[int] = None
     payment_due: Optional[str] = None
+    pension: Optional[dict] = None      # BES figures; only for type == "pension"
 
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
@@ -366,6 +393,7 @@ class AccountUpdate(BaseModel):
     iban: Optional[str] = None
     linked_key: Optional[str] = None
     cc_type: Optional[str] = None
+    is_prepaid: Optional[bool] = None
     debit_type: Optional[str] = None
     card_name: Optional[str] = None
     card_medium: Optional[str] = None
@@ -373,6 +401,7 @@ class AccountUpdate(BaseModel):
     validity_year: Optional[str] = None
     statement_cutoff: Optional[int] = None
     payment_due: Optional[str] = None
+    pension: Optional[dict] = None
 
 class AccountOut(AccountCreate):
     id: int

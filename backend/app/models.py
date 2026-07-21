@@ -67,6 +67,22 @@ class StatementMapping(Base):
     is_default = Column(Boolean, default=False)
 
 
+class FinancialInstitution(Base):
+    """A bank / provider behind the Accounts "Institution" picker, with its logo.
+
+    Shared (not user-scoped), like Category and StatementMapping. Managed in
+    Configuration → Financial Institutions. `logo` holds a data: URI or an https
+    URL — it used to live in each browser's localStorage, which meant a logo
+    uploaded on one device was invisible on every other one."""
+    __tablename__ = "financial_institutions"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)  # "garanti"
+    name = Column(String, nullable=False)                          # "Garanti BBVA"
+    swift = Column(String)                                         # "TGBATRIS"
+    logo = Column(Text)                                            # data: URI or https URL
+    is_default = Column(Boolean, default=False)
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True, index=True)
@@ -103,6 +119,10 @@ class Transaction(Base):
 
     # Credit card statement this spending belongs to (auto-linked by card + cutover window)
     credit_payment_id = Column(Integer, ForeignKey("credit_payments.id"), nullable=True)
+
+    # Original bank/card statement filename this row was imported from (bank_import.py).
+    # Null for manually-entered transactions.
+    source_filename = Column(String)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -235,6 +255,10 @@ class Account(Base):
 
     # Card-specific (credit / debit)
     cc_type = Column(String)                    # visa | mastercard | troy
+    # Prepaid card: loaded with funds rather than backed by a credit line, so `balance`
+    # is the POSITIVE remaining amount (not negative outstanding debt) and is decremented
+    # automatically by spending transactions and by recurring/subscription occurrences.
+    is_prepaid = Column(Boolean, default=False)
     debit_type = Column(String)                 # electron | maestro | troy
     card_name = Column(String)                  # name printed on card
     card_medium = Column(String, default="physical")  # physical | virtual (credit cards)
@@ -242,6 +266,15 @@ class Account(Base):
     validity_year = Column(String)
     statement_cutoff = Column(Integer)          # credit-card statement cutoff day
     payment_due = Column(String)                # ISO date of last credit-card statement payment (Son Ödeme Tarihi)
+
+    # Individual retirement plan (BES) figures — set only for type == "pension".
+    # One JSON blob rather than ~9 columns on a table shared by every account kind;
+    # written by the BES statement import (services/bank_import.import_pension).
+    # Keys: provider, contract_no, plan, start_date, total_paid, state_contribution,
+    # pending, next_payment_date, next_payment_amount, vesting_pct, report_date,
+    # target_allocation. Investment return is DERIVED, never stored:
+    #   balance - state_contribution - total_paid
+    pension = Column(JSON)
 
 
 class CreditPayment(Base):

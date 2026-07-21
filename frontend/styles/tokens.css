@@ -9,6 +9,14 @@
 @font-face{font-family:'Inter';font-style:normal;font-weight:800;font-display:swap;src:url('../fonts/Inter_18pt-ExtraBold.ttf') format('truetype');}
 
 :root{
+  /* Tell the browser this app is dark, so EVERY native control renders itself in
+     dark mode: the <input type="date"> calendar glyph and its dropdown panel,
+     number spinners, native selects, scrollbars, autofill.
+     Declared once here so a newly added field is correct by default — never
+     re-tint a native glyph per-field with filter:invert(), which double-inverts
+     against this and turns the icon black. */
+  color-scheme:dark;
+
   /* Surfaces */
   --bg:#0d0f14;        /* page */
   --bg2:#141720;       /* sidebar / header */

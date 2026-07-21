@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models import RecurringExpense, User
 from app.schemas import RecurringCreate, RecurringUpdate, RecurringOut
 from app.services.auth import get_current_user
+from app.services.recurring import roll_forward_due_dates
 
 router = APIRouter(prefix="/api/recurring", tags=["recurring"])
 
@@ -15,6 +16,7 @@ def list_recurring(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    roll_forward_due_dates(db, owner_id=current_user.id)
     q = db.query(RecurringExpense).filter(RecurringExpense.owner_id == current_user.id)
     if kind:
         q = q.filter(RecurringExpense.kind == kind)

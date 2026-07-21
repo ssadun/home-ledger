@@ -4,7 +4,7 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
-from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statement_mappings, push
+from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statement_mappings, institutions, push
 from app.services.notify import run_due_date_check
 
 # SQLite dosyasının yaşadığı klasörü garantile
@@ -17,7 +17,8 @@ Base.metadata.create_all(bind=engine)
 # Seed shared default categories + currencies on first run
 from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index
 from app.routers.currencies import seed_default_currencies
-from app.routers.statement_mappings import seed_default_statement_mappings
+from app.routers.statement_mappings import seed_default_statement_mappings, ensure_statement_mapping
+from app.routers.institutions import seed_default_institutions, ensure_institution
 _seed_db = SessionLocal()
 try:
     seed_default_categories(_seed_db)
@@ -25,10 +26,17 @@ try:
     ensure_category(_seed_db, "credit-card-payment", "Credit Card Payment", "transfer", "credit-card", "var(--orange)")
     ensure_category(_seed_db, "debt", "Debt", "expense", "trending-down", "var(--red)")
     ensure_category(_seed_db, "commission", "Commission", "expense", "percent", "var(--coral)")
+    ensure_category(_seed_db, "retirement", "Retirement", "expense", "piggy-bank", "var(--lime)")
+    ensure_category(_seed_db, "insurance", "Insurance", "expense", "shield", "var(--steel)")
     # Enforce category.key uniqueness on existing DBs (create_all only does new tables).
     ensure_unique_key_index(_seed_db)
     seed_default_currencies(_seed_db)
     seed_default_statement_mappings(_seed_db)
+    # Backfill mappings added after the initial seed (idempotent on existing DBs).
+    ensure_statement_mapping(_seed_db, "tr", "Emeklilik / Sigorta", "insurance")
+    seed_default_institutions(_seed_db)
+    # Backfill institutions added after the initial seed (idempotent).
+    ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik")
 finally:
     _seed_db.close()
 
@@ -59,6 +67,7 @@ app.include_router(members.router)
 app.include_router(currencies.router)
 app.include_router(credit_payments.router)
 app.include_router(statement_mappings.router)
+app.include_router(institutions.router)
 app.include_router(push.router)
 
 scheduler = BackgroundScheduler()

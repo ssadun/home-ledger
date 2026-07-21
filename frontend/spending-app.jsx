@@ -62,7 +62,7 @@
   ];
 
   // ── Table body — memoized so rows do NOT re-render during a column drag ──
-  const TableBody = React.memo(function TableBody({ rows, colCount, flashId, grouped, month, year, onEdit, order, selectable, selectedSet, onToggleSelect }) {
+  const TableBody = React.memo(function TableBody({ rows, colCount, flashId, grouped, month, year, onEdit, order, selectable, selectedSet, onToggleSelect, collapsedWeeks, onToggleWeek }) {
     const selProps = (tx) => ({ selectable, selected: selectable && selectedSet.has(tx.id), onToggleSelect });
     if (rows.length === 0) {
       return (
@@ -93,16 +93,22 @@
     });
     const out = [];
     groups.forEach((g, gi) => {
+      const collapsed = collapsedWeeks && collapsedWeeks.has(g.wk);
       if (gi > 0) out.push(<tr className="week-spacer" key={'wkspc-' + g.wk}><td colSpan={99}></td></tr>);
       out.push(
-        <tr className="week-group-row" key={'wk-' + g.wk}>
+        <tr className={'week-group-row' + (collapsed ? ' wk-collapsed' : '')} key={'wk-' + g.wk}
+          onClick={() => onToggleWeek && onToggleWeek(g.wk)} title={collapsed ? 'Expand week' : 'Collapse week'}>
           <td colSpan={99}>
-            <span className="week-group-label"><Icon name="calendar-range" size={12} />Week {g.wk}</span>
+            <span className="week-group-label">
+              <Icon name="chevron-down" size={12} className="week-group-chevron" />
+              <Icon name="calendar-range" size={12} />Week {g.wk}
+            </span>
             <span className="week-group-range">{weekRangeLabel(g.wk, month, year)}</span>
+            {collapsed && <span className="week-group-count">{g.rows.length} item{g.rows.length !== 1 ? 's' : ''}</span>}
           </td>
         </tr>
       );
-      g.rows.forEach((tx, ri) => {
+      if (!collapsed) g.rows.forEach((tx, ri) => {
         const isLast = ri === g.rows.length - 1;
         out.push(
           <TxRow key={tx.id} tx={tx} flash={tx.id === flashId} onEdit={onEdit} order={order} {...selProps(tx)}
@@ -176,6 +182,14 @@
     const toggleSelect = React.useCallback((id) => setSelected(s => {
       const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     }), []);
+    // Week-group collapse state (Group By Week tweak) — keyed by week-of-month
+    // number, so it resets whenever the viewed month changes (else "Week 1"
+    // collapsed in June would also start collapsed in July).
+    const [collapsedWeeks, setCollapsedWeeks] = React.useState(() => new Set());
+    const toggleWeek = React.useCallback((key) => setCollapsedWeeks(s => {
+      const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n;
+    }), []);
+    React.useEffect(() => { setCollapsedWeeks(new Set()); }, [month, year]);
 
     // Highlight a deep-linked transaction on load (reuses the row-flash used for edits/adds)
     React.useEffect(() => {
@@ -384,7 +398,8 @@
                 </thead>
                 <TableBody rows={pageRows} colCount={cols.length + 1} flashId={flashId} order={orderKeys}
                   grouped={t.groupByWeek && sort.col === 'date'} month={month} year={year} onEdit={onEditTx}
-                  selectable selectedSet={selected} onToggleSelect={toggleSelect} />
+                  selectable selectedSet={selected} onToggleSelect={toggleSelect}
+                  collapsedWeeks={collapsedWeeks} onToggleWeek={toggleWeek} />
               </table>
             </div>
             <Pagination page={curPage} pages={pages} total={total} start={start} end={end}

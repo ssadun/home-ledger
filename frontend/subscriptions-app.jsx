@@ -373,6 +373,13 @@
     const toggleSelect = React.useCallback((id) => setSelected(s => {
       const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     }), []);
+    // Week-group collapse state (Group By Week tweak) — keyed by the group's
+    // stable week key (Monday's ISO date, or "none"), which doesn't shift under
+    // this page's items the way a month-relative key would.
+    const [collapsedWeeks, setCollapsedWeeks] = React.useState(() => new Set());
+    const toggleWeek = React.useCallback((key) => setCollapsedWeeks(s => {
+      const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n;
+    }), []);
     const rz = useResizableColumns({ columns: COLS, storageKey: 'hl-subscriptions-colwidths' });
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
 
@@ -560,22 +567,31 @@
                       });
                       const out = [];
                       groups.forEach((g, gi) => {
+                        const collapsed = collapsedWeeks.has(g.key);
                         if (gi > 0) out.push(<tr className="week-spacer" key={'wkspc-' + g.key}><td colSpan={99}></td></tr>);
                         out.push(
-                          <tr className="week-group-row" key={'wk-' + g.key}>
+                          <tr className={'week-group-row' + (collapsed ? ' wk-collapsed' : '')} key={'wk-' + g.key}
+                            onClick={() => toggleWeek(g.key)} title={collapsed ? 'Expand week' : 'Collapse week'}>
                             <td colSpan={99}>
                               {g.key === 'none' ? (
-                                <span className="week-group-label"><Icon name="calendar-off" size={12} />No Upcoming Date</span>
+                                <span className="week-group-label">
+                                  <Icon name="chevron-down" size={12} className="week-group-chevron" />
+                                  <Icon name="calendar-off" size={12} />No Upcoming Date
+                                </span>
                               ) : (
                                 <React.Fragment>
-                                  <span className="week-group-label"><Icon name="calendar-range" size={12} />{weekHeading(g.due)}</span>
+                                  <span className="week-group-label">
+                                    <Icon name="chevron-down" size={12} className="week-group-chevron" />
+                                    <Icon name="calendar-range" size={12} />{weekHeading(g.due)}
+                                  </span>
                                   <span className="week-group-range">{weekRange(g.due)}</span>
                                 </React.Fragment>
                               )}
+                              {collapsed && <span className="week-group-count">{g.rows.length} item{g.rows.length !== 1 ? 's' : ''}</span>}
                             </td>
                           </tr>
                         );
-                        g.rows.forEach((rec, ri) => {
+                        if (!collapsed) g.rows.forEach((rec, ri) => {
                           const isLast = ri === g.rows.length - 1;
                           out.push(
                             <RecRow key={rec.id} rec={rec} flash={rec.id === flashId} order={orderKeys}

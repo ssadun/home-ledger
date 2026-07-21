@@ -22,3 +22,25 @@
 /* ── Loading spinner (Account Activity fetches per-month from the backend) ── */
 .empty-state .spin { animation: atx-spin .8s linear infinite; color: var(--muted); }
 @keyframes atx-spin { to { transform: rotate(360deg); } }
+
+/* ── Row detail modal — read-only view of when a record was added + which
+   uploaded statement it came from. Ported from accounts.css's detail-info-*
+   pattern since this page doesn't load accounts.css. ── */
+.detail-balance-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius2); text-align: center; }
+.detail-bal-label { font-size: var(--fs-label); font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.detail-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.detail-info-item { display: flex; flex-direction: column; gap: 4px; padding: 10px 13px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); }
+.detail-info-k { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-label); font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.detail-info-v { font-size: 13px; font-weight: 600; color: var(--text); }
+.detail-info-full { grid-column: 1 / -1; }
+
+.atx-detail-amt { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+.atx-detail-amt.income { color: var(--green); }
+.atx-detail-amt.expense { color: var(--red); }
+.atx-detail-source { display: inline-flex; align-items: center; gap: 6px; }
+.atx-detail-filename { word-break: break-all; }
+
+@media (max-width: 660px) {
+  .detail-info-grid { grid-template-columns: 1fr; }
+  .atx-detail-amt { font-size: 22px; }
+}

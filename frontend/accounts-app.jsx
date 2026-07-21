@@ -151,7 +151,7 @@
     );
   }
 
-  const TYPE_ORDER = ['bank', 'overdraft', 'debit', 'credit', 'wallet', 'invest', 'cash'];
+  const TYPE_ORDER = ['bank', 'overdraft', 'debit', 'credit', 'wallet', 'invest', 'pension', 'cash'];
 
   function App() {
     const [layout, setLayout] = window.HL_NAV.usePersistentView('list');
@@ -168,9 +168,18 @@
 
     React.useEffect(() => { document.documentElement.style.setProperty('--accent', '#4f8ef7'); }, []);
 
-    // Hydrate accounts from the backend on mount.
+    // Hydrate accounts from the backend on mount, together with the institution
+    // map (names + logos) so cards paint their logos on the first render rather
+    // than flashing the generic type icon. A failure to load institutions is not
+    // fatal — the bootstrap map still names the banks, only logos are missing.
     React.useEffect(() => {
-      window.HL_ACCOUNTS_API.list()
+      const insts = window.HL_INSTITUTIONS_API
+        ? window.HL_INSTITUTIONS_API.hydrate().catch(err => {
+            console.warn('[accounts] institutions unavailable:', err.message);
+          })
+        : Promise.resolve();
+      insts
+        .then(() => window.HL_ACCOUNTS_API.list())
         .then(setAccounts)
         .catch(err => setLoadError(err.message));
     }, []);

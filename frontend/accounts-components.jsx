@@ -98,6 +98,14 @@
     }
   }
 
+  // '' / null / unparseable → null (so an emptied BES field clears rather than
+  // persisting a stray 0, which would read as a real figure on the detail tiles).
+  function numOrNull(v) {
+    if (v === '' || v == null) return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
   function parseCurrencyInput(raw, currency) {
     if (!raw) return '';
     let cleaned = currency === 'TRY' ?
@@ -162,6 +170,7 @@
   function AccountCard({ account, onClick, flash }) {
     const t = ACCOUNT_TYPES[account.type];
     const isCredit = account.type === 'credit';
+    const isPrepaid = isCredit && account.isPrepaid;
     return (
       <button id={'acct-card-' + account.id} className={'acct-card' + (isCredit ? ' is-credit' : '') + (flash ? ' acct-flash' : '')} onClick={() => onClick(account)}>
         <div className="acct-card-row">
@@ -189,11 +198,12 @@
           </div>
           <div className="acct-card-end">
             {account.primary && <span className="acct-primary-tag"><Icon name="star" size={10} />Primary</span>}
+            {isPrepaid && <span className="acct-prepaid-tag"><Icon name="wallet" size={10} />Prepaid</span>}
             <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
           </div>
         </div>
-        {isCredit && account.limit > 0 && <UtilBar used={account.balance} limit={account.limit} />}
-        {isCredit && (account.statementCutoff || account.paymentDue) && (() => {
+        {isCredit && !isPrepaid && account.limit > 0 && <UtilBar used={account.balance} limit={account.limit} />}
+        {isCredit && !isPrepaid && (account.statementCutoff || account.paymentDue) && (() => {
           const dates = account.statementCutoff ? getCCDates(account.statementCutoff) : null;
           // Prefer the actual statement date (Son Ödeme Tarihi) when stored; else computed.
           const paymentStr = account.paymentDue ? fmtDate(account.paymentDue) : (dates ? dates.paymentStr : null);
@@ -230,15 +240,19 @@
   function AccountDetail({ account, onClose, onEdit, onDelete, onImport }) {
     const t = ACCOUNT_TYPES[account.type];
     const isCredit = account.type === 'credit';
+    const isPrepaid = isCredit && account.isPrepaid;
     const isOverdraft = account.type === 'overdraft';
     const isInvest = account.type === 'invest';
+    const isPension = account.type === 'pension';
 
     // Recent imported bank-account movements for this account (real data, across
     // all months). Credit-card activity lives on Credit Payments, not Account
-    // Activity, so it's skipped here. Full history is one click away via the
+    // Activity, so it's skipped here. A pension has no transaction activity of its
+    // own either — its contributions arrive on a credit card and are listed by
+    // PensionContributions instead. Full history is one click away via the
     // "View All" link, which deep-links into Account Activity pre-filtered to
     // this account (?account=<id>).
-    const showActivity = !isInvest && !isCredit;
+    const showActivity = !isInvest && !isCredit && !isPension;
     const [recentAct, setRecentAct] = React.useState([]);
     const [actLoading, setActLoading] = React.useState(showActivity);
     const [actErr, setActErr] = React.useState(null);
@@ -287,9 +301,9 @@
 
           <div className="modal-body">
             <div className="detail-balance-hero">
-              <span className="detail-bal-label">{isCredit ? 'Outstanding Balance' : isOverdraft ? 'Overdraft Balance' : isInvest ? 'Portfolio Value' : 'Current Balance'}</span>
+              <span className="detail-bal-label">{isPrepaid ? 'Available Balance' : isCredit ? 'Outstanding Balance' : isOverdraft ? 'Overdraft Balance' : isInvest ? 'Portfolio Value' : isPension ? 'Total Savings' : 'Current Balance'}</span>
               <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
-              {(isCredit || isOverdraft) && account.limit > 0 &&
+              {(isCredit || isOverdraft) && !isPrepaid && account.limit > 0 &&
               <div style={{ width: '100%', marginTop: 8 }}>
                   <UtilBar used={account.balance} limit={account.limit} />
                 </div>
@@ -311,13 +325,13 @@
                   <span className="detail-info-v">{SYM[account.cur]}{grp(account.limit)}</span>
                 </div>
               }
-              {isCredit && account.statementCutoff &&
+              {isCredit && !isPrepaid && account.statementCutoff &&
               <div className="detail-info-item">
                   <span className="detail-info-k">Statement Cutoff</span>
                   <span className="detail-info-v">{WEEK_LABELS[account.statementCutoff]}</span>
                 </div>
               }
-              {isCredit && account.statementCutoff && (() => {
+              {isCredit && !isPrepaid && account.statementCutoff && (() => {
                 const dates = getCCDates(account.statementCutoff);
                 if (!dates) return null;
                 return (
@@ -327,7 +341,7 @@
                   </div>
                 );
               })()}
-              {isCredit && (account.paymentDue || account.statementCutoff) && (() => {
+              {isCredit && !isPrepaid && (account.paymentDue || account.statementCutoff) && (() => {
                 // Prefer the actual statement date (Son Ödeme Tarihi) when stored; else computed.
                 const paymentStr = account.paymentDue ? fmtDate(account.paymentDue)
                   : (account.statementCutoff ? (getCCDates(account.statementCutoff) || {}).paymentStr : null);
@@ -356,6 +370,16 @@
             {/* Investment accounts show their portfolio holdings instead of the
                 transaction-style activity list. */}
             {isInvest && window.AccountHoldings && <window.AccountHoldings account={account} />}
+
+            {/* Retirement plans: the BES figures, the fund split (same Investment
+                rows as an invest account), then the card charges that funded it. */}
+            {isPension && (
+              <React.Fragment>
+                {window.PensionSummary && <window.PensionSummary account={account} />}
+                {window.AccountHoldings && <window.AccountHoldings account={account} />}
+                {window.PensionContributions && <window.PensionContributions account={account} />}
+              </React.Fragment>
+            )}
 
             {showActivity &&
             <div className="detail-activity">
@@ -429,6 +453,7 @@
       limit: initial.limit != null ? String(initial.limit) : '',
       iban: initial.iban || '',
       ccType: initial.ccType || 'visa',
+      isPrepaid: initial.isPrepaid || false,
       debitType: initial.debitType || 'visa',
       cardName: initial.cardName || '',
       cardMedium: initial.cardMedium || 'physical',
@@ -436,12 +461,20 @@
       validityYear: initial.validityYear || '',
       statementCutoff: initial.statementCutoff || (initial.paymentDue ? weekFromPaymentDate(initial.paymentDue) : ''),
       paymentDue: initial.paymentDue || '',
-      linked: initial.linked || ''
+      linked: initial.linked || '',
+      pension: initial.pension ? { ...initial.pension } : {}
     });
     const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+    // BES fields live in a nested object (accounts.pension JSON column), so they
+    // get their own setter rather than going through `set`.
+    const setPen = (k, v) => setF((p) => ({ ...p, pension: { ...p.pension, [k]: v } }));
     const isCredit = f.type === 'credit';
+    // Prepaid cards hold loaded funds, so their balance stays positive (available) and
+    // they have no credit line to spend against.
+    const isPrepaid = isCredit && f.isPrepaid;
     const isOverdraft = f.type === 'overdraft';
     const isCash = f.type === 'cash';
+    const isPension = f.type === 'pension';
     // Other credit-card accounts that a supplementary/virtual card can hang off of
     // (excludes self when editing). Picked value is stored in `linked` (linked_key).
     const parentCardOptions = accounts.filter((a) => a.type === 'credit' && a.id !== initial.id);
@@ -456,13 +489,14 @@
         owner: f.owner,
         type: f.type,
         cur: f.cur,
-        balance: (isCredit || isOverdraft) && bal > 0 ? -bal : bal,
+        balance: (isCredit || isOverdraft) && !isPrepaid && bal > 0 ? -bal : bal,
         number: f.number.trim() || '–',
         institution: f.institution.trim() || '–',
         primary: f.primary,
         showInPaymentMethod: f.showInPaymentMethod,
         iban: f.iban.trim() || null,
         ccType: f.ccType || 'visa',
+        isPrepaid: isCredit ? !!f.isPrepaid : false,
         debitType: f.debitType || 'visa',
         cardName: (isCredit || f.type === 'debit') && f.cardName.trim() ? f.cardName.trim() : undefined,
         validityMonth: (isCredit || f.type === 'debit') && f.validityMonth ? String(f.validityMonth).padStart(2, '0') : undefined,
@@ -470,7 +504,17 @@
         statementCutoff: isCredit && f.statementCutoff ? Number(f.statementCutoff) : undefined,
         paymentDue: isCredit && f.paymentDue ? f.paymentDue : undefined,
         linked: isCredit && f.linked ? f.linked : undefined,
-        cardMedium: isCredit ? f.cardMedium : undefined
+        cardMedium: isCredit ? f.cardMedium : undefined,
+        // Numeric BES fields come out of text inputs as strings; coerce so the
+        // JSON column keeps the same shape the importer writes.
+        pension: isPension ? {
+          ...f.pension,
+          total: bal,
+          total_paid: numOrNull(f.pension.total_paid),
+          state_contribution: numOrNull(f.pension.state_contribution),
+          pending: numOrNull(f.pension.pending),
+          next_payment_amount: numOrNull(f.pension.next_payment_amount)
+        } : undefined
       };
       if (isCredit || isOverdraft) result.limit = parseFloat(f.limit) || 0;else
       delete result.limit;
@@ -592,6 +636,84 @@
 
             {isCredit &&
             <div className="form-field full">
+                <label className="acct-check-label muted">
+                  <input id="acct-form-prepaid-checkbox" type="checkbox" checked={f.isPrepaid} onChange={(e) => set('isPrepaid', e.target.checked)} />
+                  <Icon name="wallet" size={12} />Prepaid Card
+                </label>
+              </div>
+            }
+
+            {isPrepaid &&
+            <div className="form-field full">
+                <span className="field-label">Available Balance</span>
+                <CurrencyInput id="acct-form-prepaid-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+              </div>
+            }
+
+            {/* Retirement plan (BES). These write into the nested `pension` object
+                (accounts.pension JSON column) and mirror what the BES statement
+                import fills in, so a hand-made account and an imported one carry
+                the same shape. Investment return is derived on the detail view. */}
+            {isPension &&
+            <React.Fragment>
+              <div className="form-field full">
+                <span className="field-label">Total Savings</span>
+                <CurrencyInput id="acct-form-pension-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+              </div>
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Contract No</span>
+                  <input id="acct-form-pension-contract-input" className="field-input" placeholder="e.g. 17943452"
+                    value={f.pension.contract_no || ''} onChange={(e) => setPen('contract_no', e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Plan</span>
+                  <input id="acct-form-pension-plan-input" className="field-input" placeholder="e.g. DİJİBES PLUS PLAN"
+                    value={f.pension.plan || ''} onChange={(e) => setPen('plan', e.target.value)} />
+                </div>
+              </div>
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Paid In <span className="field-opt">(total)</span></span>
+                  <CurrencyInput id="acct-form-pension-paid-input" value={f.pension.total_paid != null ? String(f.pension.total_paid) : ''}
+                    currency={f.cur} onChange={(v) => setPen('total_paid', v)} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">State Contribution</span>
+                  <CurrencyInput id="acct-form-pension-state-input" value={f.pension.state_contribution != null ? String(f.pension.state_contribution) : ''}
+                    currency={f.cur} onChange={(v) => setPen('state_contribution', v)} />
+                </div>
+              </div>
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Next Payment Date</span>
+                  <input id="acct-form-pension-nextdate-input" className="field-input" type="date"
+                    value={f.pension.next_payment_date || ''} onChange={(e) => setPen('next_payment_date', e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Next Payment Amount</span>
+                  <CurrencyInput id="acct-form-pension-nextamt-input" value={f.pension.next_payment_amount != null ? String(f.pension.next_payment_amount) : ''}
+                    currency={f.cur} onChange={(v) => setPen('next_payment_amount', v)} />
+                </div>
+              </div>
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Contract Start</span>
+                  <input id="acct-form-pension-start-input" className="field-input" type="date"
+                    value={f.pension.start_date || ''} onChange={(e) => setPen('start_date', e.target.value)} />
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Pending <span className="field-opt">(provision)</span></span>
+                  <CurrencyInput id="acct-form-pension-pending-input" value={f.pension.pending != null ? String(f.pension.pending) : ''}
+                    currency={f.cur} onChange={(v) => setPen('pending', v)} />
+                </div>
+              </div>
+              <span className="acct-pension-hint"><Icon name="info" size={11} />Importing a BES Birikim Özeti fills these in and refreshes the fund split.</span>
+            </React.Fragment>
+            }
+
+            {isCredit && !isPrepaid &&
+            <div className="form-field full">
                 <span className="field-label">Parent Credit Card</span>
                 <StyledSelect id="acct-form-parent-card-select" className="field-input" value={f.linked} onChange={(e) => {
                   const id = e.target.value;
@@ -631,7 +753,7 @@
               </div>
             }
 
-            {isCredit &&
+            {isCredit && !isPrepaid &&
             <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Statement Cutoff Week</span>
@@ -660,7 +782,7 @@
               </div>
             }
 
-            {isCredit &&
+            {isCredit && !isPrepaid &&
             <div className="form-field full">
                 <span className="field-label">Last Payment Date</span>
                 <input id="acct-form-payment-due-input" className="field-input" type="date" value={f.paymentDue}

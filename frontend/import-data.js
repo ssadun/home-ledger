@@ -112,6 +112,10 @@
     'Elektronik': 'shopping',
     'Ev / Dekorasyon': 'shopping',
     'Kişisel Hizmet': 'shopping',
+    // Covers both pension contributions and ordinary insurance premiums, so it
+    // maps to the safer of the two; real BES payments are caught above by the
+    // "G.E. <sözleşme no>" description rule.
+    'Emeklilik / Sigorta': 'insurance',
   };
 
   function guessCategory(desc, isIncome, etiket, isBank) {
@@ -126,6 +130,11 @@
     // transfer → Transfer. Scoped to bank because on CARD statements "Diğer" is a
     // real spending tag (tolls, etc.).
     if (isBank && /\b(di[ğg]er|other)\b/i.test(desc)) return 'wire-transfer';
+    // A BES contribution charged to a card posts as "G.E. <sözleşme no> ŞEHİR"
+    // (G.E. = Garanti Emeklilik). Checked BEFORE the Etiket map on purpose: the
+    // card tags this "Emeklilik / Sigorta", but so are ordinary insurance premiums
+    // ("HEPİYİ SİGORTA"), so only the description shape means a pension payment.
+    if (/^g\.?\s?e\.?\s+\d{6,}\b/i.test(desc)) return 'retirement';
     if (etiket && ETIKET_MAP[etiket]) return ETIKET_MAP[etiket];
     for (const [re, key] of RULES) if (re.test(desc)) return key;
     return isIncome ? 'salary' : 'shopping';
@@ -163,13 +172,14 @@
     }
 
     // rows: backend-shaped [{ date, amount, type, currency, description,
-    //   category_key, payment_method, payer, paying_for }]. Returns
-    // { imported, skipped, errors }.
-    async function confirm(rows, skipDuplicates) {
+    //   category_key, payment_method, payer, paying_for }]. sourceFilename: the
+    // uploaded statement's original name, stamped onto every created row so the
+    // UI can show provenance later. Returns { imported, skipped, errors }.
+    async function confirm(rows, skipDuplicates, sourceFilename) {
       const res = await api()('/api/import/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows, skip_duplicates: skipDuplicates !== false }),
+        body: JSON.stringify({ rows, skip_duplicates: skipDuplicates !== false, source_filename: sourceFilename || null }),
       });
       if (!res.ok) {
         let msg = 'Import failed (' + res.status + ')';
@@ -196,6 +206,24 @@
       return res.json();
     }
 
-    window.HL_IMPORT_API = { preview, confirm, confirmInvestments };
+    // Persist a reviewed BES Birikim Özeti: upserts the "pension" Account by
+    // contract number and rewrites its fund split (Investment rows).
+    // Returns { account_created, account_key, account_name, balance,
+    //           funds_created, funds_updated, funds_removed, errors }.
+    async function confirmPension(pension, funds) {
+      const res = await api()('/api/import/confirm-pension', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pension, funds }),
+      });
+      if (!res.ok) {
+        let msg = 'Import failed (' + res.status + ')';
+        try { const j = await res.json(); if (j && j.detail) msg = j.detail; } catch (_) {}
+        throw new Error(msg);
+      }
+      return res.json();
+    }
+
+    window.HL_IMPORT_API = { preview, confirm, confirmInvestments, confirmPension };
   })();
 })();

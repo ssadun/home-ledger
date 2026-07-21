@@ -9,6 +9,7 @@ from app.models import Transaction, ExchangeRate, User
 from app.schemas import TransactionCreate, TransactionOut, TransactionUpdate
 from app.services.auth import get_current_user
 from app.services.ocr import save_upload, extract_text_from_image, parse_receipt
+from app.services.prepaid import apply_transaction as apply_prepaid, snapshot as prepaid_snapshot
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -35,6 +36,8 @@ def list_transactions(
     month: Optional[int] = None,
     type: Optional[str] = None,
     category_id: Optional[int] = None,
+    category_key: Optional[str] = None,
+    q_desc: Optional[str] = None,
     payer: Optional[str] = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
@@ -50,6 +53,13 @@ def list_transactions(
         q = q.filter(Transaction.type == type)
     if category_id:
         q = q.filter(Transaction.category_id == category_id)
+    if category_key:
+        q = q.filter(Transaction.category_key == category_key)
+    if q_desc:
+        # Substring match on the bank's verbatim description. Drives the pension
+        # account's Contributions list, which finds a BES charge by its contract
+        # number ("G.E. 17943452 İSTANBUL").
+        q = q.filter(Transaction.description.contains(q_desc))
     if payer:
         q = q.filter(Transaction.payer == payer)
     return q.order_by(Transaction.date.desc()).offset(offset).limit(limit).all()
@@ -64,6 +74,7 @@ def create_transaction(
     tx = Transaction(**payload.model_dump(), owner_id=current_user.id)
     _apply_rates(tx, db)
     db.add(tx)
+    apply_prepaid(db, current_user.id, tx)
     db.commit()
     db.refresh(tx)
     return tx
@@ -87,9 +98,15 @@ def update_transaction(
     tx = db.query(Transaction).filter(Transaction.id == tx_id, Transaction.owner_id == current_user.id).first()
     if not tx:
         raise HTTPException(404, "İşlem bulunamadı")
+    # Capture the pre-image before the in-place mutation: the card, amount, currency or
+    # direction may all change, so the old prepaid effect has to be undone from the old
+    # values and the new one applied from the new ones.
+    before = prepaid_snapshot(tx)
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(tx, field, value)
     _apply_rates(tx, db)
+    apply_prepaid(db, current_user.id, before, direction=-1)
+    apply_prepaid(db, current_user.id, tx)
     db.commit()
     db.refresh(tx)
     return tx
@@ -100,6 +117,7 @@ def delete_transaction(tx_id: int, db: Session = Depends(get_db), current_user: 
     tx = db.query(Transaction).filter(Transaction.id == tx_id, Transaction.owner_id == current_user.id).first()
     if not tx:
         raise HTTPException(404, "İşlem bulunamadı")
+    apply_prepaid(db, current_user.id, tx, direction=-1)
     db.delete(tx)
     db.commit()
 

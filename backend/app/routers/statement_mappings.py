@@ -28,6 +28,11 @@ DEFAULT_STATEMENT_MAPPINGS = [
     ("tr", "Elektronik",       "shopping"),
     ("tr", "Ev / Dekorasyon",  "shopping"),
     ("tr", "Kişisel Hizmet",   "shopping"),
+    # Garanti tags pension contributions AND ordinary insurance premiums with this
+    # one label, so it maps to the safer of the two. A real BES contribution is
+    # caught earlier by the "G.E. <sözleşme no>" description rule in _cc_classify,
+    # which runs before the Etiket map. See CLAUDE.md → Retirement plans (BES).
+    ("tr", "Emeklilik / Sigorta", "insurance"),
 ]
 
 
@@ -37,6 +42,25 @@ def seed_default_statement_mappings(db: Session) -> None:
         return
     for lang, etiket, category_key in DEFAULT_STATEMENT_MAPPINGS:
         db.add(StatementMapping(lang=lang, etiket=etiket, category_key=category_key, is_default=True))
+    db.commit()
+
+
+def ensure_statement_mapping(db: Session, lang: str, etiket: str, category_key: str) -> None:
+    """Backfill one default mapping added after the initial seed (idempotent).
+
+    seed_default_statement_mappings() only fires on an empty table, so a new entry in
+    DEFAULT_STATEMENT_MAPPINGS would never reach an existing DB without this. Mirrors
+    ensure_category(). Matching is on (lang, etiket): a mapping the user has re-pointed
+    at a different category keeps their choice; one they deleted does come back.
+    """
+    exists = (
+        db.query(StatementMapping)
+        .filter(StatementMapping.lang == lang, StatementMapping.etiket == etiket)
+        .first()
+    )
+    if exists:
+        return
+    db.add(StatementMapping(lang=lang, etiket=etiket, category_key=category_key, is_default=True))
     db.commit()
 
 

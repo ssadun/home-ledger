@@ -143,6 +143,9 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
     - "KESİNTİ VE EKLERİ" (bank deductions & additions) → category "Commission" (type
       kept per its sign). Valid for every import; wins over the Etiket/Diğer rules so
       these fee lines aren't left as a generic "Other" tag.
+    - "G.E. <sözleşme no>" (Garanti Emeklilik) → category "Retirement". A BES
+      contribution charged to a credit card; the description carries the contract
+      number, which is what links it back to the pension Account (see _BES_CONTRIB_RE).
     """
     # Strip everything but letters/digits so interleaved spaces or stray
     # watermark punctuation ("TE ŞE-KKÜR") can't break the keyword match.
@@ -155,7 +158,26 @@ def _cc_classify(description: str) -> tuple[Optional[str], Optional[str]]:
         return None, "wire-transfer"
     if "KESINTIVEEKLERI" in f:
         return None, "commission"
+    # Runs BEFORE the Etiket map, which is what makes this beat the card's
+    # "Emeklilik / Sigorta" tag — that tag also covers ordinary insurance premiums
+    # (e.g. "HEPİYİ SİGORTA"), so only this description shape means a BES payment.
+    if _BES_CONTRIB_RE.match(_fold(description)):
+        return None, "retirement"
     return None, None
+
+
+# A BES contribution as it posts on a Garanti card statement:
+#   "G.E. 17943452 İSTANBUL"  →  Garanti Emeklilik + the BES contract number.
+# Anchored at the start and requiring 6+ digits so it can't fire on unrelated
+# merchant names. Group 1 is the contract number, used to link the charge to a
+# pension Account (Account.pension["contract_no"]).
+_BES_CONTRIB_RE = re.compile(r"^G\.?\s?E\.?\s+(\d{6,})\b")
+
+
+def bes_contract_of(description: str) -> Optional[str]:
+    """Contract number from a card line's description, or None if it isn't a BES charge."""
+    m = _BES_CONTRIB_RE.match(_fold(description))
+    return m.group(1) if m else None
 
 
 # "Diğer" / "Other" as a whole word (folded). Word-bounded so it won't fire on
@@ -186,6 +208,10 @@ _ETIKET_CATEGORY = {
     "ELEKTRONIK":       "shopping",            # Elektronik
     "EVDEKORASYON":     "shopping",            # Ev / Dekorasyon
     "KISISELHIZMET":    "shopping",            # Kişisel Hizmet
+    # Covers BOTH pension contributions and ordinary insurance premiums
+    # ("HEPİYİ SİGORTA"), so it maps to the safer of the two. Real BES payments are
+    # claimed earlier by _cc_classify's "G.E. <sözleşme no>" rule.
+    "EMEKLILIKSIGORTA": "insurance",           # Emeklilik / Sigorta
 }
 
 
@@ -1192,6 +1218,220 @@ def _parse_midas_holdings(content: bytes) -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# BES "Birikim Özeti" (bireysel emeklilik) ekstresi (PDF)
+# ─────────────────────────────────────────────────────────────────────────────
+# Bir emeklilik şirketi birikim özetidir: işlem listesi değil, sözleşme birikimi
+# + fon dağılımı. Bu yüzden Transaction değil, "pension" tipli bir Account ve
+# fon başına Investment kaydı üretir.
+
+# BES tutarları binlik ayracı "." ve ondalık ayracı "," ile yazılır; tam sayı
+# tutarlarda ondalık kısım hiç yoktur ("17.020 TL" = 17020). Ortak _parse_amount
+# bunu 17.02 olarak okur (3 haneli ",ddd" / ".ddd" belirsizliği), bu yüzden BES'in
+# kendi çözümleyicisi var — ON/Burgan'ın _parse_on_amount'u ile aynı gerekçe.
+_BES_AMOUNT_RE = re.compile(r"-?\d{1,3}(?:\.\d{3})*(?:,\d+)?")
+
+
+def _parse_bes_amount(value) -> Optional[float]:
+    """'17.020 TL' → 17020.0 · '54.529,05 TL' → 54529.05 · '-485,41 TL' → -485.41."""
+    m = _BES_AMOUNT_RE.search(str(value or "").strip())
+    if not m:
+        return None
+    s = m.group(0).replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _bes_amounts(line: str, limit: int = 8) -> list[float]:
+    """Bir satırdaki tüm tutarları sırayla döndürür."""
+    out = []
+    for m in _BES_AMOUNT_RE.finditer(line or ""):
+        v = _parse_bes_amount(m.group(0))
+        if v is not None:
+            out.append(v)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _is_bes_pdf(text: str) -> bool:
+    f = _fold(text)
+    return "BES BIRIKIM OZETI" in f and ("SOZLESME NO" in f or "DEVLET KATKISI" in f)
+
+
+def _bes_field(text: str, label: str) -> Optional[str]:
+    """
+    'Sözleşme No :17943452' → '17943452' (etiket eşleşmesi aksan/boşluk duyarsız).
+
+    Sayfa iki sütunlu dizildiği için bir satırda birden fazla "etiket : değer"
+    çifti bulunabilir ve önceki değer bir sonraki etikete yapışır:
+        "Ödeyeceğiniz Tutar : 10.000 TL Hak Ediş Oranınız : % 0"
+    Bu yüzden satır ":" ile parçalanır ve etiket parça SONUNDA aranır.
+    """
+    want = re.sub(r"[^A-Z0-9]", "", _fold(label))
+    for line in text.split("\n"):
+        parts = re.split(r"\s*:\s*", line)
+        for i in range(len(parts) - 1):
+            if re.sub(r"[^A-Z0-9]", "", _fold(parts[i])).endswith(want):
+                return parts[i + 1].strip()
+    return None
+
+
+def _bes_date_field(text: str, label: str) -> Optional[str]:
+    """Tarih alanı: değerin ilk kelimesini alır (kalanı komşu sütunun etiketidir)."""
+    raw = _bes_field(text, label)
+    return _parse_turkish_date(raw.split()[0]) if raw and raw.split() else None
+
+
+def _bes_values_after(text: str, label: str, n: int) -> list[float]:
+    """
+    Başlık satırının ALTINDAKİ satırdan ilk n tutarı çeker. Bu bölümde etiketler ve
+    değerler ayrı satırlardadır:
+        Birikiminiz Devlet Katkısı          <- etiketler
+        46.807,66 TL 7.721,39 TL            <- değerler
+    """
+    want = re.sub(r"[^A-Z0-9]", "", _fold(label))
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        if re.sub(r"[^A-Z0-9]", "", _fold(line)).startswith(want) and i + 1 < len(lines):
+            vals = _bes_amounts(lines[i + 1], limit=n)
+            if len(vals) >= n:
+                return vals[:n]
+    return []
+
+
+# "Fon Performansları" bloğundaki bir fon satırı. Bu blok metin katmanında düz ve
+# satır bazlıdır; "Fon Dağılımınız" tablosu ise pdfplumber'da iç içe geçmiş
+# hücreler halinde çıktığı için tercih edilmez.
+#   "ALTIN KATILIM EYF %40,17 26.06.2013 %6837,4 %-10,7"
+_BES_FUND_RE = re.compile(
+    r"^(?P<name>.+?EYF)\s+%(?P<pct>[\d,]+)\s+(?P<since>\d{2}\.\d{2}\.\d{4})"
+    r"\s+%(?P<ret_all>-?[\d,]+)\s+%(?P<ret_own>-?[\d,]+)\s*$"
+)
+# Katkı payı hedef dağılımı: aynı satırda ikinci bir "AD %oran" çifti olarak gelir.
+#   "ALTIN KATILIM EYF %40,17 ALTIN KATILIM EYF %45"
+_BES_TARGET_RE = re.compile(r"^(?P<name>.+?EYF)\s+%[\d,]+\s+(?P=name)\s+%(?P<pct>[\d,]+)\s*$")
+
+
+def _bes_pct(s: str) -> Optional[float]:
+    try:
+        return float(str(s).replace(".", "").replace(",", "."))
+    except (ValueError, AttributeError):
+        return None
+
+
+def _parse_bes_funds(text: str) -> list[dict]:
+    """'Fon Performansları' bloğundan fonları çıkarır; devlet katkısı fonlarını işaretler."""
+    funds: list[dict] = []
+    state_block = False
+    for raw in text.split("\n"):
+        line = " ".join(raw.split())
+        folded = _fold(line)
+        # "DEVLET KATKISI FON ADI" başlığı devlet katkısı fonlarını açar; sonraki
+        # düz "FON ADI" başlığı tekrar katılımcı fonlarına döner. Sayfada bu iki
+        # başlık çifti iki kez geçer (fon dağılımı + fon performansları), bu yüzden
+        # bayrağın sıfırlanması şart — yoksa tüm fonlar devlet katkısı sanılır.
+        if "FON ADI" in folded:
+            state_block = "DEVLET KATKISI" in folded
+            continue
+        m = _BES_FUND_RE.match(line)
+        if not m:
+            continue
+        pct = _bes_pct(m.group("pct"))
+        if pct is None:
+            continue
+        name = m.group("name").strip()
+        if any(f["name"] == name for f in funds):
+            continue
+        funds.append({
+            "name": name,
+            "pct": pct,
+            "state": state_block,
+            "since": _parse_turkish_date(m.group("since")),
+            "return_since_launch": _bes_pct(m.group("ret_all")),
+            "return_since_contract": _bes_pct(m.group("ret_own")),
+        })
+    return funds
+
+
+def _parse_bes_targets(text: str) -> dict:
+    """Katkı payı hedef fon dağılımı ({fon adı: yüzde}); okunamazsa boş döner."""
+    out = {}
+    for raw in text.split("\n"):
+        m = _BES_TARGET_RE.match(" ".join(raw.split()))
+        if m:
+            pct = _bes_pct(m.group("pct"))
+            if pct is not None:
+                out[m.group("name").strip()] = pct
+    return out
+
+
+def _parse_bes_pdf(text: str) -> tuple[dict, list[dict]]:
+    """
+    BES birikim özetini (özet sözlüğü, fon listesi) olarak çözer.
+
+    Fon tutarları yüzdelerden hesaplanır: katılımcı fonları "Birikiminiz",
+    devlet katkısı fonları "Devlet Katkısı" havuzu üzerinden. Yuvarlama artığı en
+    büyük fona eklenir, böylece fonların toplamı her zaman toplam birikime eşittir.
+    """
+    total = None
+    vals = _bes_values_after(text, "Toplam Birikiminiz", 1)
+    if vals:
+        total = vals[0]
+
+    own = state = None
+    pair = _bes_values_after(text, "Birikiminiz Devlet Katkısı", 2)
+    if pair:
+        own, state = pair[0], pair[1]
+
+    paid = state_paid = None
+    quad = _bes_values_after(text, "Ödenen Toplam Tutar", 4)
+    if quad:
+        paid, state_paid = quad[0], quad[2]
+
+    if total is None and own is not None and state is not None:
+        total = round(own + state, 2)
+
+    vesting = (_bes_field(text, "Hak Ediş Oranınız") or "").replace("%", "").strip()
+
+    summary = {
+        "provider": "Garanti BBVA Emeklilik",
+        "contract_no": (_bes_field(text, "Sözleşme No") or "").strip() or None,
+        "plan": (_bes_field(text, "Plan Adı") or "").strip() or None,
+        "participant": (_bes_field(text, "Katılımcı Adı Soyadı") or "").strip() or None,
+        "start_date": _bes_date_field(text, "Sözleşme Yürürlük Tarihi"),
+        "total": total,
+        "own_savings": own,
+        "state_contribution": state,
+        "total_paid": paid,
+        "state_paid_in": state_paid,
+        "pending": _parse_bes_amount(_bes_field(text, "Provizyonda Bekleyen Tutar") or ""),
+        "next_payment_date": _bes_date_field(text, "Bir Sonraki Ödeme Tarihi"),
+        "next_payment_amount": _parse_bes_amount(_bes_field(text, "Ödeyeceğiniz Tutar") or ""),
+        "vesting_pct": _bes_pct(vesting.split()[0]) if vesting.split() else None,
+        "report_date": _bes_date_field(text, "Rapor Tarihi"),
+    }
+    targets = _parse_bes_targets(text)
+    if targets:
+        summary["target_allocation"] = targets
+
+    funds = _parse_bes_funds(text)
+    for f in funds:
+        pool = state if f["state"] else own
+        f["value"] = round(pool * f["pct"] / 100.0, 2) if pool is not None else None
+
+    # Yuvarlama artığını en büyük fona ver → fonların toplamı = toplam birikim.
+    priced = [f for f in funds if f.get("value") is not None]
+    if priced and total is not None:
+        drift = round(total - sum(f["value"] for f in priced), 2)
+        if drift:
+            max(priced, key=lambda f: f["value"])["value"] += drift
+
+    return summary, funds
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Ana parse fonksiyonu
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1270,6 +1510,20 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
                 "rows": [],
                 "accounts": [],
                 "errors": [] if holdings else ["Portföyde kayıt bulunamadı."],
+            }
+        # BES birikim özeti → işlem değil, emeklilik hesabı + fon dağılımı.
+        # Garanti markalı olduğu için kart/hesap çözümleyicilerinden ÖNCE gelmeli.
+        if text and _is_bes_pdf(text):
+            summary, funds = _parse_bes_pdf(text)
+            return {
+                "kind": "pension",
+                "bank_detected": "Garanti BBVA Emeklilik (BES)",
+                "total_rows": len(funds),
+                "pension": summary,
+                "funds": funds,
+                "rows": [],
+                "accounts": [],
+                "errors": [] if funds else ["Fon dağılımı okunamadı."],
             }
         if text and _is_garanti_cc_pdf(text):
             rows, accounts = _parse_garanti_cc_pdf(text)
@@ -1356,6 +1610,7 @@ def import_transactions(
     credit_payment_id: int | None = None,
     default_payment_method: str | None = None,
     default_category_key: str | None = None,
+    source_filename: str | None = None,
 ) -> dict:
     """
     Parse edilmiş satırları Transaction tablosuna yazar.
@@ -1364,6 +1619,9 @@ def import_transactions(
     credit_payment_id / default_payment_method / default_category_key:
     when importing a credit-card statement, tag every created spending with the
     statement record and the card, falling back to the per-row values when present.
+
+    source_filename: the original uploaded statement's filename, stamped onto every
+    row it creates so the UI can show provenance (e.g. Account Activity's detail modal).
     """
     from datetime import date as date_type
     from app.models import Transaction as Tx, TransactionType, Currency
@@ -1414,6 +1672,7 @@ def import_transactions(
                 payer=row.get("payer"),
                 paying_for=row.get("paying_for"),
                 credit_payment_id=credit_payment_id,
+                source_filename=source_filename,
                 note="banka_import",
             )
             _apply_rates(tx, db)
@@ -1436,6 +1695,8 @@ def import_investments(
     owner_id: int,
     holdings: list[dict],
     upsert: bool = True,
+    note: str = "midas_import",
+    replace: bool = False,
 ) -> dict:
     """
     Parse edilmiş Midas portföy satırlarını Investment tablosuna yazar.
@@ -1443,12 +1704,19 @@ def import_investments(
     upsert=True ise aynı platform + sembol (name'in başındaki ticker) olan kayıt
     güncellenir (adet + maliyet), yoksa yeni oluşturulur. Böylece ekstre yeniden
     içe aktarıldığında portföy çift kayıt üretmez.
+
+    replace=True ise, bu platformun listede OLMAYAN kayıtları silinir. BES fon
+    dağılımı eksiksiz bir anlık görüntüdür: bir sonraki ekstrede kaldırılan bir fon
+    ortalıkta kalırsa fonların toplamı hesap bakiyesini tutmaz. Midas yolu bunu
+    kullanmaz (varsayılan False) — orada ekstre tüm portföyü içermeyebilir.
     """
     from app.models import Investment as Inv
 
     created = 0
     updated = 0
+    removed = 0
     errors = []
+    seen: dict[str, set] = {}
 
     for h in holdings:
         try:
@@ -1492,12 +1760,116 @@ def import_investments(
                     currency=currency,
                     amount=amount,
                     purchase_price=price,
-                    note="midas_import",
+                    note=note,
                 ))
                 created += 1
+
+            seen.setdefault(platform, set()).add(name)
 
         except Exception as e:
             errors.append(f"{h.get('name')}: {e}")
 
+    if replace:
+        for platform, names in seen.items():
+            for stale in (
+                db.query(Inv)
+                .filter(Inv.owner_id == owner_id, Inv.platform == platform)
+                .all()
+            ):
+                if stale.name not in names:
+                    db.delete(stale)
+                    removed += 1
+
     db.commit()
-    return {"created": created, "updated": updated, "errors": errors}
+    return {"created": created, "updated": updated, "removed": removed, "errors": errors}
+
+
+def import_pension(
+    db: Session,
+    owner_id: int,
+    pension: dict,
+    funds: list[dict],
+) -> dict:
+    """
+    BES birikim özetini "pension" tipli bir Account + fon başına Investment yazar.
+
+    Hesap, sözleşme numarasıyla eşleştirilir (aynı sözleşmenin her ay yeniden içe
+    aktarılması yeni hesap açmaz, mevcut olanı günceller). Fonlar platform ==
+    hesap adı ile bağlanır — Midas holdings ile aynı mekanizma — ve replace=True
+    ile yazılır, çünkü fon dağılımı eksiksiz bir anlık görüntüdür.
+    """
+    from app.models import Account
+
+    contract = (pension.get("contract_no") or "").strip()
+    if not contract:
+        return {"error": "Sözleşme numarası okunamadı", "created": 0, "updated": 0}
+
+    acc = (
+        db.query(Account)
+        .filter(Account.owner_id == owner_id, Account.type == "pension")
+        .all()
+    )
+    acc = next((a for a in acc if (a.pension or {}).get("contract_no") == contract), None)
+
+    name = (pension.get("plan") or pension.get("provider") or "BES").strip()
+    total = pension.get("total")
+    created_account = acc is None
+
+    if acc is None:
+        acc = Account(
+            owner_id=owner_id,
+            type="pension",
+            name=name,
+            holder=None,
+            currency="TRY",
+            institution=pension.get("provider"),
+            number=contract,
+        )
+        db.add(acc)
+        db.flush()                      # id gerekli: account_key "acc-{id}"
+        acc.account_key = f"acc-{acc.id}"
+
+    acc.name = name
+    acc.institution = pension.get("provider") or acc.institution
+    acc.number = contract
+    if total is not None:
+        acc.balance = total
+    # Keep the statement's OWN printed percentages alongside the figures. They can't
+    # be re-derived from the fund values alone: a participant fund's share is of
+    # "Birikiminiz" while the devlet katkısı fund's is of its own pool, so dividing
+    # by the plan total would show 34,48% where the statement prints 40,17%.
+    acc.pension = {
+        **pension,
+        "allocation": {f["name"]: f.get("pct") for f in funds if f.get("name")},
+        "state_funds": [f["name"] for f in funds if f.get("name") and f.get("state")],
+    }
+    db.commit()
+    db.refresh(acc)
+
+    inv_rows = [
+        {
+            "ticker": f["name"],
+            "name": f["name"],
+            "platform": acc.name,
+            "asset_type": "fund",
+            "currency": "TRY",
+            "amount": f.get("value") or 0,
+            "purchase_price": None,
+        }
+        for f in funds
+        if f.get("name")
+    ]
+    inv = import_investments(
+        db, owner_id, inv_rows, upsert=True, note="bes_import", replace=True
+    )
+
+    return {
+        "account_created": created_account,
+        "account_key": acc.account_key,
+        "account_name": acc.name,
+        "balance": acc.balance,
+        "funds_created": inv["created"],
+        "funds_updated": inv["updated"],
+        "funds_removed": inv["removed"],
+        "errors": inv["errors"],
+    }

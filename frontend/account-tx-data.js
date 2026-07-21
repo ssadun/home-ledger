@@ -74,6 +74,8 @@
       direction: tx.type === 'income' ? 'incoming' : 'outgoing',
       desc: tx.description || '',
       amt, cur, tryV,
+      createdAt: tx.created_at || null,
+      sourceFilename: tx.source_filename || null,
     };
   }
 
@@ -92,6 +94,22 @@
       // A card statement dump that never became a Credit Payment (interim) would
       // otherwise leak in — keep this screen to bank-type money locations.
       .filter(r => r.accountType !== 'credit');
+  }
+
+  // Card charges that funded a BES contract, newest first — powers the pension
+  // account detail's Contributions list. The bank writes the contract number into
+  // the line's description ("G.E. 17943452 İSTANBUL"), so the backend's q_desc
+  // substring filter is the whole match. Matching at read time (rather than storing
+  // a link at import time) means a card statement imported BEFORE the pension
+  // account existed still shows up here, with no backfill.
+  async function listContributions(contractNo) {
+    const apiFetch = api();
+    if (!apiFetch) throw new Error('Not authenticated');
+    const res = await apiFetch('/api/transactions/?q_desc=' + encodeURIComponent(contractNo) + '&limit=200', { method: 'GET' });
+    if (!res.ok) throw new Error('Failed to load contributions (' + res.status + ')');
+    return (await res.json())
+      .map(tx => toRow(tx, []))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }
 
   // Most recent imported movements for a single account, across all months —
@@ -121,5 +139,5 @@
   // ACCT_TX kept as an empty default for any guarded reads; real rows are loaded
   // per-month by the page via HL_ACCT_TX_API.listActivity().
   window.ACCT_TX_DATA = { ACCT_TX: [], ACCT_TX_TYPES };
-  window.HL_ACCT_TX_API = { listActivity, listRecentForAccount, remove, toRow, isBankImport };
+  window.HL_ACCT_TX_API = { listActivity, listRecentForAccount, listContributions, remove, toRow, isBankImport };
 })();

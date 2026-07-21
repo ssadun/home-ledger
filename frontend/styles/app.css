@@ -272,23 +272,19 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .amt-num input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;opacity:0.6;color:var(--slate);width:22px;height:100%;padding:0 2px;background:var(--bg2);border-left:1px solid var(--border);cursor:pointer}
 .amt-num input[type=number]::-webkit-outer-spin-button:hover,
 .amt-num input[type=number]::-webkit-inner-spin-button:hover{opacity:1;background:var(--bg3);color:var(--accent)}
-/* Firefox number input */
-.field-input[type="number"],.field-input[type="date"]{color-scheme:dark}
-
 /* ── Dark-theme date picker ─────────────────────────────────────────────── */
-/* Calendar icon — invert the default dark glyph so it's visible on --bg3   */
+/* The glyph is already light: `color-scheme:dark` on :root (tokens.css) makes the
+   browser draw native control internals in dark mode. Do NOT add filter:invert()
+   here — it would flip that light glyph back to black, which is exactly the bug
+   this replaced. Only affordance (opacity/cursor) is styled. */
 input[type="date"]::-webkit-calendar-picker-indicator{
-  filter:invert(1) brightness(.75);
-  opacity:.6;
+  opacity:.55;
   cursor:pointer;
   border-radius:3px;
   padding:2px;
-  transition:opacity .15s,filter .15s;
+  transition:opacity .15s;
 }
-input[type="date"]::-webkit-calendar-picker-indicator:hover{
-  opacity:1;
-  filter:invert(1) brightness(1) sepia(1) saturate(5) hue-rotate(190deg); /* accent-blue tint */
-}
+input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1}
 /* Date text segments */
 input[type="date"]::-webkit-datetime-edit{color:var(--text)}
 input[type="date"]::-webkit-datetime-edit-fields-wrapper{color:var(--text)}
@@ -511,3 +507,5 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 .acct-check-label input[type="checkbox"]:checked{background:var(--accent);border-color:var(--accent)}
 .acct-check-label input[type="checkbox"]:checked::after{content:'✓';color:var(--white);font-size:12px;font-weight:700;line-height:1}
 .acct-check-label svg{color:var(--gold)}
+/* Low-emphasis variant — label text and icon both drop to --muted */
+.acct-check-label.muted,.acct-check-label.muted svg{color:var(--muted)}

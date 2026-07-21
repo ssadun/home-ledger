@@ -22,11 +22,11 @@
   }
 
   // ── Add / edit holding modal ──────────────────────────────────────────
-  function HoldingModal({ initial, platform, onClose, onSave }) {
+  function HoldingModal({ initial, platform, defaultType = 'stock', onClose, onSave }) {
     const editing = !!initial.id;
     const [f, setF] = React.useState({
       name: initial.name || '',
-      assetType: initial.assetType || 'stock',
+      assetType: initial.assetType || defaultType,
       cur: initial.cur || 'TRY',
       qty: initial.qty != null ? String(initial.qty) : '',
       price: initial.price != null ? String(initial.price) : '',
@@ -123,6 +123,18 @@
   // ── Holdings panel (rendered inside AccountDetail for invest accounts) ──
   function AccountHoldings({ account }) {
     const platform = account.name;
+    // A retirement plan holds the same Investment rows, but they are emeklilik
+    // funds valued in TRY rather than priced positions — so the panel reads
+    // "Funds"/"Total Value" and shows each fund's share of the plan instead of a
+    // quantity × unit-cost line.
+    const isPension = account.type === 'pension';
+    // The statement's own printed share per fund. Preferred over deriving
+    // value ÷ total, because a participant fund's percentage is of "Birikiminiz"
+    // while the devlet katkısı fund's is of its own pool — dividing by the plan
+    // total would show 34,48% where the statement prints 40,17%. Funds added by
+    // hand aren't in here and fall back to the derived share.
+    const allocation = (account.pension || {}).allocation || {};
+    const stateFunds = (account.pension || {}).state_funds || [];
     const [holdings, setHoldings] = React.useState(null);   // null = loading
     const [error, setError] = React.useState(null);
     const [modal, setModal] = React.useState(null);         // { holding } or {}
@@ -171,11 +183,18 @@
     const rows = holdings || [];
     const totalTry = rows.reduce((s, r) => s + (r.tryValue || 0), 0);
 
+    function pensionShare(h) {
+      const pct = allocation[h.name];
+      if (pct != null) return grp(pct) + '%';
+      if (!totalTry) return '—';
+      return grp(h.tryValue / totalTry * 100) + '%';
+    }
+
     return (
       <div className="acct-holdings">
         <div className="detail-section-label acct-holdings-head">
-          <span><Icon name="trending-up" size={12} />Holdings{rows.length ? ' · ' + rows.length : ''}</span>
-          <button id="acct-holdings-add-btn" className="list-btn blue" onClick={() => setModal({})}><Icon name="plus" size={12} />Add Holding</button>
+          <span><Icon name={isPension ? 'layers' : 'trending-up'} size={12} />{isPension ? 'Funds' : 'Holdings'}{rows.length ? ' · ' + rows.length : ''}</span>
+          <button id="acct-holdings-add-btn" className="list-btn blue" onClick={() => setModal({})}><Icon name="plus" size={12} />{isPension ? 'Add Fund' : 'Add Holding'}</button>
         </div>
 
         {error && <div className="acct-holdings-error"><Icon name="alert-triangle" size={13} />{error}</div>}
@@ -184,13 +203,15 @@
           <div className="detail-empty"><Icon name="loader" size={22} /><span>Loading holdings…</span></div>
         ) : rows.length === 0 ? (
           <div className="detail-empty">
-            <Icon name="trending-up" size={26} />
-            <span>No holdings yet. Add one, or import a Midas portfolio statement.</span>
+            <Icon name={isPension ? 'layers' : 'trending-up'} size={26} />
+            <span>{isPension
+              ? 'No funds yet. Add one, or import a BES Birikim Özeti statement.'
+              : 'No holdings yet. Add one, or import a Midas portfolio statement.'}</span>
           </div>
         ) : (
           <React.Fragment>
             <div className="acct-holdings-total">
-              <span className="ah-total-k">Total Cost Basis</span>
+              <span className="ah-total-k">{isPension ? 'Total Value' : 'Total Cost Basis'}</span>
               <span className="ah-total-v">₺{grp(totalTry)}</span>
             </div>
             <div className="acct-holdings-list">
@@ -202,7 +223,9 @@
                     <span className="ah-sub"><TypeBadge type={h.assetType} /><span className="inv-cur-chip">{h.cur}</span></span>
                   </div>
                   <div className="ah-metrics">
-                    <span className="ah-qty mono">{fmtQty(h.qty)}{h.price != null ? ' × ' + SYM[h.cur] + grp(h.price) : ''}</span>
+                    <span className="ah-qty mono" title={isPension && stateFunds.includes(h.name) ? 'Share of your state contribution' : isPension ? 'Share of your savings' : undefined}>{isPension
+                      ? pensionShare(h)
+                      : fmtQty(h.qty) + (h.price != null ? ' × ' + SYM[h.cur] + grp(h.price) : '')}</span>
                     <span className="ah-basis mono">{SYM[h.cur]}{grp(h.costBasis)}</span>
                   </div>
                   <div className="ah-actions">
@@ -217,7 +240,8 @@
 
         {subOpen && ReactDOM.createPortal(
           <React.Fragment>
-            {modal && <HoldingModal initial={modal.holding || {}} platform={platform} onClose={() => setModal(null)} onSave={save} />}
+            {modal && <HoldingModal initial={modal.holding || {}} platform={platform}
+              defaultType={isPension ? 'fund' : 'stock'} onClose={() => setModal(null)} onSave={save} />}
             {del && window.DeleteConfirm && <window.DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDelete} />}
           </React.Fragment>,
           document.body

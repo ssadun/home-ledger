@@ -31,8 +31,12 @@
 .acct-card-row{display:flex;align-items:center;gap:13px}
 .acct-type-ico{width:34px;height:34px;border-radius:var(--radius);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
 .acct-type-ico svg{width:16px;height:16px}
-/* Per-institution logo, shown in place of the type icon when set (Config → Financial Institutions) */
-.acct-inst-logo{background:var(--bg4);border-color:var(--border2);overflow:hidden;padding:3px}
+/* Per-institution logo, shown in place of the type icon when set (Config → Financial
+   Institutions). Same treatment as .cfg-logo-cell on that config screen: the logo sits
+   FLUSH to the rounded border (no padding) rather than floating inset on --bg4.
+   The box stays at the .acct-type-ico size so rows with a logo and rows with a generic
+   type icon keep the same icon column width. */
+.acct-inst-logo{background:var(--bg4);border-color:var(--border2);overflow:hidden;padding:0;border-radius:var(--radius-sm)}
 .acct-inst-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .acct-card-meta{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
 .acct-card-name{font-size:13px;font-weight:700;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -51,6 +55,10 @@
 /* ── Primary tag ── */
 .acct-primary-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--red);flex-shrink:0}
 .acct-primary-tag svg{width:10px;height:10px}
+
+/* ── Prepaid tag ── marks a credit card that holds loaded funds instead of a credit line */
+.acct-prepaid-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--lavender);flex-shrink:0}
+.acct-prepaid-tag svg{width:10px;height:10px}
 /* Primary, owner and balance share the right end of the single row */
 
 /* ── Credit utilization bar ── */
@@ -183,4 +191,58 @@
   .acct-detail-modal{max-height:92vh}
   .detail-info-grid{grid-template-columns:1fr}
   .detail-balance-hero .bal-lg{font-size:24px}
+}
+
+/* ══ Retirement plan (BES) — account-pension.jsx ══════════════════════════ */
+.acct-pension{margin-top:16px}
+.acct-pension-head{justify-content:space-between}
+.acct-pension-asof{font-size:10px;font-weight:600;letter-spacing:.4px;color:var(--muted);text-transform:none}
+
+.acct-pension-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 8px}
+.acct-pension-tile{display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:var(--radius)}
+.apt-k{display:flex;align-items:center;gap:5px;font-size:var(--fs-label);font-weight:600;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.apt-k svg{flex-shrink:0;opacity:.7}
+.apt-v{font-size:14px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.apt-v.pos{color:var(--green)}
+.apt-v.neg{color:var(--red)}
+
+.acct-pension-next{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;
+  border:1px solid color-mix(in srgb,var(--lime) 30%,var(--border));border-radius:var(--radius);
+  background:color-mix(in srgb,var(--lime) 7%,transparent)}
+.apn-k{display:flex;align-items:center;gap:6px;font-size:var(--fs-label);font-weight:700;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--muted)}
+.apn-v{font-size:13px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.apn-amt{color:var(--lime)}
+
+.acct-pension-meta{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:11px;color:var(--muted)}
+.acct-pension-meta b{font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-size:10px;margin-right:5px}
+.acct-pension-meta span{font-variant-numeric:tabular-nums}
+
+.acct-pension-contrib{margin-top:16px}
+.acct-pension-contrib-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden}
+.apc-row{display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--bg3);
+  border-bottom:1px solid var(--border)}
+.apc-row:last-child{border-bottom:none}
+.apc-row:hover{background:var(--bg4)}
+.apc-date{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0;width:72px}
+.apc-desc{font-size:12px;color:var(--text);font-weight:500;flex:1;min-width:0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.apc-amt{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0;text-align:right;color:var(--text)}
+
+.acct-pension-gap{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--muted)}
+.acct-pension-gap svg{flex-shrink:0;opacity:.7}
+.acct-pension-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:-2px}
+.acct-pension-hint svg{flex-shrink:0;opacity:.7}
+
+/* Must come AFTER the .acct-pension base rules above: same specificity, so source
+   order decides. (The page's main max-width:660px block sits further up the file.) */
+@media (max-width:660px){
+  /* BES tiles: 4-up doesn't fit at 360px without the amounts truncating. */
+  .acct-pension-tiles{grid-template-columns:repeat(2,1fr)}
+  .acct-pension-next{flex-direction:column;align-items:flex-start;gap:5px}
+  .acct-pension-meta{gap:5px 12px}
+  .apc-date{width:62px}
 }

@@ -248,6 +248,7 @@ def confirm_statement(
         # The parser tags the payment line as "credit-card-payment"; any row it
         # leaves uncategorized (ordinary purchases) defaults to "shopping".
         default_category_key="shopping",
+        source_filename=rec.statement_filename,
     )
     # Pull in any pre-existing spendings in the window too.
     _relink_spendings(db, rec)

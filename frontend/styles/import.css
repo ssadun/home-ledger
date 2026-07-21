@@ -148,6 +148,34 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
 .imp-inv-row:last-child{border-bottom:none}
 .imp-inv-row.excluded{opacity:.4}
 .imp-inv-ticker{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── BES (retirement plan) review ── */
+.imp-pen-id{display:flex;align-items:center;gap:9px;padding:10px 13px;margin-bottom:12px;border-radius:var(--radius);
+  border:1px solid color-mix(in srgb,var(--lime) 30%,var(--border));background:color-mix(in srgb,var(--lime) 8%,transparent)}
+.imp-pen-id>svg{flex-shrink:0;color:var(--lime)}
+.imp-pen-plan{font-size:13px;font-weight:700;color:var(--text)}
+.imp-pen-contract{margin-left:auto;font-size:11px;color:var(--muted);letter-spacing:.5px;white-space:nowrap}
+.imp-pen-next{display:flex;align-items:center;gap:7px;margin-bottom:12px;font-size:12px;color:var(--muted)}
+.imp-pen-next svg{flex-shrink:0;opacity:.7}
+.imp-pen-next b{color:var(--lime);font-weight:700}
+.imp-pen-thead,.imp-pen-row{display:grid;grid-template-columns:1fr 108px 138px 30px;align-items:center;gap:8px}
+.imp-pen-thead{padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.imp-pen-thead span{font-size:var(--fs-label);font-weight:700;letter-spacing:1px;color:var(--muted)}
+.imp-pen-thead span.ar{text-align:right}
+.imp-pen-row{padding:6px 12px;border-bottom:1px solid var(--border)}
+.imp-pen-row:last-child{border-bottom:none}
+.imp-pen-pct{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:12px;font-weight:600;
+  color:var(--text);font-variant-numeric:tabular-nums}
+.imp-pen-pct svg{color:var(--lime);opacity:.8;flex-shrink:0}
+.imp-pen-val-wrap{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.imp-pen-val{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;-moz-appearance:textfield;width:100%}
+.imp-pen-val::-webkit-outer-spin-button,.imp-pen-val::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.imp-pen-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 13px;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);font-size:12px;color:var(--muted);
+  font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.imp-pen-foot .mono{font-size:14px;font-weight:800;letter-spacing:-.2px;text-transform:none;font-variant-numeric:tabular-nums}
+.imp-pen-foot .mono.ok{color:var(--green)}
+.imp-pen-foot .mono.warn{color:var(--orange)}
 .imp-inv-qty,.imp-inv-cost{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;-moz-appearance:textfield}
 .imp-inv-qty::-webkit-outer-spin-button,.imp-inv-qty::-webkit-inner-spin-button,
 .imp-inv-cost::-webkit-outer-spin-button,.imp-inv-cost::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -212,4 +240,13 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
   .imp-inv-cost-wrap{grid-area:cost}
   .imp-inv-value{grid-area:val;text-align:left}
   .imp-inv-row .imp-del{grid-area:del;justify-self:end}
+  /* BES fund review → stacked cards */
+  .imp-pen-thead{display:none}
+  .imp-pen-row{grid-template-columns:1fr auto;grid-template-areas:'name name' 'pct val' 'del del';gap:8px;padding:12px;
+    border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;background:var(--bg3)}
+  .imp-pen-name{grid-area:name}
+  .imp-pen-pct{grid-area:pct;justify-content:flex-start}
+  .imp-pen-val-wrap{grid-area:val}
+  .imp-pen-row .imp-del{grid-area:del;justify-self:end}
+  .imp-pen-id{flex-wrap:wrap}
 }

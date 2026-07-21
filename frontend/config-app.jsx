@@ -441,10 +441,8 @@
         const at = A.ACCOUNT_TYPES || {};
         return Object.entries(at).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon, color: v.color }));
       }
-      case 'financial-institutions': {
-        const fi = A.FINANCIAL_INSTITUTIONS || {};
-        return Object.entries(fi).map(([key, v]) => ({ id: key, key, name: v.name, swift: v.swift, logo: v.logo || '' }));
-      }
+      case 'financial-institutions':
+        return []; // loaded from the backend on mount (see effect in App)
       case 'statement-mappings':
         return []; // loaded from the backend on mount (see effect in App)
       default: return [];
@@ -454,7 +452,9 @@
   // Sections with no backend table: their edits persist to localStorage so they
   // survive reload (accounts-data.js reads these overrides on load). Serialize the
   // row list back to the { key: {…rest} } map shape those maps use.
-  const CLIENT_PERSIST_SECTIONS = ['account-types', 'cc-types', 'debit-types', 'financial-institutions'];
+  // 'financial-institutions' is NOT here any more — it persists to the backend
+  // financial_institutions table (logos included), like categories/currencies.
+  const CLIENT_PERSIST_SECTIONS = ['account-types', 'cc-types', 'debit-types'];
   function persistClientSection(sectionId, rows) {
     if (!CLIENT_PERSIST_SECTIONS.includes(sectionId)) return;
     const map = {};
@@ -1172,6 +1172,18 @@
       return () => { alive = false; };
     }, []);
 
+    // Financial institutions (and their logos) persist to the backend
+    // financial_institutions table; hydrate() also runs the one-time migration of
+    // logos left in this browser's localStorage from before that move.
+    React.useEffect(() => {
+      if (!window.HL_INSTITUTIONS_API) return;
+      let alive = true;
+      window.HL_INSTITUTIONS_API.hydrate()
+        .then(rows => { if (alive) setSectionData(prev => ({ ...prev, 'financial-institutions': rows })); })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, []);
+
     const section = view ? SECTIONS.find(s => s.id === view) : null;
     const items = view ? (sectionData[view] || []) : [];
 
@@ -1252,6 +1264,28 @@
         }
         return;
       }
+      // Financial institutions persist to the financial_institutions table.
+      if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
+        try {
+          const exists = (sectionData['financial-institutions'] || []).some(x => x.id === item.id);
+          const saved = exists
+            ? await window.HL_INSTITUTIONS_API.update(item.id, item)
+            : await window.HL_INSTITUTIONS_API.create(item);
+          setSectionData(prev => {
+            const list = prev['financial-institutions'] || [];
+            const idx = list.findIndex(x => x.id === saved.id);
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            return { ...prev, 'financial-institutions': next };
+          });
+          // Keep the shared Accounts map in step so pickers/logos update without a reload.
+          const map = window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS;
+          if (map) map[saved.key] = { name: saved.name, swift: saved.swift, logo: saved.logo || undefined };
+          setModal(null);
+        } catch (err) {
+          alert('Could not save institution: ' + (err.message || err));
+        }
+        return;
+      }
       setSectionData(prev => {
         const list = prev[view];
         const idx = list.findIndex(x => x.id === item.id);
@@ -1307,6 +1341,19 @@
         }
         return;
       }
+      if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
+        try {
+          await window.HL_INSTITUTIONS_API.remove(item.id);
+          setSectionData(prev => ({ ...prev, 'financial-institutions': prev['financial-institutions'].filter(x => x.id !== item.id) }));
+          const map = window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS;
+          if (map && item.key) delete map[item.key];
+          setModal(null);
+          setConfirmDel(null);
+        } catch (err) {
+          alert('Could not delete institution: ' + (err.message || err));
+        }
+        return;
+      }
       setSectionData(prev => {
         const next = prev[view].filter(x => x.id !== item.id);
         persistClientSection(view, next);
@@ -1324,7 +1371,8 @@
       const api = view === 'categories' ? window.HL_CATEGORIES_API
         : view === 'members' ? window.HL_MEMBERS_API
         : view === 'currencies' ? window.HL_CURRENCIES_API
-        : view === 'statement-mappings' ? window.HL_STATEMENT_MAPPINGS_API : null;
+        : view === 'statement-mappings' ? window.HL_STATEMENT_MAPPINGS_API
+        : view === 'financial-institutions' ? window.HL_INSTITUTIONS_API : null;
       if (api) {
         const results = await Promise.allSettled(ids.map(id => api.remove(id)));
         const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));

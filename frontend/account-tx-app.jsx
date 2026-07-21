@@ -218,10 +218,11 @@
       );
     },
   };
-  function AtxRow({ tx, extraClass, order, selectable, selected, onToggleSelect }) {
+  function AtxRow({ tx, extraClass, order, selectable, selected, onToggleSelect, onOpenDetail }) {
     const keys = order && order.length ? order : ATX_DEFAULT_ORDER;
     return (
-      <tr className={'tx-row' + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')}>
+      <tr className={'tx-row' + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')}
+        onClick={() => onOpenDetail && onOpenDetail(tx)} title="View record details">
         {selectable && (
           <td className="td-select" data-label="" onClick={(e) => { e.stopPropagation(); onToggleSelect(tx.id); }}>
             <input id={'row-select-' + tx.id} type="checkbox" className="row-select-box" checked={!!selected}
@@ -238,6 +239,74 @@
           <TxTypeBadge txType={tx.txType} />
         </td>
       </tr>
+    );
+  }
+
+  // ── Row detail modal ───────────────────────────────────────────────────────
+  // Read-only: when this record entered the ledger + which uploaded statement
+  // it came from, since every row here is an imported bank movement.
+  function fmtAddedAt(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function AtxDetailModal({ tx, onClose }) {
+    const isIn = tx.direction === 'incoming';
+    return (
+      <div className="backdrop" onMouseDown={(e) => { if (e.target.classList.contains('backdrop')) onClose(); }}>
+        <div className="modal atx-detail-modal">
+          <div className="modal-head">
+            <div className="modal-head-l">
+              <span className="modal-title"><Icon name="receipt" size={17} />{tx.desc || 'Account Activity'}</span>
+              <span className="modal-sub">{fmtDate(tx.date)} {dowOf(tx.date)}</span>
+            </div>
+            <button id="atx-detail-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+          </div>
+          <div className="modal-body">
+            <div className="detail-balance-hero">
+              <span className="detail-bal-label">{isIn ? 'Received' : 'Sent'}</span>
+              <span className={'atx-detail-amt ' + (isIn ? 'income' : 'expense')}>
+                {isIn ? '+' : '−'}{grp(tx.amt)}{SYM[tx.cur]}
+              </span>
+            </div>
+            <div className="detail-info-grid">
+              <div className="detail-info-item">
+                <span className="detail-info-k">Account</span>
+                <span className="detail-info-v"><AccountBadge accountId={tx.accountId} /></span>
+              </div>
+              <div className="detail-info-item">
+                <span className="detail-info-k">Type</span>
+                <span className="detail-info-v"><TxTypeBadge txType={tx.txType} /></span>
+              </div>
+              <div className="detail-info-item">
+                <span className="detail-info-k">Direction</span>
+                <span className="detail-info-v"><DirectionBadge direction={tx.direction} /></span>
+              </div>
+              <div className="detail-info-item">
+                <span className="detail-info-k">Currency</span>
+                <span className="detail-info-v">{tx.cur}</span>
+              </div>
+              <div className="detail-info-item detail-info-full">
+                <span className="detail-info-k">Description</span>
+                <span className="detail-info-v">{tx.desc || '–'}</span>
+              </div>
+              <div className="detail-info-item detail-info-full">
+                <span className="detail-info-k"><Icon name="clock" size={11} />Added</span>
+                <span className="detail-info-v">{fmtAddedAt(tx.createdAt) || 'Unknown'}</span>
+              </div>
+              <div className="detail-info-item detail-info-full">
+                <span className="detail-info-k"><Icon name="file-text" size={11} />Source File</span>
+                <span className="detail-info-v atx-detail-source">
+                  {tx.sourceFilename
+                    ? <React.Fragment><Icon name="paperclip" size={13} /><span className="atx-detail-filename">{tx.sourceFilename}</span></React.Fragment>
+                    : <span className="for-na">Not recorded (imported before this was tracked)</span>}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -293,9 +362,18 @@
     // Mass-delete: ids of checkbox-selected rows + the batch-confirm dialog toggle.
     const [selected, setSelected] = React.useState(() => new Set());
     const [batchDel, setBatchDel] = React.useState(false);
+    const [detail, setDetail] = React.useState(null);
     const toggleSelect = React.useCallback((id) => setSelected(s => {
       const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     }), []);
+    // Week-group collapse state (Group By Week tweak) — keyed by week-of-month
+    // number, so it resets whenever the viewed month changes (else "Week 1"
+    // collapsed in June would also start collapsed in July).
+    const [collapsedWeeks, setCollapsedWeeks] = React.useState(() => new Set());
+    const toggleWeek = React.useCallback((key) => setCollapsedWeeks(s => {
+      const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n;
+    }), []);
+    React.useEffect(() => { setCollapsedWeeks(new Set()); }, [month, year]);
 
     React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
 
@@ -504,7 +582,7 @@
                     </td></tr>
                   ) : !t.groupByWeek || sort.col !== 'date' ? (
                     pageRows.map(tx => <AtxRow key={tx.id} tx={tx} order={orderKeys}
-                      selectable selected={selected.has(tx.id)} onToggleSelect={toggleSelect} />)
+                      selectable selected={selected.has(tx.id)} onToggleSelect={toggleSelect} onOpenDetail={setDetail} />)
                   ) : (() => {
                     const groups = [];
                     let cur = null;
@@ -515,20 +593,26 @@
                     });
                     const out = [];
                     groups.forEach((g, gi) => {
+                      const collapsed = collapsedWeeks.has(g.wk);
                       if (gi > 0) out.push(<tr className="week-spacer" key={'wkspc-' + g.wk}><td colSpan={99}></td></tr>);
                       out.push(
-                        <tr className="week-group-row" key={'wk-' + g.wk}>
+                        <tr className={'week-group-row' + (collapsed ? ' wk-collapsed' : '')} key={'wk-' + g.wk}
+                          onClick={() => toggleWeek(g.wk)} title={collapsed ? 'Expand week' : 'Collapse week'}>
                           <td colSpan={99}>
-                            <span className="week-group-label"><Icon name="calendar-range" size={12} />Week {g.wk}</span>
+                            <span className="week-group-label">
+                              <Icon name="chevron-down" size={12} className="week-group-chevron" />
+                              <Icon name="calendar-range" size={12} />Week {g.wk}
+                            </span>
                             <span className="week-group-range">{weekRangeLabel(g.wk, month, year)}</span>
+                            {collapsed && <span className="week-group-count">{g.rows.length} item{g.rows.length !== 1 ? 's' : ''}</span>}
                           </td>
                         </tr>
                       );
-                      g.rows.forEach((tx, ri) => {
+                      if (!collapsed) g.rows.forEach((tx, ri) => {
                         const isLast = ri === g.rows.length - 1;
                         out.push(
                           <AtxRow key={tx.id} tx={tx} order={orderKeys}
-                            selectable selected={selected.has(tx.id)} onToggleSelect={toggleSelect}
+                            selectable selected={selected.has(tx.id)} onToggleSelect={toggleSelect} onOpenDetail={setDetail}
                             extraClass={(ri % 2 === 1 ? 'row-alt' : '') + (isLast ? ' week-last' : '')} />
                         );
                       });
@@ -544,6 +628,7 @@
         </div>
 
         {batchDel && <DeleteConfirm count={selected.size} onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
+        {detail && <AtxDetailModal tx={detail} onClose={() => setDetail(null)} />}
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />

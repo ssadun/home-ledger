@@ -12,6 +12,7 @@
     wallet:    { label: 'Digital Wallet',    icon: 'smartphone',   color: 'var(--lavender)' },
     cash:      { label: 'Cash',              icon: 'banknote',     color: 'var(--green)' },
     invest:    { label: 'Investment',        icon: 'trending-up',  color: 'var(--emerald)' },
+    pension:   { label: 'Retirement Plan',   icon: 'piggy-bank',   color: 'var(--lime)' },
   };
 
   const CC_TYPES = {
@@ -27,7 +28,11 @@
   };
 
   // Financial institutions — drives the Accounts "Institution" picker.
-  // Managed via Configuration → Financial Institutions; each has a name + SWIFT/BIC code.
+  // Managed via Configuration → Financial Institutions; each has a name + SWIFT/BIC
+  // code + optional logo, and persists to the backend `financial_institutions` table.
+  // This literal is only the BOOTSTRAP shape shown before the API answers: pages that
+  // render institutions call window.HL_INSTITUTIONS_API.hydrate(), which refills the
+  // map below in place (see institutions-data.js). Logos live only on the server.
   const FINANCIAL_INSTITUTIONS = {
     garanti:     { name: 'Garanti BBVA',      swift: 'TGBATRIS' },
     isbank:      { name: 'İş Bankası',         swift: 'ISBKTRIS' },
@@ -39,6 +44,7 @@
     denizbank:   { name: 'DenizBank',          swift: 'DENITRIS' },
     halkbank:    { name: 'Halkbank',           swift: 'TRHBTR2A' },
     burgan:      { name: 'Burgan Bank',        swift: 'TEKFTRIS' },
+    garantiemek: { name: 'Garanti BBVA Emeklilik', swift: '' },
   };
 
   // FX rates (same as data.js)
@@ -62,6 +68,7 @@
       iban: row.iban || null,
       linked: row.linked_key || undefined,
       ccType: row.cc_type || undefined,
+      isPrepaid: !!row.is_prepaid,
       debitType: row.debit_type || undefined,
       cardName: row.card_name || undefined,
       cardMedium: row.card_medium || undefined,
@@ -69,6 +76,7 @@
       validityYear: row.validity_year || undefined,
       statementCutoff: row.statement_cutoff ? row.statement_cutoff : undefined,  // treat 0/null as "no cutoff"
       paymentDue: row.payment_due || undefined,
+      pension: row.pension || undefined,   // BES figures; only for type === 'pension'
     };
   }
 
@@ -87,6 +95,7 @@
       iban: item.iban || null,
       linked_key: item.linked || null,
       cc_type: item.ccType || null,
+      is_prepaid: !!item.isPrepaid,
       debit_type: item.debitType || null,
       card_name: item.cardName || null,
       card_medium: item.cardMedium || null,
@@ -94,6 +103,7 @@
       validity_year: item.validityYear || null,
       statement_cutoff: item.statementCutoff ? Number(item.statementCutoff) : null,   // empty/0 → null
       payment_due: item.paymentDue || null,
+      pension: item.pension || null,
     };
   }
 
@@ -138,14 +148,19 @@
     return groups.map((g, i) => (i === 0 || i === groups.length - 1) ? g : '*'.repeat(g.length)).join(' ');
   }
 
-  // These four maps have no backend table; edits from the Configuration screens
+  // These three maps have no backend table; edits from the Configuration screens
   // persist to localStorage (see config-app.jsx persistClientSection). Apply any
   // saved override here so edits survive reload and propagate to every page that
   // reads window.ACCOUNTS_DATA (Accounts, pickers, …).
+  // Merged, not replaced: a saved override wins per key, but keys shipped later
+  // still appear. Without the merge, anyone who had ever edited Account Types would
+  // never see a newly added default (e.g. "pension") — it would be silently missing
+  // from the picker with no way to discover it. Trade-off: a default the user
+  // deleted comes back; that is the better failure of the two.
   function withOverrides(sectionId, base) {
     try {
       const saved = JSON.parse(localStorage.getItem('hl-cfg-' + sectionId + '-data') || 'null');
-      if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved;
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) return { ...base, ...saved };
     } catch (e) { /* corrupt/absent override → fall back to defaults */ }
     return base;
   }
@@ -157,7 +172,8 @@
     ACCOUNT_TYPES:          withOverrides('account-types', ACCOUNT_TYPES),
     CC_TYPES:               withOverrides('cc-types', CC_TYPES),
     DEBIT_TYPES:            withOverrides('debit-types', DEBIT_TYPES),
-    FINANCIAL_INSTITUTIONS: withOverrides('financial-institutions', FINANCIAL_INSTITUTIONS),
+    // No withOverrides(): institutions come from the DB via HL_INSTITUTIONS_API.hydrate().
+    FINANCIAL_INSTITUTIONS,
     ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX,
   };
   window.HL_ACCOUNTS_API = { list, create, update, remove, fromApi, toApi, maskCardNumber };
