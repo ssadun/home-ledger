@@ -752,6 +752,25 @@
     const ownerOf = (id) => { const a = accounts.find(x => x.id === id); return a ? a.owner : null; };
     const canContinue = !!pickedFile || !!selected;
 
+    // True once the wizard has written anything to the backend (an account created
+    // from a statement identity, a committed import). From that point the host
+    // page's list behind the modal is stale, so closing has to re-hydrate it —
+    // the commit paths are not the only way to leave the wizard dirty (identity
+    // mode never commits at all, it just creates the account and ends).
+    const dirtyRef = React.useRef(false);
+
+    // Re-hydrate the host page now; clears the flag so closing afterwards doesn't
+    // fetch a second time.
+    function refreshHost(importedRows, byAccount) {
+      dirtyRef.current = false;
+      onCommit && onCommit(importedRows || [], byAccount || {});
+    }
+
+    function closeWizard() {
+      if (dirtyRef.current) refreshHost([], {});
+      onClose();
+    }
+
     // Resolve a statement source to an account id: an explicit pick wins, otherwise
     // auto-match by IBAN / card number. Returns null when still unmapped.
     function resolveSource(source) {
@@ -778,6 +797,7 @@
       try {
         const created = await window.HL_ACCOUNTS_API.create(formResult);
         setAccounts(prev => [...prev, created]);
+        dirtyRef.current = true;
         const src = createSrcRef.current;
         if (src) setSourceMap(prev => ({ ...prev, [src]: created.id }));
       } catch (e) {
@@ -938,7 +958,7 @@
       setBusy(false);
       setPenResult({ ...outcome, funds: penRows });
       // Re-hydrate the parent Accounts list so the plan and its new balance show.
-      onCommit && onCommit([], {});
+      refreshHost([], {});
       setStep('done');
     }
 
@@ -990,8 +1010,9 @@
 
       setBusy(false);
       setInvResult({ created: outcome.created || 0, updated: outcome.updated || 0, holdings: incl, accounts: createdAccounts });
-      // Refresh the parent Accounts list so any freshly created invest account shows.
-      if (createdAccounts.length) onCommit && onCommit([], {});
+      // Refresh the parent Accounts list — a freshly created invest account has to
+      // appear, and an existing one's holdings changed underneath it either way.
+      refreshHost([], {});
       setStep('done');
     }
 
@@ -1082,7 +1103,7 @@
       });
       setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount,
         creditPayments: createdCP.map(c => c.name) });
-      onCommit && onCommit(incl, byAcc);
+      refreshHost(incl, byAcc);
       setStep('done');
     }
 
@@ -1095,7 +1116,7 @@
     function Footer() {
       if (step === 'choose') return (
         <React.Fragment>
-          <button id="imp-choose-cancel-btn" className="amb cancel" onClick={onClose} disabled={busy}><Icon name="x" size={14} />Cancel</button>
+          <button id="imp-choose-cancel-btn" className="amb cancel" onClick={closeWizard} disabled={busy}><Icon name="x" size={14} />Cancel</button>
           <button id="imp-choose-continue-btn" className="amb ok" disabled={!canContinue || busy} onClick={goDetect}>
             <Icon name={busy ? 'loader' : 'arrow-right'} size={14} />{busy ? 'Parsing…' : 'Continue'}
           </button>
@@ -1112,7 +1133,7 @@
       if (step === 'identity') return (
         <React.Fragment>
           <button id="imp-identity-back-btn" className="amb cancel" onClick={() => { setMode('tx'); setStep('choose'); }}><Icon name="arrow-left" size={14} />Back</button>
-          <button id="imp-identity-done-btn" className="amb ok" onClick={onClose}><Icon name="check" size={14} />Done</button>
+          <button id="imp-identity-done-btn" className="amb ok" onClick={closeWizard}><Icon name="check" size={14} />Done</button>
         </React.Fragment>
       );
       if (step === 'review') return (
@@ -1124,18 +1145,18 @@
           </button>
         </React.Fragment>
       );
-      return <button id="imp-done-btn" className="amb ok" style={{ marginLeft: 'auto' }} onClick={onClose}><Icon name="check" size={14} />Done</button>;
+      return <button id="imp-done-btn" className="amb ok" style={{ marginLeft: 'auto' }} onClick={closeWizard}><Icon name="check" size={14} />Done</button>;
     }
 
     return (
-      <div className="backdrop" onMouseDown={(e) => { if (e.target.classList.contains('backdrop') && step !== 'review' && !busy) onClose(); }}>
+      <div className="backdrop" onMouseDown={(e) => { if (e.target.classList.contains('backdrop') && step !== 'review' && !busy) closeWizard(); }}>
         <div className="modal imp-modal">
           <div className="modal-head">
             <div className="modal-head-l">
               <span className="modal-title"><Icon name="file-down" size={16} />{mode === 'pen' ? 'Import Retirement Plan' : mode === 'inv' ? 'Import Portfolio' : mode === 'identity' ? 'Add Account From Statement' : 'Import Transactions'}</span>
               <span className="modal-sub">{doc ? doc.fileName : 'From CSV, Excel, or PDF statement'}</span>
             </div>
-            <button id="imp-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+            <button id="imp-close-btn" className="m-close" onClick={closeWizard}><Icon name="x" size={17} /></button>
           </div>
 
           <div className="imp-stepper-wrap"><Stepper current={step} steps={mode === 'pen' ? PEN_STEPS : mode === 'inv' ? INV_STEPS : mode === 'identity' ? ID_STEPS : STEPS} /></div>
