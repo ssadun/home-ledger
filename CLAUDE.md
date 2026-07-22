@@ -457,6 +457,27 @@ Only run a rebuild when you change `nginx.conf` or the `Dockerfile`:
 docker-compose up -d --build frontend
 ```
 
+## Releasing — `./push.sh`
+
+The version in the sidebar footer comes from `APP_BUILD` in `frontend/nav.jsx`
+(`const APP_BUILD = N; // build:auto` — the marker line is matched by `sed`).
+**Never edit it by hand.** `./push.sh` bumps it, commits, and pushes:
+
+```bash
+./push.sh                     # commit msg defaults to "chore: release v1.0.<n>"
+./push.sh "feat: add report"  # custom message
+./push.sh --deploy            # ALSO rebuild the frontend container
+```
+
+- **Rebuilding is opt-in.** The frontend is served live from disk, so `--deploy`
+  is only for `nginx.conf` / `Dockerfile` changes — see the section above.
+- `git add -A` is used, so the bump is committed together with everything else
+  currently modified. Commit deliberate work first if you want it separated.
+- **The script itself is easy to lose.** It was deleted by accident in `7bd908e`
+  and went unnoticed for weeks because nothing but a comment in `nav.jsx`
+  referenced it — which is why it is documented here. If `APP_BUILD` stops
+  moving between releases, check that `push.sh` still exists.
+
 ## Test User
 
 User: sadunsevingen@gmail.com
