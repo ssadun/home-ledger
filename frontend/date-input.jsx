@@ -13,11 +13,18 @@
 // back to a raw <input type="date"> with the browser's light-theme picker.
 // Those four now alias this file; do NOT reintroduce a local copy.
 //
+// Every picker is dimensioned from #tx-modal-date-input (Add Spending): the
+// <input> ALWAYS carries .field-input, and `className` is additive on top of
+// it — it can never replace it. styles/datepicker.css pins the metrics with
+// `.date-input-wrap > input.field-input`, which outranks a page's own cell
+// class, so a date field cannot drift smaller/larger on one screen.
+//
 // The prop surface is the union of what the old copies accepted:
 //   id, value ('YYYY-MM-DD'), onChange({target:{value}}), min, max,
-//   className (on the <input>), wrapClassName (extra class on the wrapper),
-//   placeholder, dataTable/dataCol (data-* attrs used by the Backup & Export
-//   and Configuration table editors).
+//   className (EXTRA classes on the <input>, appended to .field-input),
+//   wrapClassName (extra class on the wrapper), placeholder,
+//   dataTable/dataCol (data-* attrs used by the Backup & Export and
+//   Configuration table editors).
 //
 // Requires flatpickr (CDN <script> + flatpickr.min.css + styles/datepicker.css)
 // and Icon.jsx to be loaded first.
@@ -60,11 +67,65 @@
     const wrapRef  = React.useRef(null);
     const fpRef    = React.useRef(null);
 
-    // Match the calendar's width to the field it drops out of.
+    // The calendar is ALWAYS CAL_W wide — the width it has under
+    // #tx-modal-date-input, the app's reference picker — regardless of the
+    // field it drops out of. It used to track the field width, which broke it
+    // at both ends: the import wizard's 148px review cell and Backup & Export's
+    // 150px range fields squeezed the 7 weekday labels together as
+    // "SUMOITUEWEITHLFRISAT" and wrapped "July 2026" onto two lines, while the
+    // Currencies config form's full-width 400px field stretched the day grid to
+    // nearly double the reference. A date grid has one natural size; don't
+    // rubber-band it to its trigger.
+    const CAL_W = 232;
     function syncWidth(fp) {
-      if (!wrapRef.current || !fp.calendarContainer) return;
-      const w = wrapRef.current.getBoundingClientRect().width;
-      if (w > 0) fp.calendarContainer.style.width = w + 'px';
+      if (!fp.calendarContainer) return;
+      fp.calendarContainer.style.width = CAL_W + 'px';
+    }
+
+    // Nearest enclosing modal. Container classes all END in "modal"
+    // (.modal, .cp-modal, .acct-form-modal, .imp-modal, .cfg-modal…), while the
+    // parts inside them do not (.modal-body, .modal-foot, .action-modal-btn) —
+    // so an exact suffix test picks the shell and never a child of it.
+    function closestModal(el) {
+      for (let n = el; n && n !== document.body; n = n.parentElement) {
+        if ([...n.classList].some((c) => c.endsWith('modal'))) return n;
+      }
+      return null;
+    }
+
+    // Flip the calendar above the field when opening downward would push it out
+    // through the bottom of its modal. flatpickr's own `position: 'auto'` only
+    // flips at the VIEWPORT edge, so on a short modal (Add Credit Payment) the
+    // popup had room on the page and happily spilled across the Cancel/Save
+    // footer onto the page behind it.
+    //
+    // The test is "which side has more room", NOT "does it fit above" — a modal
+    // can be shorter than the calendar in BOTH directions (Add Credit Payment
+    // leaves 161px below the field and 267px above for a 294px calendar), and
+    // demanding a clean fit meant such a modal never flipped at all, which is
+    // exactly the case the flip is for. When neither side is better,
+    // flatpickr's own placement stands.
+    //
+    // MUST run deferred (rAF), not inline in onOpen: flatpickr 4.x fires
+    // onOpen BEFORE positionCalendar(), so writing .top during the event just
+    // gets overwritten a moment later.
+    function keepInsideModal(fp) {
+      const cal = fp.calendarContainer;
+      const wrap = wrapRef.current;
+      if (!cal || !wrap) return;
+      const modal = closestModal(wrap);
+      if (!modal) return;
+      const w = wrap.getBoundingClientRect();
+      const m = modal.getBoundingClientRect();
+      const h = cal.offsetHeight;
+      const GAP = 2;
+      const below = m.bottom - w.bottom;
+      const above = w.top - m.top;
+      if (below >= h || above <= below) return;
+      cal.classList.remove('arrowTop');
+      cal.classList.add('arrowBottom');
+      // flatpickr positions with absolute page coordinates, so add the scroll.
+      cal.style.top = (window.scrollY + w.top - h - GAP) + 'px';
     }
 
     React.useEffect(() => {
@@ -77,7 +138,10 @@
         disableMobile: true,
         monthSelectorType: 'dropdown',
         onReady: (_, __, fp) => { syncWidth(fp); window.HL_enhanceFpYear(fp); },
-        onOpen:  (_, __, fp) => syncWidth(fp),
+        onOpen:  (_, __, fp) => {
+          syncWidth(fp);
+          requestAnimationFrame(() => { if (fp.isOpen) keepInsideModal(fp); });
+        },
         onYearChange: (_, __, fp) => { if (fp._hlYearSelect) fp._hlYearSelect.value = String(fp.currentYear); },
         onChange: (_, dateStr) => onChange({ target: { value: dateStr } }),
       });
@@ -100,7 +164,9 @@
           id={id}
           ref={inputRef}
           type="text"
-          className={className || 'field-input'}
+          className={['field-input'].concat(
+            String(className || '').split(/\s+/).filter(c => c && c !== 'field-input'),
+          ).join(' ')}
           placeholder={placeholder || 'YYYY-MM-DD'}
           data-table={dataTable}
           data-col={dataCol}

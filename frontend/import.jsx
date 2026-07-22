@@ -420,7 +420,7 @@
         <button id={'imp-row-' + idx + '-include-btn'} className="imp-inc" onClick={() => update(idx, { include: !row.include })} title={row.include ? 'Exclude row' : 'Include row'}>
           <Icon name={row.include ? 'check-square' : 'square'} size={16} />
         </button>
-        <DateInput id={'imp-row-' + idx + '-date-input'} className="imp-cell imp-date" wrapClassName="imp-date-wrap" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
+        <DateInput id={'imp-row-' + idx + '-date-input'} className="imp-date" wrapClassName="imp-date-wrap" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
         <input id={'imp-row-' + idx + '-desc-input'} className="imp-cell imp-desc" placeholder="Description" title="Transaction description" value={row.desc} onChange={(e) => update(idx, { desc: e.target.value })} />
         <div className="imp-cell-cat">
           <StyledSelect id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })}>

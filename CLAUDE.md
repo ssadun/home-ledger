@@ -342,6 +342,22 @@ Built and live — a **static multi-page app** under `frontend/`, served by ngin
 > A page that needs a date field must load, in order: the flatpickr CDN CSS+JS, `styles/datepicker.css`, then `<script type="text/babel" src="date-input.jsx"></script>` **before** the file that consumes it. 18 pages do; `Notifications.html` deliberately doesn't (it has no date field).
 >
 > **Do not paste a local copy into a page's own JSX.** It was previously duplicated in `controls.jsx`, `config-app.jsx`, `backup-export-app.jsx` and `import.jsx` — four near-identical copies, each carrying its own guarded `HL_enhanceFpYear` — so every picker fix had to be made four times, and Accounts, which had no copy, was left on raw `type="date"`. Those four now just do `const DateInput = window.DateInput;`.
+>
+> **Every date picker is dimensioned from `#tx-modal-date-input`** (the Add Spending modal) — the app's canonical date field: **36px tall · `13px` font · `padding: 9px 36px 9px 11px` · `border-radius: var(--radius)` (8px) · `--bg3` on `--border` · calendar icon at `right: 10px`.** Two things enforce it, and both must stay:
+>
+> 1. `DateInput` **always** puts `field-input` on the `<input>`; the `className` prop is *additive* (extra classes appended, `field-input` de-duplicated) and can never replace it.
+> 2. `styles/datepicker.css` pins the metrics on **`.date-input-wrap > input.field-input`** — element + two classes, deliberately outranking any page's own single-class cell style.
+>
+> **232px is the width — for the field and for the popup.** `.date-input-wrap` carries `max-width: 232px` and `CAL_W = 232` in `date-input.jsx` fixes the calendar, so a date field is *at most* the reference width and its calendar is *exactly* it. The popup used to track its field, which broke at both ends: the import wizard's 148px review cell and Backup & Export's 150px range fields squeezed the seven weekday labels into `SUMOITUEWEITHLFRISAT` and wrapped `July 2026` onto two lines, while the Currencies config form — single-column, so its Date field stretched to the full 400px — nearly doubled the day grid. It is a **max**, not a fixed width: a field in a genuinely narrower slot still shrinks. **A date grid has one natural size; don't rubber-band it to its trigger.**
+>
+> **The calendar flips up when it would spill out of its modal** (`keepInsideModal()`). flatpickr's own `position:'auto'` only flips at the *viewport* edge, so on a short modal — Add Credit Payment — the popup had room on the page and spilled across the Cancel/Save footer onto the page behind it. Two things this must keep doing:
+>
+> - **Choose the side with more room, don't require a clean fit.** That modal leaves 161px below the field and 267px above for a 294px calendar — it fits neither way, and an "only flip if it fits above" test meant the one case the flip exists for never flipped.
+> - **Run deferred (`requestAnimationFrame`), not inline in `onOpen`.** flatpickr 4.x fires `onOpen` *before* `positionCalendar()`, so a `.top` written during the event is silently overwritten a moment later. This looks exactly like the flip "not working".
+>
+> The enclosing modal is found by walking up for a class token that **ends in** `modal` — every shell matches (`modal`, `cp-modal`, `acct-form-modal`, `imp-modal`, `cfg-modal`) and no inner part does (`modal-body`, `modal-foot`, `action-modal-btn`).
+>
+> This exists because the import wizard's review row passed `className="imp-cell imp-date"`, and `.imp-cell` (12px font, `6px 8px`, `--radius-sm`) won the cascade — making it the one date field in the app with its own size. **Never restyle a date field through a page-level class**; if a grid can't fit the canonical field, widen the column (`.imp-rev-thead,.imp-rev-row` went `124px` → `148px` for exactly this), don't shrink the picker. Parity is locked by `date-metric-parity.spec.js` (Spending vs. Budgets/Subscriptions/Recurring/Credit Payments/Statements + the import review row).
 - Calls the backend API; edits are picked up live (no rebuild — see _Local Environment & Dev Workflow_).
 
 **Sidebar** — `nav.jsx` is the single source of truth. A `NAV` entry carrying a `parent` key renders as a collapsible group whose items come from `SUBMENUS[id]`; adding a group means adding the array plus its `SUBMENUS` entry, and `Sidebar()` needs no change (it used to hardcode the Transactions and Configuration groups). Three groups today:

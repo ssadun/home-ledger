@@ -100,7 +100,7 @@
 .imp-rev-count{font-size:12px;color:var(--muted);font-weight:500}
 
 .imp-rev-table{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.imp-rev-thead,.imp-rev-row{display:grid;grid-template-columns:32px 124px 1fr 130px 132px 150px 30px;align-items:center;gap:8px}
+.imp-rev-thead,.imp-rev-row{display:grid;grid-template-columns:32px 148px 1fr 130px 132px 150px 30px;align-items:center;gap:8px}
 .imp-rev-thead{padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border)}
 .imp-rev-thead span{font-size:var(--fs-label);font-weight:700;letter-spacing:1px;color:var(--muted)}
 .imp-rev-thead span.ar{text-align:right}
@@ -116,12 +116,13 @@
 /* compact inline cells */
 .imp-cell{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;color:var(--text);font-family:var(--font-sans);font-size:12px;outline:none;transition:border-color .15s;width:100%;min-width:0}
 .imp-cell:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,142,247,.15)}
-/* Date cell = the shared flatpickr DateInput (readonly text + calendar icon),
-   matching the "Add Spending" modal. The .date-input-wrap holds the grid area;
-   the inner input keeps the compact .imp-cell look with room for the icon. */
+/* Date cell = the shared flatpickr DateInput, dimensioned by
+   styles/datepicker.css exactly like #tx-modal-date-input in the "Add Spending"
+   modal. The .date-input-wrap holds the grid area; the inner input must NOT be
+   given .imp-cell — the compact 12px/6px cell look is what made this the one
+   date field in the app with its own size. Only tabular figures are added. */
 .imp-date-wrap{min-width:0}
-.imp-date{font-variant-numeric:tabular-nums;cursor:pointer;padding-right:26px;box-sizing:border-box}
-.imp-date-wrap .date-input-icon{right:8px}
+.imp-date{font-variant-numeric:tabular-nums}
 .imp-desc{width:100%;min-width:0;box-sizing:border-box}
 .imp-cell-cat{min-width:0}
 select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23545b7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 6px center}
