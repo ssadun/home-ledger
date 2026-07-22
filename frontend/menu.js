@@ -120,7 +120,14 @@ document.addEventListener('pointerdown', function (e) {
 document.addEventListener('click', function (e) {
   if (window.innerWidth > 660) return;
   var sidebar = document.getElementById('sidebar');
-  if (!sidebar || sidebar.contains(e.target)) return;
+  if (!sidebar) return;
+  // Use the event's ORIGINAL path, not e.target. A React re-render triggered by
+  // this same click can replace the tapped node before the event reaches us, and
+  // a detached node fails sidebar.contains() — which would read as "tapped
+  // outside" and close the popup the tap just opened.
+  var path = (e.composedPath && e.composedPath()) || [e.target];
+  if (path.indexOf(sidebar) !== -1) return;
+  if (!e.target.isConnected) return;
   // Also ignore clicks on the mobile backdrop (it has its own handler)
   if (e.target.classList && e.target.classList.contains('mobile-sub-backdrop')) return;
   var openBtns = sidebar.querySelectorAll('.sidebar-parent.open > .sidebar-item');

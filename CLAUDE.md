@@ -338,6 +338,16 @@ Built and live — a **static multi-page app** under `frontend/`, served by ngin
 - Styles in dedicated `frontend/styles/*.css` (no inline `<style>`); mobile breakpoints at `max-width:660px` and `max-width:410px`.
 - Calls the backend API; edits are picked up live (no rebuild — see _Local Environment & Dev Workflow_).
 
+**Sidebar** — `nav.jsx` is the single source of truth. A `NAV` entry carrying a `parent` key renders as a collapsible group whose items come from `SUBMENUS[id]`; adding a group means adding the array plus its `SUBMENUS` entry, and `Sidebar()` needs no change (it used to hardcode the Transactions and Configuration groups). Three groups today:
+
+| Group | Items |
+|---|---|
+| Transactions | Spending · Credit Payments · Subscriptions · Recurring |
+| **Accounts** | Accounts · Account Activity · Statements |
+| Configuration | Members · Categories · Currencies · … · Backup & Export |
+
+Account Activity sits under **Accounts**, not Transactions — it lists an account's own movements. The Accounts list page keeps the id `accounts`, the same id as its parent, so landing on `Accounts.html` lights up both the group and its first item.
+
 ## Planned Screens / Features (Not Yet Implemented)
 
 ### Dashboard API

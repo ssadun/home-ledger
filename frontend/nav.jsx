@@ -5,9 +5,14 @@
 //     <Sidebar active="budgets" />
 //
 // `active` is the id of the current page. Valid ids:
-//   Top level : dashboard | transactions | recurring | accounts | budgets | configuration
-//   Tx sub    : spending | account-activity | credit-payments | subscriptions | recurring
+//   Top level : dashboard | transactions | accounts | budgets | configuration
+//   Tx sub    : spending | credit-payments | subscriptions | recurring
+//   Accts sub : accounts | account-activity | statements
 //   Config sub: members | categories | currencies | cc-types | debit-types | account-types | financial-institutions | statement-mappings | backup-export
+//
+// A NAV entry with a `parent` key renders as a collapsible group whose items come
+// from SUBMENUS[id] — add a submenu by adding the array and the map entry, nothing
+// in Sidebar() needs to change.
 //
 // To change a menu item's COLOR / LABEL / ICON / ORDER, edit the arrays below — once.
 (function () {
@@ -49,7 +54,7 @@
   const NAV = [
     { id: 'dashboard',     icon: 'layout-dashboard', label: 'Dashboard',     color: 'var(--white)',  href: 'Dashboard.html' },
     { id: 'transactions',  icon: 'arrow-left-right', label: 'Transactions',  color: '#22c55e',       parent: 'tx' },
-    { id: 'accounts',      icon: 'wallet',           label: 'Accounts',      color: '#8b5cf6',       href: 'Accounts.html' },
+    { id: 'accounts',      icon: 'wallet',           label: 'Accounts',      color: '#8b5cf6',       parent: 'acct' },
     { id: 'budgets',       icon: 'target',           label: 'Budgets',       color: 'var(--yellow)', href: 'Budgets.html' },
     { id: 'configuration', icon: 'settings-2',       label: 'Configuration', color: 'var(--red)',    parent: 'cfg' },
   ];
@@ -57,10 +62,18 @@
   // ── Transactions submenu ───────────────────────────────────────────────────
   const NAV_TX_SUB = [
     { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: '#22c55e', href: 'Spending.html' },
-    { id: 'account-activity', icon: 'landmark',     label: 'Account Activity', color: '#4f8ef7', href: 'Account Activity.html' },
     { id: 'credit-payments',  icon: 'credit-card',  label: 'Credit Payments',  color: '#ef4444', href: 'Credit Payments.html' },
     { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--coral)', href: 'Subscriptions.html' },
     { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: '#d946ef',      href: 'Recurring.html' },
+  ];
+
+  // ── Accounts submenu ───────────────────────────────────────────────────────
+  // The list page keeps id 'accounts' — same id as its parent — so landing on
+  // Accounts.html lights up both the group and its first item.
+  const NAV_ACCT_SUB = [
+    { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: '#8b5cf6', href: 'Accounts.html' },
+    { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: '#4f8ef7', href: 'Account Activity.html' },
+    { id: 'statements',       icon: 'files',    label: 'Statements',       color: 'var(--yellow)', href: 'Statements.html' },
   ];
 
   // ── Configuration submenu (sectionId === CONFIG_SECTION === active id) ──────
@@ -80,6 +93,15 @@
   const NAV_BOTTOM = [
     { id: 'logout', icon: 'log-out', label: 'Log Out', color: '#ef4444', idle: '#ef4444' },
   ];
+
+  // Every collapsible group, keyed by its NAV id. Config subitems carry their own
+  // `sectionId` as the page id, everything else is keyed on `id`.
+  const SUBMENUS = {
+    transactions: NAV_TX_SUB,
+    accounts: NAV_ACCT_SUB,
+    configuration: NAV_CFG_SUB,
+  };
+  const subKey = (n) => n.sectionId || n.id;
 
   // CSS-variable / non-hex colors (e.g. var(--white), var(--red)) can't be bit-parsed —
   // mix them so the hover/active tint tracks the icon color just like the hex items do.
@@ -125,32 +147,46 @@
     return <button id={'sidebar-subitem-' + item.id + '-btn'} className={'sidebar-subitem' + (item.active ? ' active' : '')} title={item.label} style={{ '--item-color': item.color }}>{inner}</button>;
   }
 
+  // Declared at module scope, NOT inside Sidebar(). A component defined inside a
+  // render is a brand-new type on every render, so React unmounts and rebuilds the
+  // whole group instead of just toggling its class — which detaches the very node
+  // a tap is still bubbling from, and menu.js's `sidebar.contains(e.target)`
+  // outside-tap guard then reads that detached node as "tapped outside" and closes
+  // the popup it just opened. That was the mobile submenu never expanding.
+  function ParentGroup({ item, open, active, onToggle }) {
+    const style = { '--sidebar-active-color': item.color, '--sidebar-idle-color': '#6b7fa3', '--sidebar-active-bg': rgba(item.color, 0.12) };
+    const inGroup = active === item.id || (SUBMENUS[item.id] || []).some(s => subKey(s) === active);
+    return (
+      <div className={'sidebar-parent' + (open ? ' open' : '')} id={item.id + '-parent'}>
+        <button id={'nav-' + item.id + '-toggle-btn'} className={'sidebar-item' + (inGroup ? ' active' : '')} title={item.label} style={style} onClick={() => onToggle(item.id)}>
+          <span className="sidebar-item-icon"><Icon name={item.icon} size={20} color="currentColor" /></span>
+          <span className="sidebar-item-text">{item.label}</span>
+          <span className="sidebar-item-chevron" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(item.id); }}><Icon name="chevron-down" size={14} /></span>
+        </button>
+        <div className={'sidebar-submenu' + (open ? '' : ' closed')} id={item.id + '-submenu'}>
+          {(SUBMENUS[item.id] || []).map(n => <SbSubItem key={n.id} item={{ ...n, active: subKey(n) === active }} />)}
+        </div>
+      </div>
+    );
+  }
+
   function Sidebar({ active }) {
-    const inTx = active === 'transactions' || NAV_TX_SUB.some(n => n.id === active);
-    const inCfg = active === 'configuration' || NAV_CFG_SUB.some(n => n.sectionId === active);
+    // "Is the current page inside this group?" — true for the parent's own id too.
+    const isIn = (n) => active === n.id || (SUBMENUS[n.id] || []).some(s => subKey(s) === active);
 
     // On mobile the sidebar is a bottom tab bar and an open parent renders its
     // submenu as a floating popup. Don't auto-open it on page load there — it
     // would pop over the content every time you land on a sub-page. On desktop
     // the open submenu is a useful "you are here" cue, so keep it.
     const isMobile = typeof window !== 'undefined' && window.innerWidth <= 660;
-    const [txOpen, setTxOpen] = React.useState(inTx && !isMobile);
-    const [cfgOpen, setCfgOpen] = React.useState(inCfg && !isMobile);
+    // Only one group is ever open; null = all closed.
+    const [openId, setOpenId] = React.useState(() => {
+      const cur = NAV.find(n => n.parent && isIn(n));
+      return cur && !isMobile ? cur.id : null;
+    });
     React.useEffect(() => { window.updateSidebarToggleLabel && window.updateSidebarToggleLabel(); }, []);
 
-    const txIdx = NAV.findIndex(n => n.id === 'transactions');
-    const cfgIdx = NAV.findIndex(n => n.id === 'configuration');
-    const txItem = NAV[txIdx];
-    const cfgItem = NAV[cfgIdx];
-    const txStyle = { '--sidebar-active-color': txItem.color, '--sidebar-idle-color': '#6b7fa3', '--sidebar-active-bg': rgba(txItem.color, 0.12) };
-    const cfgStyle = { '--sidebar-active-color': cfgItem.color, '--sidebar-idle-color': '#6b7fa3', '--sidebar-active-bg': rgba(cfgItem.color, 0.12) };
-
-    const toggleTx = () => {
-      setTxOpen(o => !o); setCfgOpen(false);
-    };
-    const toggleCfg = () => {
-      setCfgOpen(o => !o); setTxOpen(false);
-    };
+    const toggle = (id) => setOpenId(o => (o === id ? null : id));
 
     const top = (n) => ({ ...n, active: n.id === active });
 
@@ -165,28 +201,9 @@
         <button className="sidebar-float-btn" id="sidebar-toggle-label" onClick={() => window.toggleSidebar()} title="Toggle sidebar" aria-label="Toggle sidebar">&gt;</button>
         <div className="sidebar-nav">
           <div className="sidebar-section">
-            {NAV.slice(0, txIdx).map(n => <SbItem key={n.id} item={top(n)} />)}
-            <div className={'sidebar-parent' + (txOpen ? ' open' : '')} id="transactions-parent">
-              <button id="nav-transactions-toggle-btn" className={'sidebar-item' + (inTx ? ' active' : '')} title="Transactions" style={txStyle} onClick={toggleTx}>
-                <span className="sidebar-item-icon"><Icon name="arrow-left-right" size={20} color="currentColor" /></span>
-                <span className="sidebar-item-text">Transactions</span>
-                <span className="sidebar-item-chevron" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setTxOpen(o => !o); setCfgOpen(false); }}><Icon name="chevron-down" size={14} /></span>
-              </button>
-              <div className={'sidebar-submenu' + (txOpen ? '' : ' closed')} id="transactions-submenu">
-                {NAV_TX_SUB.map(n => <SbSubItem key={n.id} item={{ ...n, active: n.id === active }} />)}
-              </div>
-            </div>
-            {NAV.slice(txIdx + 1, cfgIdx).map(n => <SbItem key={n.id} item={top(n)} />)}
-            <div className={'sidebar-parent' + (cfgOpen ? ' open' : '')} id="configuration-parent">
-              <button id="nav-configuration-toggle-btn" className={'sidebar-item' + (inCfg ? ' active' : '')} title="Configuration" style={cfgStyle} onClick={toggleCfg}>
-                <span className="sidebar-item-icon"><Icon name="settings-2" size={20} color="currentColor" /></span>
-                <span className="sidebar-item-text">Configuration</span>
-                <span className="sidebar-item-chevron" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCfgOpen(o => !o); setTxOpen(false); }}><Icon name="chevron-down" size={14} /></span>
-              </button>
-              <div className={'sidebar-submenu' + (cfgOpen ? '' : ' closed')} id="configuration-submenu">
-                {NAV_CFG_SUB.map(n => <SbSubItem key={n.id} item={{ ...n, active: n.sectionId === active }} />)}
-              </div>
-            </div>
+            {NAV.map(n => n.parent
+              ? <ParentGroup key={n.id} item={n} open={openId === n.id} active={active} onToggle={toggle} />
+              : <SbItem key={n.id} item={top(n)} />)}
           </div>
           <div className="sidebar-section bottom">
             {NAV_BOTTOM.map(n => <SbItem key={n.id} item={n} />)}
@@ -198,5 +215,5 @@
     );
   }
 
-  window.HL_NAV = { Sidebar, SbItem, SbSubItem, rgba, NAV, NAV_TX_SUB, NAV_CFG_SUB, NAV_BOTTOM, usePersistentView };
+  window.HL_NAV = { Sidebar, SbItem, SbSubItem, rgba, NAV, NAV_TX_SUB, NAV_ACCT_SUB, NAV_CFG_SUB, NAV_BOTTOM, SUBMENUS, usePersistentView };
 })();
