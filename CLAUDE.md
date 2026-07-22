@@ -46,9 +46,9 @@ docker run --rm --network nas \
 
 ### Database
 SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db` in container).
-**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free). Likewise the Payer/Paying For visibility toggle added `users.show_as_payer`, needing: `ALTER TABLE users ADD COLUMN show_as_payer BOOLEAN DEFAULT 1;` Likewise the Payment Method visibility toggle for bank accounts added `accounts.show_in_payment_method`, needing: `ALTER TABLE accounts ADD COLUMN show_in_payment_method BOOLEAN DEFAULT 0;` Likewise the Account Activity row detail modal (shows when/what-file a row was imported from) added `transactions.source_filename`, needing: `ALTER TABLE transactions ADD COLUMN source_filename VARCHAR;` Likewise prepaid cards added `accounts.is_prepaid`, needing: `ALTER TABLE accounts ADD COLUMN is_prepaid BOOLEAN DEFAULT 0;` Likewise retirement plans added `accounts.pension`, needing: `ALTER TABLE accounts ADD COLUMN pension JSON;`
+**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free). Likewise the Payer/Paying For visibility toggle added `users.show_as_payer`, needing: `ALTER TABLE users ADD COLUMN show_as_payer BOOLEAN DEFAULT 1;` Likewise the Payment Method visibility toggle for bank accounts added `accounts.show_in_payment_method`, needing: `ALTER TABLE accounts ADD COLUMN show_in_payment_method BOOLEAN DEFAULT 0;` Likewise the Account Activity row detail modal (shows when/what-file a row was imported from) added `transactions.source_filename`, needing: `ALTER TABLE transactions ADD COLUMN source_filename VARCHAR;` Likewise prepaid cards added `accounts.is_prepaid`, needing: `ALTER TABLE accounts ADD COLUMN is_prepaid BOOLEAN DEFAULT 0;` Likewise retirement plans added `accounts.pension`, needing: `ALTER TABLE accounts ADD COLUMN pension JSON;` Likewise the Statements archive added `transactions.statement_id`, needing: `ALTER TABLE transactions ADD COLUMN statement_id INTEGER;` (the `statements` table itself needs no migration).
 
-9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`, `statement_mappings`, and `push_subscriptions`, added later — see Data Models below):
+9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`, `statements`, `statement_mappings`, and `push_subscriptions`, added later — see Data Models below):
 
 | Table | Model |
 |---|---|
@@ -61,6 +61,7 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 | `recurring_expenses` | RecurringExpense |
 | `exchange_rates` | ExchangeRate |
 | `currency_rates` | CurrencyRate |
+| `statements` | Statement |
 | `statement_mappings` | StatementMapping |
 | `push_subscriptions` | PushSubscription |
 | `reminder_snoozes` | ReminderSnooze |
@@ -132,6 +133,17 @@ An account kind that has a real-world identifier is **keyed on it**, so the same
 - `import_pension()` matches an existing plan on `pension.contract_no` **or** `number`, so the BES import can't sidestep the key by opening a second account for the same contract.
 - A rejected save is rendered in the Accounts form (`#acct-form-error`, cleared on the next edit) — `accounts-data.js` passes the API's `detail` through instead of a bare status code. Before this, `handleSave`'s error went to an unrendered `loadError` and **Save silently did nothing**.
 
+### Statements (bank-account statement archive)
+A **Statement** (`statements` table, `/api/statements`, **Accounts → Statements**) is one uploaded bank-account statement, kept as an attachment at DB level. It is the **bank twin of CreditPayment** — same shape, same lifecycle, different account kind — and the two are mutually exclusive by design.
+
+- **A card ekstre produces a CreditPayment, a bank statement produces a Statement — never both.** `commit()` in `import.jsx` creates a Statement only for accounts whose type is in `HL_STATEMENTS_API.STATEMENT_TYPES` (`bank`/`overdraft`/`wallet`/`cash`); a `credit` account is already handled by the Credit Payment branch above it. Archiving a card statement in both places would store the file twice and double-count the same document.
+- **Name is `"YYYY.MM - Account Name"`, computed server-side** (`_compute_name`) on create *and* on every PATCH, so it can't drift from the account it points at. The period is taken from the statement's **last** movement — a statement is named for the month it closes in.
+- **`transactions.statement_id` links the movements**, recomputed by `_relink_transactions()` (account refs + `period_from…period_to`) on create and whenever the window or account changes — exactly like `_relink_spendings()` for cards. It excludes rows with a `credit_payment_id`: a card line already belongs to a statement of its own.
+- **Deleting a record keeps the movements** and only clears their link (plus removes the file from disk). Deleting the *account* takes its statements with it — see the cascade section below.
+- **The import wizard lives on the Statements page, not Accounts** (`statements-app.jsx` hosts `ImportWizard`; `Accounts.html` no longer loads `import.jsx`/`import-data.js`). Importing is what creates a statement record, so the two belong together. An account's detail modal still offers Import — it navigates to `Statements.html?import=1&account=<account_key>`, which opens the wizard pre-pinned to that account.
+- **The balance sync moved with the wizard.** `handleImport()` in `statements-app.jsx` is what applies each affected account's net delta to `Account.balance` after a commit; it used to live in `accounts-app.jsx`. There is exactly one such call site — don't add a second or balances will move twice.
+- **The Statements page MUST hydrate `HL_INSTITUTIONS_API.hydrate()` before anything else.** The wizard's "Create from statement…" draft resolves the parsed bank through `ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS`, and `AccountFormModal.submit()` **silently returns** when `institution` is blank — so without the hydrate the draft's Save button does nothing at all, with no error anywhere.
+
 ### Prepaid cards
 A **prepaid card** is a credit card flagged `accounts.is_prepaid` — loaded with funds rather than backed by a credit line. Consequences, all of which are the *inverse* of a normal credit card:
 
@@ -146,7 +158,7 @@ A **prepaid card** is a credit card flagged `accounts.is_prepaid` — loaded wit
 - **`_account_refs()` in `routers/accounts.py` is the single definition of "belongs to this account"**, shared by the `/related` preview and the `DELETE` cascade, so the numbers the user confirms are the ones that actually go.
 - **It matches on `account_key` AND on the display name** — imports write the key, older/manual rows may carry the name, and `toRow()` in `account-tx-data.js` resolves on both. Matching only the key would strand exactly the rows that screen still shows.
 - **…but the name is dropped when a sibling account shares it** (`_shared_names()`). A household really does hold several accounts named after its owner ("Sadun Sevingen" at four banks); without this, deleting one would take the others' transactions.
-- **The cascade also deletes each related `CreditPayment`** (plus its statement file on disk and the spendings pointing at it via `credit_payment_id`) and an invest/pension account's holdings. **Linked accounts survive** — a debit card or overdraft attached to the deleted account keeps existing, only its now-dead `linked_key` is cleared.
+- **The cascade also deletes each related `CreditPayment`** (plus its statement file on disk and the spendings pointing at it via `credit_payment_id`), each related **`Statement`** (plus its file — its movements go with the account's other transactions, so a surviving record would point at nothing and still hand out a download), and an invest/pension account's holdings. **Linked accounts survive** — a debit card or overdraft attached to the deleted account keeps existing, only its now-dead `linked_key` is cleared.
 - **`DELETE /{acc_id}` returns 200 with a tally**, not 204, so the UI can report what went.
 - **Orphan cleanup is deliberately narrow**: `note == "banka_import"` **and** `credit_payment_id IS NULL` — exactly the Account Activity domain. A manually entered transaction may legitimately carry a free-text `payment_method` like `cash` that never referred to an Account row and must not be swept up. A `NULL` payment_method **is** an orphan (it can never resolve), which is why the filter is `IS NULL OR NOT IN (…)` — a bare `NOT IN` would drop those rows on the NULL comparison.
 - The Account Activity banner scans **account-wide, not per month** (the table is month-scoped, so orphans outside the selected period would otherwise stay invisible).
@@ -180,6 +192,7 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | `Budget` | `budgets` | name, amount, currency, period (monthly/yearly), year, month, category_id | Budget limits per category or global |
 | `RecurringExpense` | `recurring_expenses` | name, amount, currency, day_of_month, source, is_active | Subscriptions and fixed bills (Netflix, etc.) |
 | `Account` | `accounts` | account_key, name, holder, type (bank/credit/debit/cash/wallet/invest…), currency, balance, number, credit_limit, iban, linked_key, cc_type, card_name, show_in_payment_method, is_prepaid | Household accounts & cards; drives the "Payment Method" picker. Credit/debit/cash accounts always appear there; `bank` accounts are opt-in via `show_in_payment_method` (checkbox in the Accounts edit form). `is_prepaid` marks a **prepaid card** — see _Prepaid cards_ below. `pension` (JSON, `type == "pension"` only) holds a BES contract's figures — see _Retirement plans (BES)_ below. `iban`/`number` are **per-type unique keys** — see _Account identity (unique keys)_ below. `institution` references a `FinancialInstitution` **by display name**, so that name is kept whitespace-trimmed on both sides and a rename cascades to accounts |
+| `Statement` | `statements` | owner_id, account_id, account_key, name, period_year, period_month, period_from, period_to, currency, money_in, money_out, closing_balance, bank_detected, file_path/file_filename/file_mime | One uploaded **bank-account** statement kept as an attachment; groups the movements in its period (`transactions.statement_id`). The bank twin of `CreditPayment` — see _Statements_ above |
 | `PushSubscription` | `push_subscriptions` | owner_id, endpoint, p256dh, auth, user_agent | One row per subscribed browser/device (Web Push); `User.notify_lead_days` (0 = same-day) controls how far ahead of a due date the daily check fires |
 | `ReminderSnooze` | `reminder_snoozes` | owner_id, item_type (`recurring`\|`credit`), item_id, snoozed_until | Per-item push-reminder snooze; unique on `(owner_id, item_type, item_id)`. Suppresses an item's normal reminder and re-fires it once on `snoozed_until` (then the row is deleted). Created from the notification's Snooze button via `POST /api/push/snooze` |
 
@@ -280,6 +293,17 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 | PATCH | `/{currency_id}` | Update currency / rate |
 | DELETE | `/{currency_id}` | Delete currency |
 
+### Statements — `/api/statements`
+Bank-account statement archive (**Accounts → Statements**). See _Statements_ under Architecture.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | List statements, newest period first; optional `account_id` / `year` filters. Each row carries `linked_count` (movements pointing at it) |
+| POST | `/` | Create a record. `name` is generated as `"YYYY.MM - Account Name"`; `account_key` is backfilled from `account_id`; the period window is linked to matching movements |
+| PATCH | `/{st_id}` | Update. Re-generates the name, and re-links movements when the account or period window changed |
+| DELETE | `/{st_id}` | Delete the record + its file. **Movements survive**, they only lose `statement_id` |
+| POST | `/{st_id}/file` | Attach (or replace) the document — multipart, XLS/XLSX/CSV/PDF. Archives only; it does **not** parse or import rows |
+| GET | `/{st_id}/file` | Download the stored document |
+
 ### Statement Value Mapping — `/api/statement-mappings`
 Drives the importer's Etiket→category rule (see _Supported Bank Import Formats_). Managed in **Configuration → Statement Value Mapping**.
 | Method | Path | Description |
@@ -309,7 +333,7 @@ Drives the importer's Etiket→category rule (see _Supported Bank Import Formats
 
 Built and live — a **static multi-page app** under `frontend/`, served by nginx (container `home-ledger-web`) in Docker and by a Python `dev-server.py` during development. **Not Next.js.** Stack:
 
-- One `.html` page per screen (16 pages: Dashboard, Spending, Accounts, Budgets, Recurring, Subscriptions, Members, Categories, Currencies, Credit/Debit Cards, Account Types, Backup & Export, Login, …).
+- One `.html` page per screen (17 pages: Dashboard, Spending, Accounts, Account Activity, Statements, Budgets, Recurring, Subscriptions, Members, Categories, Currencies, Credit/Debit Cards, Account Types, Backup & Export, Login, …).
 - React via **Babel-standalone** transpiling `.jsx` in the browser — paired `*-app.jsx` / `*-components.jsx` per screen, plus shared `components.jsx` / `controls.jsx`.
 - Styles in dedicated `frontend/styles/*.css` (no inline `<style>`); mobile breakpoints at `max-width:660px` and `max-width:410px`.
 - Calls the backend API; edits are picked up live (no rebuild — see _Local Environment & Dev Workflow_).

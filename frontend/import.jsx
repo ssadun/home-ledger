@@ -556,6 +556,12 @@
             Created {result.creditPayments.length} Credit Payment{result.creditPayments.length !== 1 ? 's' : ''} with the statement attached: {result.creditPayments.join(', ')}
           </div>
         )}
+        {result.statements && result.statements.length > 0 && (
+          <div className="imp-done-cp" id="imp-done-statements">
+            <Icon name="files" size={13} />
+            Created {result.statements.length} Statement{result.statements.length !== 1 ? 's' : ''} with the document attached: {result.statements.join(', ')}
+          </div>
+        )}
       </div>
     );
   }
@@ -1117,6 +1123,47 @@
         } catch (e) { /* non-fatal: purchases already imported, just no CP record */ }
       }
 
+      // Bank-account statements are archived as Statement records with the uploaded
+      // file attached — the bank twin of the Credit Payment above. Card accounts are
+      // deliberately skipped: their ekstre already produced a Credit Payment and must
+      // not be archived twice. Non-fatal: the movements are already saved.
+      const createdStatements = [];
+      if (window.HL_STATEMENTS_API) {
+        const ARCHIVE_TYPES = window.HL_STATEMENTS_API.STATEMENT_TYPES;
+        const rowsByAcc = {};
+        incl.forEach(r => { (rowsByAcc[r.accId] = rowsByAcc[r.accId] || []).push(r); });
+        for (const accKey of Object.keys(rowsByAcc)) {
+          const acct = accounts.find(a => a.id === accKey);
+          if (!acct || ARCHIVE_TYPES.indexOf(acct.type) === -1) continue;
+          const mine = rowsByAcc[accKey];
+          const dates = mine.map(r => r.date).filter(Boolean).sort();
+          const from = dates[0] || null;
+          const to = dates[dates.length - 1] || null;
+          // The record's period (and therefore its "YYYY.MM - Account Name") is keyed
+          // on the LAST movement — a statement is named for the month it closes in.
+          const [py, pm] = String(to || from || '').split('-');
+          const ident = (doc.statementAccounts || []).find(s => resolveSource(s.source) === accKey);
+          try {
+            const st = await window.HL_STATEMENTS_API.create({
+              accountId: acct._dbId,
+              year: Number(py) || new Date().getFullYear(),
+              month: Number(pm) || (new Date().getMonth() + 1),
+              from, to,
+              cur: mine[0].cur || 'TRY',
+              moneyIn: +mine.filter(r => r.amount >= 0).reduce((s, r) => s + r.amount, 0).toFixed(2),
+              moneyOut: +mine.filter(r => r.amount < 0).reduce((s, r) => s - r.amount, 0).toFixed(2),
+              closingBalance: ident && ident.balance != null ? ident.balance : null,
+              bank: doc.institution || null,
+            });
+            if (pickedFile) {
+              try { await window.HL_STATEMENTS_API.attachFile(st.id, pickedFile); }
+              catch (e) { /* attachment failed; the record + its links still stand */ }
+            }
+            createdStatements.push(st);
+          } catch (e) { /* non-fatal: movements already imported, just no record */ }
+        }
+      }
+
       // Per-account summary for the Done screen + the host's balance sync.
       const byAcc = {};
       incl.forEach(r => {
@@ -1129,7 +1176,8 @@
         return { accId: id, name: a ? a.name : id, cur: a ? a.cur : 'TRY', n: byAcc[id].n, delta: byAcc[id].delta };
       });
       setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount,
-        creditPayments: createdCP.map(c => c.name) });
+        creditPayments: createdCP.map(c => c.name),
+        statements: createdStatements.map(s => s.name) });
       refreshHost(incl, byAcc);
       setStep('done');
     }

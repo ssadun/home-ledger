@@ -5,7 +5,6 @@
   const { ACCOUNT_TYPES, ACCOUNTS: INITIAL_ACCOUNTS, FX } = window.ACCOUNTS_DATA;
   const { AccountCard, AccountGroupHeader, AccountDetail, AccountsSummary,
           AccountFormModal, DeleteAccountConfirm } = window;
-  const ImportWizard = window.ImportWizard;
   const ExportData = window.ExportData;
   const { TweaksPanel, TweakSection, TweakColor } = window;
 
@@ -176,7 +175,6 @@
     const [detail, setDetail] = React.useState(null);       // account obj
     const [formModal, setFormModal] = React.useState(null);  // {mode:'add'|'edit', account}
     const [del, setDel] = React.useState(null);              // account to delete
-    const [importWiz, setImportWiz] = React.useState(null);  // {preAccId} or {} when open
     const [flashId, setFlashId] = React.useState(null);
     const [collapsed, setCollapsed] = React.useState(loadCollapsed);
 
@@ -272,27 +270,12 @@
       setDel(account);
     }
 
+    // The import wizard lives on the Statements page — importing is what creates a
+    // statement record, so both belong together. From an account's detail modal we
+    // hand off with the account pre-selected instead of opening the wizard here.
     function openImport(preAccId) {
-      setDetail(null);
-      setImportWiz({ preAccId: preAccId || null });
-    }
-
-    // Apply approved import rows: re-hydrate the list from the backend first so any
-    // accounts created inside the wizard (create-from-statement) show up, then adjust
-    // each related account's balance by its net delta and persist the new balance.
-    function handleImport(rows, byAcc) {
-      window.HL_ACCOUNTS_API.list().then(fresh => {
-        const affected = fresh.filter(a => byAcc[a.id]);
-        return Promise.all(affected.map(a => {
-          const updated = { ...a, balance: +(a.balance + byAcc[a.id].delta).toFixed(2) };
-          return window.HL_ACCOUNTS_API.update(a._dbId, updated);
-        })).then(saved => {
-          const byDb = {};
-          saved.forEach(s => { byDb[s._dbId] = s; });
-          setAccounts(fresh.map(a => byDb[a._dbId] || a));
-          if (saved.length) flash(saved[0].id);
-        });
-      }).catch(err => setLoadError(err.message));
+      const q = preAccId ? '?import=1&account=' + encodeURIComponent(preAccId) : '?import=1';
+      window.location.href = 'Statements.html' + q;
     }
 
     return (
@@ -309,7 +292,6 @@
                 </div>
               </div>
               <div className="head-actions acct-head-actions">
-                <button id="acct-import-btn" className="action-modal-btn scan" onClick={() => openImport(null)}><Icon name="file-down" size={14} />Import Statement</button>
                 <button id="acct-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>
               </div>
             </div>
@@ -353,8 +335,6 @@
           onClose={() => { setSaveError(null); setFormModal(null); }} onSave={handleSave} />}
         {del && <DeleteAccountConfirm account={del}
           onClose={() => setDel(null)} onConfirm={handleDelete} />}
-        {importWiz && <ImportWizard preAccId={importWiz.preAccId}
-          onClose={() => setImportWiz(null)} onCommit={handleImport} />}
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />

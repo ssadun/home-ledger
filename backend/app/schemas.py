@@ -451,6 +451,54 @@ class CreditPaymentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Account Statements ────────────────────────────────────────────────────────
+
+class StatementCreate(BaseModel):
+    account_id: Optional[int] = None
+    account_key: Optional[str] = None
+    period_year: int
+    period_month: int
+    period_from: Optional[date] = None
+    period_to: Optional[date] = None
+    currency: Currency = Currency.TRY
+    money_in: float = 0.0
+    money_out: float = 0.0
+    closing_balance: Optional[float] = None
+    bank_detected: Optional[str] = None
+
+class StatementUpdate(BaseModel):
+    account_id: Optional[int] = None
+    account_key: Optional[str] = None
+    period_year: Optional[int] = None
+    period_month: Optional[int] = None
+    period_from: Optional[date] = None
+    period_to: Optional[date] = None
+    currency: Optional[Currency] = None
+    money_in: Optional[float] = None
+    money_out: Optional[float] = None
+    closing_balance: Optional[float] = None
+    bank_detected: Optional[str] = None
+
+class StatementOut(BaseModel):
+    id: int
+    account_id: Optional[int]
+    account_key: Optional[str]
+    name: Optional[str]
+    period_year: Optional[int]
+    period_month: Optional[int]
+    period_from: Optional[date]
+    period_to: Optional[date]
+    currency: Currency
+    money_in: Optional[float]
+    money_out: Optional[float]
+    closing_balance: Optional[float]
+    bank_detected: Optional[str]
+    file_filename: Optional[str]
+    linked_count: int = 0
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
 # ── Push Notifications ────────────────────────────────────────────────────────
 
 class PushSubscriptionCreate(BaseModel):

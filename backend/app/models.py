@@ -120,6 +120,10 @@ class Transaction(Base):
     # Credit card statement this spending belongs to (auto-linked by card + cutover window)
     credit_payment_id = Column(Integer, ForeignKey("credit_payments.id"), nullable=True)
 
+    # Bank-account statement this movement belongs to (auto-linked by account +
+    # statement period). The bank-account twin of credit_payment_id.
+    statement_id = Column(Integer, ForeignKey("statements.id"), nullable=True)
+
     # Original bank/card statement filename this row was imported from (bank_import.py).
     # Null for manually-entered transactions.
     source_filename = Column(String)
@@ -129,6 +133,7 @@ class Transaction(Base):
     owner = relationship("User", back_populates="transactions")
     category = relationship("Category", back_populates="transactions")
     credit_payment = relationship("CreditPayment", back_populates="transactions")
+    statement = relationship("Statement", back_populates="transactions")
 
 
 class ExchangeRate(Base):
@@ -308,6 +313,47 @@ class CreditPayment(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     transactions = relationship("Transaction", back_populates="credit_payment")
+
+
+class Statement(Base):
+    """One uploaded BANK-ACCOUNT statement → one record per account per period.
+
+    The bank-account twin of CreditPayment: it stores the original document as an
+    attachment and groups the movements the import created
+    (transactions.statement_id). A credit-card statement produces a CreditPayment
+    instead — never both — so a card's ekstre is not archived twice.
+    """
+    __tablename__ = "statements"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # The Account this statement belongs to. account_key mirrors the
+    # transactions.payment_method convention so the frontend can resolve it directly.
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    account_key = Column(String, index=True)
+
+    name = Column(String)                       # auto-generated "YYYY.MM - Account Name"
+    period_year = Column(Integer)
+    period_month = Column(Integer)
+
+    # The movement window the file covers — drives which transactions link here.
+    period_from = Column(Date)
+    period_to = Column(Date)
+
+    currency = Column(SAEnum(Currency), default=Currency.TRY)
+    money_in = Column(Float, default=0.0)       # sum of income rows in the file
+    money_out = Column(Float, default=0.0)      # sum of expense rows in the file
+    closing_balance = Column(Float)             # balance the statement prints, when it does
+    bank_detected = Column(String)              # parser's institution guess
+
+    # Uploaded document (served via GET /{id}/file — no static mount).
+    file_path = Column(String)
+    file_filename = Column(String)
+    file_mime = Column(String)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    transactions = relationship("Transaction", back_populates="statement")
 
 
 class PushSubscription(Base):

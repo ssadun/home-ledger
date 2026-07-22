@@ -4,7 +4,7 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
-from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statement_mappings, institutions, push
+from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, push
 from app.services.notify import run_due_date_check
 
 # SQLite dosyasının yaşadığı klasörü garantile
@@ -74,6 +74,7 @@ app.include_router(accounts.router)
 app.include_router(members.router)
 app.include_router(currencies.router)
 app.include_router(credit_payments.router)
+app.include_router(statements.router)
 app.include_router(statement_mappings.router)
 app.include_router(institutions.router)
 app.include_router(push.router)

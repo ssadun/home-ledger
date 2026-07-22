@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Account, CreditPayment, Investment, Transaction, User
+from app.models import Account, CreditPayment, Investment, Statement, Transaction, User
 from app.schemas import AccountCreate, AccountUpdate, AccountOut
 from app.services.auth import get_current_user
 
@@ -174,6 +174,16 @@ def _related_credit_payments(db: Session, owner_id: int, acc: Account):
     )
 
 
+def _related_statements(db: Session, owner_id: int, acc: Account):
+    """The account's archived bank statements — same id/key match as the card twin."""
+    match = [Statement.account_id == acc.id]
+    if acc.account_key:
+        match.append(Statement.account_key == acc.account_key)
+    return db.query(Statement).filter(
+        Statement.owner_id == owner_id, or_(*match)
+    )
+
+
 def _related_investments(db: Session, owner_id: int, acc: Account):
     """Holdings of an invest/pension account — BES funds and broker positions.
 
@@ -337,6 +347,7 @@ def account_related(acc_id: int, db: Session = Depends(get_db), current_user: Us
             "latest": dates[-1] if dates else None,
         },
         "credit_payments": _related_credit_payments(db, current_user.id, acc).count(),
+        "statements": _related_statements(db, current_user.id, acc).count(),
         "investments": holdings.count() if holdings is not None else 0,
         "linked_accounts": [a.name for a in linked.all()] if linked is not None else [],
     }
@@ -368,6 +379,18 @@ def delete_account(acc_id: int, db: Session = Depends(get_db), current_user: Use
                 pass
         db.delete(cp)
 
+    # Archived bank statements go too — their movements are deleted below with the
+    # rest of the account's transactions, so a surviving record would point at
+    # nothing and still hand out a download for an account that no longer exists.
+    bank_statements = _related_statements(db, current_user.id, acc).all()
+    for st in bank_statements:
+        if st.file_path:
+            try:
+                Path(st.file_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        db.delete(st)
+
     tx_deleted = _related_transactions(db, current_user.id, acc).delete(synchronize_session=False)
 
     holdings = _related_investments(db, current_user.id, acc)
@@ -384,6 +407,7 @@ def delete_account(acc_id: int, db: Session = Depends(get_db), current_user: Use
         "deleted": {
             "transactions": tx_deleted,
             "credit_payments": len(statements),
+            "statements": len(bank_statements),
             "investments": inv_deleted,
             "unlinked_accounts": unlinked,
         }

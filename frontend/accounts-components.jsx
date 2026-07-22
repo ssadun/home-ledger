@@ -938,6 +938,9 @@
     if (related && related.credit_payments) {
       items.push({ icon: 'credit-card', text: plural(related.credit_payments, 'credit payment', 'credit payments') });
     }
+    if (related && related.statements) {
+      items.push({ icon: 'files', text: plural(related.statements, 'statement', 'statements') });
+    }
     if (related && related.investments) {
       items.push({ icon: 'trending-up', text: plural(related.investments, 'holding', 'holdings') });
     }
