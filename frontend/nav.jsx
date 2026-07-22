@@ -23,7 +23,7 @@
   // once automated by a ./push.sh that sed-matched the `build:auto` marker; that
   // script is gone, so the marker is kept only as a stable anchor if the bump is
   // ever scripted again.
-  const APP_BUILD = 4; // build:auto
+  const APP_BUILD = 5; // build:auto
   const APP_VERSION = 'v1.0.' + APP_BUILD;
 
   // ── Persistent grid/list "View" selection, shared across the whole app ──────

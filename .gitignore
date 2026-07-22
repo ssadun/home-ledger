@@ -43,6 +43,9 @@ graphify-out/
 # ── Local planning notes (not committed) ──
 plans/
 
+# ── Generated schema docs (ERD + index notes; regenerate rather than commit) ──
+docs/
+
 # ── Design system reference (local only) ──
 DESIGN.md
 

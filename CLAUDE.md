@@ -462,6 +462,7 @@ Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user 
   - **Artifacts:** screenshots/traces land in `./test-results` (mounted to NAS disk); `Read` the PNGs to inspect them. Assertions + `console.log` replace the old interactive MCP driving.
   - **In-browser Babel** transpiles JSX per page (~2–4 s/page), so give multi-page specs a generous `timeout` (config is 150 s).
 - **UI changes apply to both desktop and mobile by default** — never stop at desktop.
+- **A list table becomes a compact 2-line CARD on mobile, not a label/value stack.** The reference is the Spending list (`.tx-row` in the 660px block of `styles/tables.css`): a CSS grid — optional checkbox column spanning both rows, then **line 1 = identity + amount**, **line 2 = muted meta + the one date/badge that matters** — with every other column `display:none`. The default `td::before{content:attr(data-label)}` stack is what you get by *not* doing this, and it is enormous: Credit Payments rendered 9 label/value rows per record, **342px against Spending's ~60px**, until `.cp-row` was given the same card treatment. Columns dropped from the card are not lost — the row is clickable and its detail modal carries the rest, including Edit/Delete, so hide the row's action buttons too rather than spending a line on them.
 - **Mobile viewport for testing:** **360 × 780**.
 
 ## After any changes

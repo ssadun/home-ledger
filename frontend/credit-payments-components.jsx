@@ -52,7 +52,10 @@
                   </td>
                 )}
                 <td data-label="Statement">
-                  <span className="cp-name"><Icon name="file-text" size={14} />{r.name || '–'}</span>
+                  {/* .cp-name-t is the ellipsis target — an anonymous text node
+                      inside the flex .cp-name cannot take text-overflow, and the
+                      name has to truncate in the compact mobile card. */}
+                  <span className="cp-name"><Icon name="file-text" size={14} /><span className="cp-name-t">{r.name || '–'}</span></span>
                 </td>
                 <td data-label="Card">
                   {r.cardNamePart ? (

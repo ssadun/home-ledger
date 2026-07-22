@@ -476,6 +476,19 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .budget-modal .form-grid{grid-template-columns:1fr 1fr}
   /* Account modal keeps its paired rows on mobile, matching desktop */
   .acct-form-modal .form-grid{grid-template-columns:1fr 1fr}
+  /* Credit Payment modal keeps its paired rows on mobile, matching desktop —
+     Statement Month/Year, Cutover/Payment Due, Total/Minimum Payment. */
+  .cp-modal .form-grid{grid-template-columns:1fr 1fr}
+  /* Total Payment is the one paired field carrying a currency select beside
+     it, so an even split starves it: at 360px a half column is ~145px, and
+     the shared 90px select left ~55px for the amount — a six-figure card
+     total clipped. Widen that column and trim the select to just what
+     TRY/USD/EUR needs (66px incl. the chevron; its 11px side padding is cut
+     to 8px, or the code itself clips). Minimum Payment has no select and
+     holds the smaller number, so it can give the width up. */
+  .cp-modal .form-grid:has(.amount-input-wrap){grid-template-columns:1.4fr 1fr}
+  .cp-modal .amount-input-wrap select,
+  .cp-modal .amount-input-wrap .ss-wrap{width:66px;padding-left:8px;padding-right:8px}
   .modal-body{gap:14px}
 }
 
