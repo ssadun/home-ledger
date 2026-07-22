@@ -457,26 +457,20 @@ Only run a rebuild when you change `nginx.conf` or the `Dockerfile`:
 docker-compose up -d --build frontend
 ```
 
-## Releasing — `./push.sh`
+## Releasing
 
-The version in the sidebar footer comes from `APP_BUILD` in `frontend/nav.jsx`
-(`const APP_BUILD = N; // build:auto` — the marker line is matched by `sed`).
-**Never edit it by hand.** `./push.sh` bumps it, commits, and pushes:
+Commit and push with plain `git` — **there is no release script.** A `push.sh`
+that bumped the build, committed, pushed and redeployed used to exist; it was
+dropped as unused, so do not reintroduce calls to it.
 
-```bash
-./push.sh                     # commit msg defaults to "chore: release v1.0.<n>"
-./push.sh "feat: add report"  # custom message
-./push.sh --deploy            # ALSO rebuild the frontend container
-```
+The sidebar footer shows `v1.0.<APP_BUILD>`, read from `frontend/nav.jsx`
+(`const APP_BUILD = N; // build:auto`). **Bump that line by hand** when the
+displayed version should move; the `build:auto` marker is now just a stable
+anchor in case the bump is ever scripted again.
 
-- **Rebuilding is opt-in.** The frontend is served live from disk, so `--deploy`
-  is only for `nginx.conf` / `Dockerfile` changes — see the section above.
-- `git add -A` is used, so the bump is committed together with everything else
-  currently modified. Commit deliberate work first if you want it separated.
-- **The script itself is easy to lose.** It was deleted by accident in `7bd908e`
-  and went unnoticed for weeks because nothing but a comment in `nav.jsx`
-  referenced it — which is why it is documented here. If `APP_BUILD` stops
-  moving between releases, check that `push.sh` still exists.
+Nothing else needs to move in lockstep: `frontend/sw.js` deliberately does no
+caching (an earlier caching version caused a stale-asset bug), so there is no
+service-worker cache version to bust and clients always fetch fresh assets.
 
 ## Test User
 

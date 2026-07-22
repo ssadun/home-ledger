@@ -172,17 +172,16 @@ a time. Current state:
 
 ## Releasing
 
-`push.sh` bumps the in-app build number, commits, pushes to GitHub, and redeploys the frontend
-container so the running app shows the new version:
+Commit and push with plain `git`. The version shown at the bottom of the sidebar is `v1.0.<build>`,
+read from `APP_BUILD` in `frontend/nav.jsx` — bump that line by hand when you want the displayed
+version to move:
 
-```bash
-./push.sh                       # bump build, commit, push, redeploy
-./push.sh "feat: add report"    # custom commit message
-./push.sh --no-deploy           # push only (skip the local docker rebuild)
+```jsonc
+const APP_BUILD = 4; // build:auto
 ```
 
-Each push increments the version shown at the bottom of the sidebar (`v1.0.<build>`) and bumps the
-service-worker cache version in lockstep, so clients always pick up fresh assets.
+There is no cache to bust: `frontend/sw.js` deliberately does no caching (an earlier caching version
+caused a stale-asset bug), so clients always fetch fresh assets.
 
 ---
 
