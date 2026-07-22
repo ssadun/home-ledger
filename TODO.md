@@ -64,8 +64,17 @@ Use the sample statements under `import/` as golden fixtures so parser changes c
   7. Diğer = Other
 - [x] Can you create a new menu item under configuration like "satement value mapping" and include those definitions there with a language code. You can take other configuration modules design as referance. — added a **Statement Value Mapping** config section (mirrors Categories design): new `statement_mappings` table + `StatementMapping` model, `/api/statement-mappings` CRUD router (seeded from the Etiket defaults), and a config page (`Statement Value Mapping.html` + `statement-mappings-data.js` + SECTIONS entry + nav submenu item). Each row has a **Language** code (tr/en), the **Statement Tag** (Etiket), and a **Category** picker. The importer now reads this table: `parse_bank_file(db=…)` calls `load_etiket_map(db)` so edits/deletes take effect on the next import (hardcoded `_ETIKET_CATEGORY` stays as bootstrap fallback). Verified end-to-end: seed (16 rows), HTTP CRUD, live edit/delete reclassification, and desktop + mobile 360 rendering via Playwright.
 
-- [ ] `import/26.01-BonusCardEkstre.pdf` — Garanti credit-card statement (`_parse_garanti_cc_pdf`)
-- [ ] `import/on-Hesap Hareketleri-tl.pdf` — ON / Burgan checking account (`_parse_on_burgan_pdf`)
-- [ ] `import/Midas_Ekstre_Mayıs_2026.pdf` — Midas portfolio → investments (`_parse_midas_holdings`)
-- [ ] `import/garanti-tl-hesaphareketleri.pdf` — Garanti checking account, TL (`_parse_garanti_hesap_pdf`)
-- [ ] `import/garanti-usd-hesaphareketleri.pdf` — Garanti checking account, USD (`_parse_garanti_hesap_pdf`)
+Scaffolding added with the first fixture: `pytest.ini` (`pythonpath = backend`), `requirements-dev.txt`,
+`backend/tests/conftest.py` (session-cached `parse_sample`) and `backend/tests/test_bank_import_fixtures.py`.
+Pytest isn't in the runtime image, so the suite runs in a throwaway container off `home-ledger-backend`
+with the repo mounted — exact command in CLAUDE.md → _Backend tests_. **30 tests, all passing.**
+
+- [x] `import/26.01-BonusCardEkstre.pdf` — Garanti credit-card statement (`_parse_garanti_cc_pdf`): 114 rows, income/expense totals, date range, card identity (masked number, no IBAN, holder, institution), the billed-cycle fields (`payment_due` 2026-02-05 / `total` 178.313,25, **not** `interim`), `ÖDEMENİZ…TEŞEKKÜR`→income/`credit-card-payment`, `G.E. 0000017943452`→`retirement` (beats the Emeklilik/Sigorta Etiket), and `Microsoft*Xbox Game Pa` casing preserved verbatim.
+- [x] `import/on-Hesap Hareketleri-tl.pdf` — ON / Burgan checking account (`_parse_on_burgan_pdf`): 44 rows, totals, IBAN identity + account no derived from the IBAN's last 6, running balance on every row, 33 virman rows all `wire-transfer` in both directions, bank-`Diger`→`wire-transfer`. Two amount assertions guard `_parse_on_amount`: `-160.643,550`→160643.55 and **`1,000`→1.0** — swapping in the shared `_parse_amount` makes that second one read 1000.0, verified by monkeypatching the parser and re-running.
+- [x] `import/Midas_Ekstre_Mayıs_2026.pdf` — Midas portfolio → investments (`_parse_midas_holdings`): `kind:"investments"` with zero rows/accounts, the portfolio summary (cash, total, period), and all 3 holdings with asset_type (`gold`/`fund`), quantity, purchase price and current value.
+- [x] `import/garanti-tl-hesaphareketleri.pdf` — Garanti checking account, TL (`_parse_garanti_hesap_pdf`): 14 rows, totals, IBAN/account-no/branch identity, four Etiket→category mappings, `Para Çekme` asserted **unmapped** on purpose, same-Etiket-opposite-sign pair proving direction still follows the sign, and casing preserved on `Sadun Sevıngen--EFT-CEP ŞUBE` / `K.Kartı Ödeme`.
+- [x] `import/garanti-usd-hesaphareketleri.pdf` — Garanti checking account, USD (`_parse_garanti_hesap_pdf`): currency detected as USD on both the account and every row (the TL sample's twin), identity, and `Maaş`→`salary`.
+
+- [ ] After deleting an account cascade realted transaction stored in account activity screen
+- [ ] Clean orphan account activity records (without associated account)
+- [ ] check related transaction of an account
