@@ -2,6 +2,9 @@
 (function () {
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
+  // Project rule: every date field renders through the shared DateInput (never a
+  // raw <input type="date">) — one implementation, in date-input.jsx.
+  const DateInput = window.DateInput;
   const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
   const { maskCardNumber, cleanIban, cleanAccountNo, cleanCardNo } = window.HL_ACCOUNTS_API;
   function displayNumber(account) {
@@ -725,7 +728,7 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Next Payment Date</span>
-                  <input id="acct-form-pension-nextdate-input" className="field-input" type="date"
+                  <DateInput id="acct-form-pension-nextdate-input" className="field-input"
                     value={f.pension.next_payment_date || ''} onChange={(e) => setPen('next_payment_date', e.target.value)} />
                 </div>
                 <div className="form-field">
@@ -737,7 +740,7 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Contract Start</span>
-                  <input id="acct-form-pension-start-input" className="field-input" type="date"
+                  <DateInput id="acct-form-pension-start-input" className="field-input"
                     value={f.pension.start_date || ''} onChange={(e) => setPen('start_date', e.target.value)} />
                 </div>
                 <div className="form-field">

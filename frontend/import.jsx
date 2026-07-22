@@ -407,73 +407,11 @@
     );
   }
 
-  // ── DateInput — same flatpickr control the "Add Spending" modal uses ──────
-  // Accounts.html doesn't load controls.jsx (which owns the shared DateInput),
-  // so this is a self-contained twin: readonly text field + calendar icon +
-  // the app's themed flatpickr popup, styled identically via .date-input-wrap /
-  // datepicker.css. `wrapClassName` lets the wrapper carry the grid-cell area so
-  // the inner input keeps the .imp-cell look.
-  if (!window.HL_enhanceFpYear) {
-    window.HL_enhanceFpYear = function (fp) {
-      const head = fp.calendarContainer &&
-        fp.calendarContainer.querySelector('.flatpickr-current-month');
-      const numWrap = head && head.querySelector('.numInputWrapper');
-      if (!numWrap || numWrap.dataset.hlYear) return;
-      const today = new Date();
-      const minYear = fp.config.minDate ? fp.config.minDate.getFullYear() : today.getFullYear() - 80;
-      let maxYear = fp.config.maxDate ? fp.config.maxDate.getFullYear() : today.getFullYear() + 10;
-      if (maxYear < minYear) maxYear = minYear;
-      const sel = document.createElement('select');
-      sel.className = 'flatpickr-yearDropdown-years';
-      sel.setAttribute('aria-label', 'Year');
-      for (let y = maxYear; y >= minYear; y--) {
-        const o = document.createElement('option');
-        o.value = String(y);
-        o.textContent = String(y);
-        sel.appendChild(o);
-      }
-      sel.value = String(fp.currentYear);
-      sel.addEventListener('change', (e) => fp.changeYear(parseInt(e.target.value, 10)));
-      numWrap.dataset.hlYear = '1';
-      numWrap.style.display = 'none';
-      numWrap.parentNode.insertBefore(sel, numWrap.nextSibling);
-      fp._hlYearSelect = sel;
-    };
-  }
-
-  function DateInput({ id, value, onChange, className, wrapClassName }) {
-    const inputRef = React.useRef(null);
-    const fpRef = React.useRef(null);
-
-    React.useEffect(() => {
-      if (!inputRef.current || typeof flatpickr === 'undefined') return;
-      fpRef.current = flatpickr(inputRef.current, {
-        dateFormat: 'Y-m-d',
-        defaultDate: value || null,
-        disableMobile: true,
-        monthSelectorType: 'dropdown',
-        onReady: (_, __, fp) => window.HL_enhanceFpYear(fp),
-        onYearChange: (_, __, fp) => { if (fp._hlYearSelect) fp._hlYearSelect.value = String(fp.currentYear); },
-        onChange: (_, dateStr) => onChange({ target: { value: dateStr } }),
-      });
-      return () => { if (fpRef.current) { fpRef.current.destroy(); fpRef.current = null; } };
-    }, []); // eslint-disable-line
-
-    React.useEffect(() => {
-      if (!fpRef.current) return;
-      const cur = fpRef.current.selectedDates[0]
-        ? fpRef.current.formatDate(fpRef.current.selectedDates[0], 'Y-m-d') : '';
-      if (value !== cur) fpRef.current.setDate(value || null, false);
-    }, [value]);
-
-    return (
-      <div className={'date-input-wrap ' + (wrapClassName || '')}>
-        <input id={id} ref={inputRef} type="text" className={className || 'field-input'}
-          placeholder="YYYY-MM-DD" readOnly />
-        <span className="date-input-icon"><Icon name="calendar" size={14} /></span>
-      </div>
-    );
-  }
+  // Project rule: every date field renders through the shared DateInput (never a
+  // raw <input type="date">), so calendar styling and .date-input-wrap markup stay
+  // identical everywhere. The one implementation lives in date-input.jsx, which
+  // this page must load first — do NOT paste a local copy back in here.
+  const DateInput = window.DateInput;
 
   // ═══════════════ STEP 3 — Review & edit ═══════════════
   function ReviewRow({ row, idx, update, remove, accounts }) {

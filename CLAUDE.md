@@ -336,6 +336,12 @@ Built and live — a **static multi-page app** under `frontend/`, served by ngin
 - One `.html` page per screen (17 pages: Dashboard, Spending, Accounts, Account Activity, Statements, Budgets, Recurring, Subscriptions, Members, Categories, Currencies, Credit/Debit Cards, Account Types, Backup & Export, Login, …).
 - React via **Babel-standalone** transpiling `.jsx` in the browser — paired `*-app.jsx` / `*-components.jsx` per screen, plus shared `components.jsx` / `controls.jsx`.
 - Styles in dedicated `frontend/styles/*.css` (no inline `<style>`); mobile breakpoints at `max-width:660px` and `max-width:410px`.
+
+> **Every date field renders through `DateInput` — never a raw `<input type="date">`.** A raw one shows the browser's light-theme picker, which looks nothing like the rest of the app. The single implementation lives in **`frontend/date-input.jsx`** (flatpickr + `HL_enhanceFpYear`, which swaps flatpickr's year *spinner* for a dropdown), exported as `window.DateInput` and rendered inside a `.date-input-wrap` shell styled by `styles/datepicker.css`.
+>
+> A page that needs a date field must load, in order: the flatpickr CDN CSS+JS, `styles/datepicker.css`, then `<script type="text/babel" src="date-input.jsx"></script>` **before** the file that consumes it. 18 pages do; `Notifications.html` deliberately doesn't (it has no date field).
+>
+> **Do not paste a local copy into a page's own JSX.** It was previously duplicated in `controls.jsx`, `config-app.jsx`, `backup-export-app.jsx` and `import.jsx` — four near-identical copies, each carrying its own guarded `HL_enhanceFpYear` — so every picker fix had to be made four times, and Accounts, which had no copy, was left on raw `type="date"`. Those four now just do `const DateInput = window.DateInput;`.
 - Calls the backend API; edits are picked up live (no rebuild — see _Local Environment & Dev Workflow_).
 
 **Sidebar** — `nav.jsx` is the single source of truth. A `NAV` entry carrying a `parent` key renders as a collapsible group whose items come from `SUBMENUS[id]`; adding a group means adding the array plus its `SUBMENUS` entry, and `Sidebar()` needs no change (it used to hardcode the Transactions and Configuration groups). Three groups today:
