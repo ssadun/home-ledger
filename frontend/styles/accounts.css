@@ -243,6 +243,14 @@
 .acct-pension-hint{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:-2px}
 .acct-pension-hint svg{flex-shrink:0;opacity:.7}
 
+/* Field hint under a form input. Deliberately mirrors .acct-check-label.muted
+   (the "Prepaid Card" checkbox row) — same inline-flex icon+text rhythm, gap,
+   size and muted tone — so hints and toggles read as one family inside the
+   Accounts form. The generic .field-hint is 10px and NOT flex, which left the
+   inline icon sitting off the text baseline. */
+.acct-field-hint{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--muted)}
+.acct-field-hint svg{color:var(--muted);flex-shrink:0}
+
 /* Must come AFTER the .acct-pension base rules above: same specificity, so source
    order decides. (The page's main max-width:660px block sits further up the file.) */
 @media (max-width:660px){

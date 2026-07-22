@@ -156,12 +156,21 @@
   // choice survives a reload. Stored as a plain array of type keys — the set of
   // groups on screen depends on the active filters, and a key for a group that is
   // currently filtered out simply sits idle until that group reappears.
+  //
+  // Default is ALL groups collapsed, so the page opens as a scannable list of
+  // group headers (each with its own count + total) instead of every card at once.
+  // Note the missing-vs-empty distinction: a *missing* key means "never chose"
+  // → collapse everything, while a stored `[]` means the user deliberately
+  // expanded them all and must be honoured. Reading with `|| '[]'` would conflate
+  // the two and re-collapse the page on every visit.
   const COLLAPSE_KEY = 'hl-accounts-collapsed-groups';
   function loadCollapsed() {
     try {
-      const raw = JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]');
-      return new Set(Array.isArray(raw) ? raw.filter(k => TYPE_ORDER.includes(k)) : []);
-    } catch (e) { return new Set(); }
+      const stored = localStorage.getItem(COLLAPSE_KEY);
+      if (stored === null) return new Set(TYPE_ORDER);
+      const raw = JSON.parse(stored);
+      return new Set(Array.isArray(raw) ? raw.filter(k => TYPE_ORDER.includes(k)) : TYPE_ORDER);
+    } catch (e) { return new Set(TYPE_ORDER); }
   }
 
   function App() {

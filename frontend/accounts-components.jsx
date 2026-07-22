@@ -823,16 +823,25 @@
               </div>
             }
 
+            {/* Half-width, exactly like the "Add Spending" modal's Date field: a plain
+                .form-field inside a .form-grid. Both modals are the same 520px .modal
+                with a 20px .modal-body, so the two pickers come out identical. The
+                hint takes .full so it spans the grid on its own row instead of being
+                squeezed into one column. */}
             {isCredit && !isPrepaid &&
-            <div className="form-field full">
-                <span className="field-label">Last Payment Date</span>
-                <input id="acct-form-payment-due-input" className="field-input" type="date" value={f.paymentDue}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    // Derive the cutoff week from the payment date (unless inherited from a parent card).
-                    setF((p) => ({ ...p, paymentDue: v, statementCutoff: v && !p.linked ? weekFromPaymentDate(v) : p.statementCutoff }));
-                  }} />
-                <span className="field-hint"><Icon name="info" size={11} /> Auto-filled from imported statements (Son Ödeme Tarihi); sets the Statement Cutoff Week.</span>
+            <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Last Payment Date</span>
+                  <DateInput id="acct-form-payment-due-input" className="field-input" value={f.paymentDue}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // Derive the cutoff week from the payment date (unless inherited from a parent card).
+                      setF((p) => ({ ...p, paymentDue: v, statementCutoff: v && !p.linked ? weekFromPaymentDate(v) : p.statementCutoff }));
+                    }} />
+                </div>
+                <div className="form-field full">
+                  <span className="acct-field-hint"><Icon name="info" size={12} />Auto-filled from imported statements (Son Ödeme Tarihi); sets the Statement Cutoff Week.</span>
+                </div>
               </div>
             }
 
