@@ -124,6 +124,11 @@
 
 /* ── Mobile: stack the table into cards ──────────────────────────────────── */
 @media (max-width: 660px) {
+  /* Keep the action button inline next to the title (in .page-head-top) instead
+     of wrapping to a full-width row. Overrides app.css's full-width row. */
+  .page-head-top:has(.cp-head-actions){flex-wrap:nowrap}
+  .cp-head-actions{flex:0 0 auto}
+
   .cp-body { padding: 14px 12px 32px; }
   .cp-table-wrap { border: none; background: none; }
   .cp-table thead { display: none; }

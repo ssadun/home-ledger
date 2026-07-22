@@ -226,7 +226,7 @@
                   <p className="page-subtitle">Credit-card statements & payments</p>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions cp-head-actions">
                 <button id="cp-add-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>
               </div>
             </div>
