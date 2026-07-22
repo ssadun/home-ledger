@@ -23,6 +23,57 @@
 
   const { Sidebar } = window.HL_NAV;
 
+  // ── Orphaned records ─────────────────────────────────────────────────────
+  // An imported movement names its account by string (`payment_method` holds the
+  // account_key), so a movement whose account was deleted before the cascade
+  // existed still lists here — with the raw "acc-12" key in the Account column.
+  // The banner is page-wide on purpose: the table is month-scoped, so orphans
+  // outside the selected month would otherwise stay invisible.
+  function OrphanBanner({ info, busy, onClean }) {
+    if (!info || !info.count) return null;
+    const keys = (info.groups || []).map(g => g.payment_method || 'unknown').join(', ');
+    return (
+      <div className="atx-orphan-bar" id="atx-orphan-bar">
+        <span className="atx-orphan-ico"><Icon name="unlink" size={15} /></span>
+        <div className="atx-orphan-text">
+          <span className="atx-orphan-title">
+            {info.count} {info.count === 1 ? 'record references' : 'records reference'} a deleted account
+          </span>
+          <span className="atx-orphan-sub">{keys}</span>
+        </div>
+        <button id="atx-orphan-clean-btn" className="list-btn red" disabled={busy} onClick={onClean}>
+          <Icon name="trash-2" size={12} />{busy ? 'Cleaning…' : 'Clean Up'}
+        </button>
+      </div>
+    );
+  }
+
+  function OrphanConfirm({ count, onClose, onConfirm }) {
+    return (
+      <div className="backdrop">
+        <div className="modal confirm-modal">
+          <div className="modal-head">
+            <div className="modal-head-l">
+              <span className="modal-title"><Icon name="unlink" size={16} />Clean Orphaned Records</span>
+            </div>
+            <button id="atx-orphan-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+          </div>
+          <div className="confirm-body">
+            <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
+            <div className="confirm-text">
+              Delete <b>{count}</b> imported {count === 1 ? 'record' : 'records'} whose account no longer exists?
+              <span className="warn">⚠ This cannot be undone.</span>
+            </div>
+          </div>
+          <div className="modal-foot">
+            <button id="atx-orphan-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
+            <button id="atx-orphan-confirm-btn" className="amb danger" onClick={onConfirm}><Icon name="trash-2" size={14} />Delete</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Type cell (plain: muted text + colorful icon) ────────────────────────
   function TxTypeBadge({ txType }) {
     const t = ACCT_TX_TYPES[txType] || { label: txType, icon: 'circle', color: 'var(--muted)' };
@@ -363,6 +414,9 @@
     const [selected, setSelected] = React.useState(() => new Set());
     const [batchDel, setBatchDel] = React.useState(false);
     const [detail, setDetail] = React.useState(null);
+    const [orphans, setOrphans] = React.useState(null);
+    const [orphanConfirm, setOrphanConfirm] = React.useState(false);
+    const [orphanBusy, setOrphanBusy] = React.useState(false);
     const toggleSelect = React.useCallback((id) => setSelected(s => {
       const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     }), []);
@@ -411,6 +465,24 @@
     }, [accountsReady, year, month]);
 
     React.useEffect(() => { reload(); }, [reload]);
+
+    // Orphan scan is account-wide, not month-scoped, so it runs once per mount
+    // (and again after a purge) rather than on every period change.
+    const scanOrphans = React.useCallback(() => {
+      return window.HL_ACCOUNTS_API.listOrphans()
+        .then(setOrphans)
+        .catch(() => setOrphans(null));   // a failed scan just hides the banner
+    }, []);
+
+    React.useEffect(() => { scanOrphans(); }, [scanOrphans]);
+
+    function cleanOrphans() {
+      setOrphanBusy(true);
+      window.HL_ACCOUNTS_API.purgeOrphans()
+        .then(() => { setOrphanConfirm(false); return Promise.all([scanOrphans(), reload()]); })
+        .catch(e => setLoadErr(e.message || 'Failed to clean orphaned records'))
+        .finally(() => setOrphanBusy(false));
+    }
 
     function monthStep(d) {
       let m = month + d, y = year;
@@ -517,6 +589,8 @@
                 columns={EXPORT_COLS} rows={sorted} allRows={rows} inline />} />
           </header>
 
+
+          <OrphanBanner info={orphans} busy={orphanBusy} onClean={() => setOrphanConfirm(true)} />
 
           <div className="table-card">
             {selected.size > 0 && (
@@ -628,6 +702,8 @@
         </div>
 
         {batchDel && <DeleteConfirm count={selected.size} onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
+        {orphanConfirm && <OrphanConfirm count={(orphans && orphans.count) || 0}
+          onClose={() => setOrphanConfirm(false)} onConfirm={cleanOrphans} />}
         {detail && <AtxDetailModal tx={detail} onClose={() => setDetail(null)} />}
 
         <TweaksPanel title="Tweaks">

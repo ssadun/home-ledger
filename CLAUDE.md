@@ -140,6 +140,17 @@ A **prepaid card** is a credit card flagged `accounts.is_prepaid` — loaded wit
 - **Idempotency of the recurring draw-down** rests entirely on roll-forward's own invariant: it only ever advances a `next_due` that is in the past, and leaves it in the future. So each occurrence is counted exactly once no matter how often `GET /api/recurring/` or `run_due_date_check()` runs. **Don't add a second call site that advances `next_due` without going through `roll_forward_due_dates()`** or charges will be double-counted.
 - **No statement cycle.** Prepaid cards have no cutoff/payment-due/parent-card, so the Accounts form and detail modal hide those fields, and the credit `UtilBar` is suppressed. A lavender **Prepaid** pill marks the card.
 
+### Account deletion cascade & orphaned activity
+**Nothing in the schema points at an account with a foreign key.** A transaction names its account in `payment_method` as a plain string (the `account_key`, e.g. `acc-12`), a `CreditPayment` carries `account_id` **and** `account_key`, and an invest/pension account's holdings are matched by `Investment.platform == account.name`. So deleting the row alone used to leave those records dangling — visible on Account Activity as a movement whose Account column shows the raw `acc-12` key.
+
+- **`_account_refs()` in `routers/accounts.py` is the single definition of "belongs to this account"**, shared by the `/related` preview and the `DELETE` cascade, so the numbers the user confirms are the ones that actually go.
+- **It matches on `account_key` AND on the display name** — imports write the key, older/manual rows may carry the name, and `toRow()` in `account-tx-data.js` resolves on both. Matching only the key would strand exactly the rows that screen still shows.
+- **…but the name is dropped when a sibling account shares it** (`_shared_names()`). A household really does hold several accounts named after its owner ("Sadun Sevingen" at four banks); without this, deleting one would take the others' transactions.
+- **The cascade also deletes each related `CreditPayment`** (plus its statement file on disk and the spendings pointing at it via `credit_payment_id`) and an invest/pension account's holdings. **Linked accounts survive** — a debit card or overdraft attached to the deleted account keeps existing, only its now-dead `linked_key` is cleared.
+- **`DELETE /{acc_id}` returns 200 with a tally**, not 204, so the UI can report what went.
+- **Orphan cleanup is deliberately narrow**: `note == "banka_import"` **and** `credit_payment_id IS NULL` — exactly the Account Activity domain. A manually entered transaction may legitimately carry a free-text `payment_method` like `cash` that never referred to an Account row and must not be swept up. A `NULL` payment_method **is** an orphan (it can never resolve), which is why the filter is `IS NULL OR NOT IN (…)` — a bare `NOT IN` would drop those rows on the NULL comparison.
+- The Account Activity banner scans **account-wide, not per month** (the table is month-scoped, so orphans outside the selected period would otherwise stay invisible).
+
 ### Retirement plans (BES)
 A **retirement plan** is an `accounts.type == "pension"` account — a Turkish Bireysel Emeklilik Sistemi contract: a savings pot split across several emeklilik yatırım fonları, topped up monthly, and matched by a government contribution (devlet katkısı).
 
@@ -247,8 +258,11 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 |---|---|---|
 | GET | `/` | List household accounts/cards |
 | POST | `/` | Create account |
+| GET | `/orphans` | Imported movements whose account no longer exists, grouped by the dangling `payment_method`. **Declared before the `/{acc_id}` routes** — FastAPI matches in order and would otherwise parse "orphans" as an int and 422 |
+| DELETE | `/orphans` | Purge those movements → `{deleted}` |
+| GET | `/{acc_id}/related` | What a delete would take with it: transaction count + date span (and how many are imports), credit payments, holdings, and the accounts that would merely lose their `linked_key`. Powers the delete dialog's cascade preview |
 | PATCH | `/{acc_id}` | Update account |
-| DELETE | `/{acc_id}` | Delete account |
+| DELETE | `/{acc_id}` | Delete account **and everything that referenced it** → `{deleted:{transactions, credit_payments, investments, unlinked_accounts}}`. Returns 200 + body, not 204 — see _Account deletion cascade_ |
 
 ### Members — `/api/members`
 | Method | Path | Description |

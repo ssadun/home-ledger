@@ -140,10 +140,41 @@
     return fromApi(await res.json());
   }
 
+  // What a delete would take with it. Nothing references an account by foreign
+  // key — transactions name it in `payment_method`, statements in `account_key`,
+  // holdings by `platform` — so the backend has to count them, and the delete
+  // dialog shows the numbers before the user commits.
+  async function related(dbId) {
+    const res = await api()('/api/accounts/' + dbId + '/related', { method: 'GET' });
+    if (!res.ok) throw new Error(await errText(res, 'load related records'));
+    return res.json();
+  }
+
+  // Deletes the account AND its related records (see /related). Resolves with the
+  // backend's `{transactions, credit_payments, investments, unlinked_accounts}`
+  // tally; a 404 (already gone) resolves empty rather than throwing.
   async function remove(dbId) {
     const res = await api()('/api/accounts/' + dbId, { method: 'DELETE' });
-    if (!res.ok && res.status !== 404) throw new Error('Failed to delete account (' + res.status + ')');
-    return true;
+    if (!res.ok) {
+      if (res.status === 404) return {};
+      throw new Error(await errText(res, 'delete account'));
+    }
+    const body = await res.json().catch(() => ({}));
+    return body.deleted || {};
+  }
+
+  // Imported bank movements whose account no longer exists — they still render on
+  // Account Activity, showing the raw "acc-12" key in the Account column.
+  async function listOrphans() {
+    const res = await api()('/api/accounts/orphans', { method: 'GET' });
+    if (!res.ok) throw new Error(await errText(res, 'load orphaned records'));
+    return res.json();
+  }
+
+  async function purgeOrphans() {
+    const res = await api()('/api/accounts/orphans', { method: 'DELETE' });
+    if (!res.ok) throw new Error(await errText(res, 'clean orphaned records'));
+    return (await res.json()).deleted || 0;
   }
 
   // ── IBAN / account-number normalization ───────────────────────────────────
@@ -221,7 +252,8 @@
     ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX,
   };
   window.HL_ACCOUNTS_API = {
-    list, create, update, remove, fromApi, toApi, maskCardNumber,
+    list, create, update, remove, related, listOrphans, purgeOrphans,
+    fromApi, toApi, maskCardNumber,
     cleanIban, cleanAccountNo, cleanCardNo, accountNoFromIban,
   };
 })();

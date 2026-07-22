@@ -1,9 +1,11 @@
 import re
+from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Account, User
+from app.models import Account, CreditPayment, Investment, Transaction, User
 from app.schemas import AccountCreate, AccountUpdate, AccountOut
 from app.services.auth import get_current_user
 
@@ -109,6 +111,165 @@ def _assert_unique_identity(db: Session, owner_id: int, acc_type: str, payload_v
             )
 
 
+# ── Related records ───────────────────────────────────────────────────────────
+# NOTHING in the schema points at an account with a foreign key. A transaction
+# names its account in `payment_method` as a plain string (the `account_key`, e.g.
+# "acc-12"), a CreditPayment carries both `account_id` and `account_key`, and an
+# investment/pension account's holdings are matched by `Investment.platform ==
+# account.name`. So deleting the row on its own leaves those records dangling —
+# which is exactly what Account Activity renders as a movement whose Account
+# column shows the raw "acc-12" key instead of a name.
+#
+# The helpers below are the single definition of "belongs to this account",
+# shared by the pre-delete preview and by the cascade, so the numbers a user
+# confirms in the dialog are the ones that actually go.
+
+_HOLDING_TYPES = ("invest", "pension")
+
+
+def _shared_names(db: Session, owner_id: int) -> set:
+    """Display names held by more than one of this owner's accounts."""
+    seen, shared = set(), set()
+    for (name,) in db.query(Account.name).filter(Account.owner_id == owner_id).all():
+        if name in seen:
+            shared.add(name)
+        seen.add(name)
+    return shared
+
+
+def _account_refs(acc: Account, shared_names: set = frozenset()) -> List[str]:
+    """Every `payment_method` value that means "this account".
+
+    Imports write `account_key`; older/manual rows may carry the account's display
+    name. The Account Activity page resolves on both (`toRow` in
+    `account-tx-data.js`), so the cascade has to match on both or it would leave
+    behind precisely the rows that screen still shows.
+
+    The name is dropped when a sibling account shares it — a household really does
+    hold several accounts named after its owner ("Sadun Sevingen" at four banks),
+    and an ambiguous name must not let one account's delete take another's rows.
+    """
+    refs = [acc.account_key] if acc.account_key else []
+    if acc.name and acc.name not in shared_names:
+        refs.append(acc.name)
+    return refs
+
+
+def _related_transactions(db: Session, owner_id: int, acc: Account):
+    refs = _account_refs(acc, _shared_names(db, owner_id))
+    if not refs:
+        return db.query(Transaction).filter(Transaction.id.is_(None))
+    return db.query(Transaction).filter(
+        Transaction.owner_id == owner_id,
+        Transaction.payment_method.in_(refs),
+    )
+
+
+def _related_credit_payments(db: Session, owner_id: int, acc: Account):
+    match = [CreditPayment.account_id == acc.id]
+    if acc.account_key:
+        match.append(CreditPayment.account_key == acc.account_key)
+    return db.query(CreditPayment).filter(
+        CreditPayment.owner_id == owner_id, or_(*match)
+    )
+
+
+def _related_investments(db: Session, owner_id: int, acc: Account):
+    """Holdings of an invest/pension account — BES funds and broker positions.
+
+    Scoped to those two types on purpose: `platform` is a free-text label, so
+    matching it for a bank account or a card would delete unrelated investments
+    that happen to share a name.
+    """
+    if (acc.type or "") not in _HOLDING_TYPES or not acc.name:
+        return None
+    return db.query(Investment).filter(
+        Investment.owner_id == owner_id, Investment.platform == acc.name
+    )
+
+
+def _linked_accounts(db: Session, owner_id: int, acc: Account):
+    """Accounts pointing here via `linked_key` (debit→bank, overdraft→bank)."""
+    if not acc.account_key:
+        return None
+    return db.query(Account).filter(
+        Account.owner_id == owner_id,
+        Account.id != acc.id,
+        Account.linked_key == acc.account_key,
+    )
+
+
+def _get_owned(db: Session, acc_id: int, owner_id: int) -> Account:
+    acc = db.query(Account).filter(
+        Account.id == acc_id, Account.owner_id == owner_id
+    ).first()
+    if not acc:
+        raise HTTPException(404, "Hesap bulunamadı")
+    return acc
+
+
+# ── Orphaned activity ─────────────────────────────────────────────────────────
+# Declared BEFORE the `/{acc_id}` routes: FastAPI matches in declaration order and
+# would otherwise try "orphans" as an int path param and 422.
+#
+# Scope is deliberately narrow — imported bank movements that are not part of a
+# credit-card statement (`note == "banka_import"` and no `credit_payment_id`),
+# i.e. exactly what the Account Activity screen lists. A manually entered
+# transaction may legitimately carry a free-text `payment_method` like "cash"
+# that never referred to an Account row, and must not be swept up.
+
+def _orphan_query(db: Session, owner_id: int):
+    # Names are kept here even when shared (no `_shared_names` filter): this is the
+    # set of references that still RESOLVE, and a wider set can only spare rows.
+    # Ambiguity is a problem for the cascade, which deletes; not for this, which
+    # decides a row still has a home.
+    known = [
+        ref
+        for acc in db.query(Account).filter(Account.owner_id == owner_id).all()
+        for ref in _account_refs(acc)
+    ]
+    q = db.query(Transaction).filter(
+        Transaction.owner_id == owner_id,
+        Transaction.note == "banka_import",
+        Transaction.credit_payment_id.is_(None),
+    )
+    if known:
+        # A NULL payment_method is orphaned too — it can never resolve to an
+        # account — and `NOT IN` alone would drop those rows (NULL comparison).
+        q = q.filter(or_(
+            Transaction.payment_method.is_(None),
+            Transaction.payment_method.notin_(known),
+        ))
+    return q
+
+
+@router.get("/orphans")
+def list_orphans(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Imported movements whose account no longer exists, grouped by dangling key."""
+    rows = _orphan_query(db, current_user.id).all()
+    groups: dict = {}
+    for tx in rows:
+        key = tx.payment_method or ""
+        g = groups.setdefault(key, {"payment_method": key or None, "count": 0,
+                                    "earliest": None, "latest": None})
+        g["count"] += 1
+        iso = tx.date.isoformat() if tx.date else None
+        if iso:
+            g["earliest"] = min(g["earliest"] or iso, iso)
+            g["latest"] = max(g["latest"] or iso, iso)
+    return {
+        "count": len(rows),
+        "groups": sorted(groups.values(), key=lambda g: -g["count"]),
+    }
+
+
+@router.delete("/orphans")
+def purge_orphans(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    deleted = _orphan_query(db, current_user.id).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": deleted}
+
+
 @router.get("/", response_model=List[AccountOut])
 def list_accounts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Account).filter(Account.owner_id == current_user.id).order_by(Account.id).all()
@@ -141,9 +302,7 @@ def update_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    acc = db.query(Account).filter(Account.id == acc_id, Account.owner_id == current_user.id).first()
-    if not acc:
-        raise HTTPException(404, "Hesap bulunamadı")
+    acc = _get_owned(db, acc_id, current_user.id)
     data = payload.model_dump(exclude_none=True)
     # Check against the POST-EDIT identity: either the type or the identifier may be
     # changing in this same request, and an unsent field keeps its current value.
@@ -158,10 +317,74 @@ def update_account(
     return acc
 
 
-@router.delete("/{acc_id}", status_code=204)
+@router.get("/{acc_id}/related")
+def account_related(acc_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """What a delete would take with it — powers the confirmation dialog."""
+    acc = _get_owned(db, acc_id, current_user.id)
+    txs = _related_transactions(db, current_user.id, acc).all()
+    dates = sorted(t.date.isoformat() for t in txs if t.date)
+    holdings = _related_investments(db, current_user.id, acc)
+    linked = _linked_accounts(db, current_user.id, acc)
+    return {
+        "account_id": acc.id,
+        "account_key": acc.account_key,
+        "transactions": {
+            "count": len(txs),
+            # The Account Activity subset, so the dialog can name the screen the
+            # rows will disappear from.
+            "imported": sum(1 for t in txs if t.note == "banka_import"),
+            "earliest": dates[0] if dates else None,
+            "latest": dates[-1] if dates else None,
+        },
+        "credit_payments": _related_credit_payments(db, current_user.id, acc).count(),
+        "investments": holdings.count() if holdings is not None else 0,
+        "linked_accounts": [a.name for a in linked.all()] if linked is not None else [],
+    }
+
+
+@router.delete("/{acc_id}")
 def delete_account(acc_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    acc = db.query(Account).filter(Account.id == acc_id, Account.owner_id == current_user.id).first()
-    if not acc:
-        raise HTTPException(404, "Hesap bulunamadı")
+    """Delete an account together with everything that referenced it.
+
+    Cascading is done by hand because the references are strings, not foreign keys
+    (see _account_refs). Without it the account's transactions survive as orphans
+    on Account Activity, showing a raw "acc-12" key in the Account column.
+    """
+    acc = _get_owned(db, acc_id, current_user.id)
+
+    statements = _related_credit_payments(db, current_user.id, acc).all()
+    for cp in statements:
+        # Any spending still pointing at the statement goes with it — these are
+        # card lines belonging to the card being deleted, and leaving them would
+        # dangle `credit_payment_id` at a row that no longer exists.
+        db.query(Transaction).filter(
+            Transaction.owner_id == current_user.id,
+            Transaction.credit_payment_id == cp.id,
+        ).delete(synchronize_session=False)
+        if cp.statement_path:
+            try:
+                Path(cp.statement_path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        db.delete(cp)
+
+    tx_deleted = _related_transactions(db, current_user.id, acc).delete(synchronize_session=False)
+
+    holdings = _related_investments(db, current_user.id, acc)
+    inv_deleted = holdings.delete(synchronize_session=False) if holdings is not None else 0
+
+    # Children (a debit card or overdraft attached to this account) survive as
+    # accounts in their own right — only the now-dead link is cleared.
+    linked = _linked_accounts(db, current_user.id, acc)
+    unlinked = linked.update({Account.linked_key: None}, synchronize_session=False) if linked is not None else 0
+
     db.delete(acc)
     db.commit()
+    return {
+        "deleted": {
+            "transactions": tx_deleted,
+            "credit_payments": len(statements),
+            "investments": inv_deleted,
+            "unlinked_accounts": unlinked,
+        }
+    }

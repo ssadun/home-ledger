@@ -252,3 +252,15 @@
   .acct-pension-meta{gap:5px 12px}
   .apc-date{width:62px}
 }
+
+/* ── Delete confirm: cascade preview ──────────────────────────────────────────
+   Deleting an account also deletes its transactions, statements and holdings, so
+   the dialog lists what goes. Sits inside .confirm-text (app.css). */
+.acct-del-checking{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
+.acct-del-related{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding:8px 10px;
+  border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3)}
+.acct-del-related-head{font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted);
+  text-transform:uppercase}
+.acct-del-related-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+.acct-del-related-item svg{flex-shrink:0;opacity:.75;color:var(--muted)}
+.acct-del-related-note{display:block;margin-top:6px;font-size:11px;color:var(--muted)}

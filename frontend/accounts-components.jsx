@@ -909,8 +909,40 @@
   }
 
   // ── Delete confirm ──
+  // Deleting an account cascades: its transactions, credit-card statements and
+  // holdings go with it (nothing references an account by foreign key, so the
+  // backend matches on payment_method / account_key / platform). The dialog asks
+  // the API what that amounts to and lists it, so the cascade is never a surprise.
   function DeleteAccountConfirm({ account, onClose, onConfirm }) {
     const meta = joinMeta(account.institution, displayNumber(account));
+    const [related, setRelated] = React.useState(null);
+    const [relErr, setRelErr] = React.useState(null);
+
+    React.useEffect(() => {
+      let alive = true;
+      if (account._dbId == null) { setRelated({}); return undefined; }
+      window.HL_ACCOUNTS_API.related(account._dbId)
+        .then(r => { if (alive) setRelated(r); })
+        .catch(e => { if (alive) { setRelated({}); setRelErr(e.message || 'Could not check related records'); } });
+      return () => { alive = false; };
+    }, [account._dbId]);
+
+    const tx = (related && related.transactions) || {};
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const items = [];
+    if (tx.count) {
+      const span = tx.earliest && tx.latest && tx.earliest !== tx.latest
+        ? ` (${tx.earliest} → ${tx.latest})` : (tx.earliest ? ` (${tx.earliest})` : '');
+      items.push({ icon: 'receipt', text: plural(tx.count, 'transaction', 'transactions') + span });
+    }
+    if (related && related.credit_payments) {
+      items.push({ icon: 'credit-card', text: plural(related.credit_payments, 'credit payment', 'credit payments') });
+    }
+    if (related && related.investments) {
+      items.push({ icon: 'trending-up', text: plural(related.investments, 'holding', 'holdings') });
+    }
+    const linked = (related && related.linked_accounts) || [];
+
     return (
       <div className="backdrop">
         <div className="modal confirm-modal">
@@ -924,6 +956,28 @@
             <div className="confirm-ico"><Icon name="alert-triangle" size={20} /></div>
             <div className="confirm-text">
               Delete <b>{account.name}</b>{meta ? ` (${meta})` : ''}?
+              {related === null && <span className="acct-del-checking" id="acct-delete-checking">Checking related records…</span>}
+              {relErr && <span className="warn" id="acct-delete-related-error">{relErr}</span>}
+              {related !== null && items.length > 0 && (
+                <span className="acct-del-related" id="acct-delete-related">
+                  <span className="acct-del-related-head">This also deletes:</span>
+                  {items.map(it => (
+                    <span className="acct-del-related-item" key={it.icon}>
+                      <Icon name={it.icon} size={12} />{it.text}
+                    </span>
+                  ))}
+                </span>
+              )}
+              {related !== null && items.length === 0 && !relErr && (
+                <span className="acct-del-related" id="acct-delete-related">
+                  <span className="acct-del-related-item"><Icon name="check" size={12} />No related records</span>
+                </span>
+              )}
+              {linked.length > 0 && (
+                <span className="acct-del-related-note" id="acct-delete-unlink-note">
+                  {plural(linked.length, 'account stays', 'accounts stay')} but {linked.length === 1 ? 'loses its' : 'lose their'} link: {linked.join(', ')}
+                </span>
+              )}
               <span className="warn">⚠ This cannot be undone.</span>
             </div>
           </div>
