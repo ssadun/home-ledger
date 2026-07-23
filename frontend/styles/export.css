@@ -14,12 +14,12 @@
 .export-anchor{position:relative}
 
 /* Export button — blue "utility" action, signature transparent→tint pattern */
-.export-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--radius);border:1px solid rgba(79,142,247,.45);background:rgba(79,142,247,.10);color:var(--accent);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition);white-space:nowrap}
+.export-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:var(--radius);border:1px solid color-mix(in srgb, var(--accent) 45%, transparent);background:color-mix(in srgb, var(--accent) 10%, transparent);color:var(--accent);font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition);white-space:nowrap}
 .export-btn svg{width:14px;height:14px}
 .export-btn .export-caret{width:13px;height:13px;opacity:.7;transition:transform .15s}
-.export-btn.open{background:rgba(79,142,247,.2);border-color:var(--accent)}
+.export-btn.open{background:color-mix(in srgb, var(--accent) 20%, transparent);border-color:var(--accent)}
 .export-btn.open .export-caret{transform:rotate(180deg)}
-.export-btn:hover{background:rgba(79,142,247,.2);border-color:var(--accent)}
+.export-btn:hover{background:color-mix(in srgb, var(--accent) 20%, transparent);border-color:var(--accent)}
 
 /* Popover — mirrors .filters-pop */
 .export-pop{position:absolute;top:calc(100% + 7px);right:0;z-index:120;width:252px;display:flex;flex-direction:column;gap:3px;padding:8px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:var(--shadow-dropdown);animation:modalIn .12s ease both}

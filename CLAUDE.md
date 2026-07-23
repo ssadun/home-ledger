@@ -46,7 +46,7 @@ docker run --rm --network nas \
 
 ### Database
 SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db` in container).
-**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free). Likewise the Payer/Paying For visibility toggle added `users.show_as_payer`, needing: `ALTER TABLE users ADD COLUMN show_as_payer BOOLEAN DEFAULT 1;` Likewise the Payment Method visibility toggle for bank accounts added `accounts.show_in_payment_method`, needing: `ALTER TABLE accounts ADD COLUMN show_in_payment_method BOOLEAN DEFAULT 0;` Likewise the Account Activity row detail modal (shows when/what-file a row was imported from) added `transactions.source_filename`, needing: `ALTER TABLE transactions ADD COLUMN source_filename VARCHAR;` Likewise prepaid cards added `accounts.is_prepaid`, needing: `ALTER TABLE accounts ADD COLUMN is_prepaid BOOLEAN DEFAULT 0;` Likewise retirement plans added `accounts.pension`, needing: `ALTER TABLE accounts ADD COLUMN pension JSON;` Likewise the Statements archive added `transactions.statement_id`, needing: `ALTER TABLE transactions ADD COLUMN statement_id INTEGER;` (the `statements` table itself needs no migration).
+**No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free). Likewise the Payer/Paying For visibility toggle added `users.show_as_payer`, needing: `ALTER TABLE users ADD COLUMN show_as_payer BOOLEAN DEFAULT 1;` Likewise the Payment Method visibility toggle for bank accounts added `accounts.show_in_payment_method`, needing: `ALTER TABLE accounts ADD COLUMN show_in_payment_method BOOLEAN DEFAULT 0;` Likewise the Account Activity row detail modal (shows when/what-file a row was imported from) added `transactions.source_filename`, needing: `ALTER TABLE transactions ADD COLUMN source_filename VARCHAR;` Likewise prepaid cards added `accounts.is_prepaid`, needing: `ALTER TABLE accounts ADD COLUMN is_prepaid BOOLEAN DEFAULT 0;` Likewise retirement plans added `accounts.pension`, needing: `ALTER TABLE accounts ADD COLUMN pension JSON;` Likewise the Statements archive added `transactions.statement_id`, needing: `ALTER TABLE transactions ADD COLUMN statement_id INTEGER;` (the `statements` table itself needs no migration). Likewise the Profile page added three columns to `users`, needing: `ALTER TABLE users ADD COLUMN avatar_path VARCHAR;` `ALTER TABLE users ADD COLUMN avatar_token VARCHAR;` `ALTER TABLE users ADD COLUMN language VARCHAR DEFAULT 'en';` plus `CREATE INDEX IF NOT EXISTS ix_users_avatar_token ON users(avatar_token);` (the index backs the by-token avatar lookup).
 
 9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`, `statements`, `statement_mappings`, and `push_subscriptions`, added later — see Data Models below):
 
@@ -175,7 +175,19 @@ A **retirement plan** is an `accounts.type == "pension"` account — a Turkish B
 - **No payment-method presence.** Every picker whitelists `credit|debit|cash|bank`, so `pension` is excluded automatically; the detail view also skips the Account Activity fetch (a plan has no transactions of its own).
 
 ### Auth
-JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` require `Depends(get_current_user)`.
+JWT Bearer tokens. All routes except `/api/auth/register`, `/api/auth/login` and `/api/auth/avatar/{token}` require `Depends(get_current_user)`.
+
+### Profile (self-service) vs. Members (admin)
+Two screens edit the same `users` rows, and the split is deliberate:
+
+- **Profile** (`Profile.html`, `/api/auth/me`) is the signed-in user editing **their own** record — name, username, email, password, picture, theme, language. Scoped by the JWT, so it can never address another member. `ProfileUpdate` has no `role`/`is_active` field, so this path cannot escalate a privilege.
+- **Configuration → Members** (`/api/members`) is the admin view of **any** row, and is where role/active live.
+
+**`PATCH`/`DELETE /api/members/{id}` had no ownership check at all** — any signed-in member could rename, deactivate, or silently re-hash any other member's password. `_require_manage()` now guards it. Its `_is_admin()` has a deliberate second branch: **if no row has `role == "admin"`, everyone is treated as admin.** Every user in this household carries `role = "user"`, so a strict check would have locked all accounts out of the Members screen the moment the guard landed. Designate one member as `admin` and the guard tightens by itself — no migration, no code change.
+
+**The avatar is served by capability token, not by auth.** An `<img>` tag cannot attach a Bearer header, so `GET /api/auth/avatar/{token}` is public and unguessable (`secrets.token_urlsafe(16)`), the same trade `POST /api/push/snooze` makes for the service worker. The token is **rotated on every upload**, so a replaced picture's old URL 404s instead of resolving to its successor.
+
+**Language is stored, not applied.** `users.language` and the Profile dropdown are real and persist, but there is **no i18n layer** — every string across all 20 pages is hardcoded English. The control says so in its own hint text. Do not treat the column's existence as evidence that translation works.
 
 ---
 
@@ -183,7 +195,7 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 
 | Model | Table | Key fields | Notes |
 |---|---|---|---|
-| `User` | `users` | email, full_name, hashed_password | Owner of all other records |
+| `User` | `users` | email, full_name, hashed_password, username, role, is_active, avatar_path, avatar_token, language | Owner of all other records. `avatar_path`/`avatar_token` back the Profile picture (token = the public capability URL, rotated per upload); `language` is a stored preference with no i18n layer behind it yet — see _Profile (self-service) vs. Members (admin)_ |
 | `Transaction` | `transactions` | type, amount, currency, amount_try, amount_usd, exchange_rate, date, payer, category_id, receipt_path | Core entity; `payer` tracks who paid (e.g. "Sadun" / "Handan") |
 | `Category` | `categories` | name, name_tr, type (income/expense), icon, color, is_default | Shared/default categories (not user-scoped); seeded at startup |
 | `ExchangeRate` | `exchange_rates` | date, usd_try, eur_try, source | Populated from TCMB; one row per calendar day |
@@ -207,7 +219,12 @@ JWT Bearer tokens. All routes except `/api/auth/register` and `/api/auth/login` 
 |---|---|---|
 | POST | `/register` | Create account |
 | POST | `/login` | OAuth2 password form → JWT token |
-| GET | `/me` | Current user profile |
+| GET | `/me` | Current user profile (`ProfileOut`: adds username, role, language, avatar_url over the old `UserOut`) |
+| PATCH | `/me` | Self-service profile edit: full_name, username, email, language. **`role`/`is_active` are not in `ProfileUpdate`**, so a member cannot promote themselves here |
+| POST | `/me/password` | Change own password; **requires the current password** — a valid JWT alone is not accepted, or a borrowed unlocked session could lock the owner out |
+| POST | `/me/avatar` | Upload a profile picture (multipart; PNG/JPG/JPEG/GIF/WEBP, ≤4 MB). Rotates `avatar_token` and deletes the previous file |
+| DELETE | `/me/avatar` | Remove the picture (falls back to initials) and unlink the file |
+| GET | `/avatar/{token}` | Serve a picture by capability token. **The one auth route with NO `get_current_user`** — an `<img>` cannot send a Bearer header, same reasoning as `POST /api/push/snooze` |
 
 ### Transactions — `/api/transactions`
 | Method | Path | Description |

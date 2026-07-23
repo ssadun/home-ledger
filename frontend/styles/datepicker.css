@@ -202,7 +202,7 @@
 }
 
 .flatpickr-day.today:hover {
-  background: rgba(79,142,247,.13) !important;
+  background: color-mix(in srgb, var(--accent) 13%, transparent) !important;
   color: var(--accent) !important;
   border-color: var(--accent) !important;
 }
@@ -215,7 +215,7 @@
   border-color: var(--accent) !important;
   color: var(--white) !important;
   font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(79,142,247,.4) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent) !important;
 }
 
 /* Disabled / out-of-month */

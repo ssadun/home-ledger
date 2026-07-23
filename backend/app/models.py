@@ -31,6 +31,14 @@ class User(Base):
     is_active = Column(Boolean, default=True)           # inactive members cannot log in
     show_as_payer = Column(Boolean, default=True)       # appears as a Payer/Paying For option; independent of is_active
     notify_lead_days = Column(Integer, default=0)       # push reminder lead time: 0 = same-day
+    avatar_path = Column(String)                        # profile picture on disk; NULL → initials fallback
+    # Unguessable capability token in the avatar's public URL. An <img> tag cannot
+    # send an Authorization header, so the picture cannot sit behind
+    # get_current_user like every other route; it is served by token instead —
+    # the same trick POST /api/push/snooze uses for the service worker. Rotated
+    # on every upload so a replaced picture's old URL stops resolving.
+    avatar_token = Column(String, index=True)
+    language = Column(String, default="en")             # UI language preference: "en" | "tr"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     transactions = relationship("Transaction", back_populates="owner")

@@ -84,7 +84,6 @@
             <div className="page-head-top">
               <div className="cfg-detail-head-left">
                 <div className="page-title-wrap cfg-detail-title-wrap">
-                  <span className="cfg-title-icon" style={{ color: 'var(--gold)' }}><Icon name="bell" size={21} /></span>
                   <div className="cfg-title-col">
                     <h1 className="page-title">Notifications</h1>
                     <p className="page-subtitle">Get a reminder before recurring bills and credit card payments are due</p>

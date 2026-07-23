@@ -27,6 +27,42 @@ def _synth_email(username: str) -> str:
     return f"{username}@homeledger.app"
 
 
+def _is_admin(db: Session, user: User) -> bool:
+    """Is this member allowed to manage OTHER members?
+
+    Two ways to qualify, and the second one matters:
+
+    1. `role == "admin"` — the explicit grant.
+    2. No row in the table has `role == "admin"` at all.
+
+    Rule 2 exists because this household's users all carry `role = "user"`, so a
+    strict check would have locked EVERY account out of Configuration → Members
+    the moment this guard landed — a regression dressed up as a security fix.
+    While no admin has been designated the household stays flat, exactly as it
+    behaved before. Set one member to `admin` and the guard tightens by itself,
+    with no migration and no code change.
+    """
+    if (user.role or "") == "admin":
+        return True
+    return db.query(User).filter(User.role == "admin").first() is None
+
+
+def _require_manage(db: Session, target: User, current_user: User) -> None:
+    """Guard mutations of a member row.
+
+    Until this existed, PATCH /{member_id} took only `get_current_user` and never
+    compared it to the row being edited — so ANY signed-in member could rename,
+    deactivate, or silently re-hash the password of ANY other member, including
+    an admin's. Self-service edits now belong on PATCH /api/auth/me; this screen
+    stays the admin path.
+    """
+    if target.id == current_user.id:
+        return
+    if _is_admin(db, current_user):
+        return
+    raise HTTPException(403, "Bu üyeyi düzenleme yetkiniz yok")
+
+
 @router.get("/", response_model=List[MemberOut])
 def list_members(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return [_to_out(u) for u in db.query(User).order_by(User.id).all()]
@@ -68,7 +104,13 @@ def update_member(
     user = db.query(User).filter(User.id == member_id).first()
     if not user:
         raise HTTPException(404, "Üye bulunamadı")
+    _require_manage(db, user, current_user)
     data = payload.model_dump(exclude_unset=True)
+    # Only an admin may change role/active — otherwise a standard member editing
+    # their own row could promote themselves through this endpoint.
+    if not _is_admin(db, current_user):
+        data.pop("role", None)
+        data.pop("active", None)
     if "username" in data and data["username"] and data["username"] != user.username:
         clash = db.query(User).filter(User.username == data["username"], User.id != member_id).first()
         if clash:
@@ -100,6 +142,8 @@ def delete_member(
     user = db.query(User).filter(User.id == member_id).first()
     if not user:
         raise HTTPException(404, "Üye bulunamadı")
+    if not _is_admin(db, current_user):
+        raise HTTPException(403, "Üye silme yetkiniz yok")
     if user.id == current_user.id:
         raise HTTPException(400, "Oturum açmış üyeyi silemezsiniz")
     db.delete(user)

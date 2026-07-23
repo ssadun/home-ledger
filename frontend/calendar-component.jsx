@@ -224,9 +224,23 @@
     }
 
     return (
-      <div className="cal-layout">
-        {/* ── Calendar grid card ── */}
-        <div className="cal-card">
+      <React.Fragment>
+        <div className="cal-top-summary">
+          {acctCount > 0 && (
+            <span className={'cal-total-chip' + (acctTotal < 0 ? ' negative' : '')}>
+              <Icon name="wallet" size={13} />
+              <span className="cal-total-label">Total Balance</span>
+              <span className="cal-total-sub">{acctCount} account{acctCount !== 1 ? 's' : ''}</span>
+              <b>{acctTotal < 0 ? '−₺' : '₺'}{grp(Math.abs(acctTotal), 0)}</b>
+            </span>
+          )}
+          <span className="cal-chip income"><Icon name="arrow-down-left" size={11} />Income<b>₺{grp(mInc, 0)}</b></span>
+          <span className="cal-chip expense"><Icon name="arrow-up-right" size={11} />Expense<b>₺{grp(mExp, 0)}</b></span>
+        </div>
+
+        <div className="cal-layout">
+          {/* ── Calendar grid card ── */}
+          <div className="cal-card">
           {pmOptions.length > 0 && (
             <div className="cal-filter">
               <span className="filter-label"><Icon name="wallet" size={11} />Payment Method</span>
@@ -246,22 +260,6 @@
               <span className="cal-month-sub">{mCnt} transaction{mCnt !== 1 ? 's' : ''}</span>
             </div>
             <button id="cal-next-month-btn" className="cal-nav-btn" onClick={() => step(1)} title="Next Month"><Icon name="chevron-right" size={16} /></button>
-          </div>
-
-          {acctCount > 0 && (
-            <div className="cal-total-row">
-              <span className={'cal-total-chip' + (acctTotal < 0 ? ' negative' : '')}>
-                <Icon name="wallet" size={13} />
-                <span className="cal-total-label">Total Balance</span>
-                <span className="cal-total-sub">{acctCount} account{acctCount !== 1 ? 's' : ''}</span>
-                <b>{acctTotal < 0 ? '−₺' : '₺'}{grp(Math.abs(acctTotal), 0)}</b>
-              </span>
-            </div>
-          )}
-
-          <div className="cal-summary">
-            <span className="cal-chip income"><Icon name="arrow-down-left" size={11} />Income<b>₺{grp(mInc, 0)}</b></span>
-            <span className="cal-chip expense"><Icon name="arrow-up-right" size={11} />Expense<b>₺{grp(mExp, 0)}</b></span>
           </div>
 
           <div className="cal-dow-row">{DOW.map(d => <span key={d} className="cal-dow">{d}</span>)}</div>
@@ -287,10 +285,10 @@
               <span key={k} className="cal-legend-item"><span className={'cal-dot cal-dot-' + k} />{v.label}</span>
             ))}
           </div>
-        </div>
+          </div>
 
-        {/* ── Day detail panel ── */}
-        <div className="cal-detail">
+          {/* ── Day detail panel ── */}
+          <div className="cal-detail">
           {sel ? (
             <React.Fragment>
               <div className="cal-detail-head">
@@ -347,8 +345,9 @@
               <span className="es">Click any day to see its transactions and navigate to records.</span>
             </div>
           )}
+          </div>
         </div>
-      </div>
+      </React.Fragment>
     );
   }
 

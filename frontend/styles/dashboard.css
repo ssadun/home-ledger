@@ -2,6 +2,25 @@
    Home Ledger — Dashboard page styles
    ============================================================================ */
 
+/* ── View select ──
+   StyledSelect (Icon.jsx) puts the caller's `id` on the INNER .ss-trigger button
+   and the caller's className (`sel`) on the OUTER .ss-wrap — and the wrapper is
+   what carries the box: border, padding and the 120px min-width from app.css
+   `.sel`. So `#dash-view-select{width:150px}` would size the button inside an
+   unchanged 120px shell; the width has to go on the wrapper, reached structurally
+   through .ff-tabs. (.ss-trigger is already width:100%, so it follows.)
+
+   The .ff-tabs descendant also outranks the `.rpt-filter-bar .sel{min-width:0}`
+   in the 660px block below, so the control keeps 150px on mobile too. */
+.rpt-filter-bar .ff-tabs .ss-wrap.sel{width:180px;min-width:180px}
+
+/* Keep the "View" label visible on mobile. TWO rules hide it there — filters.css
+   `.filter-label{display:none}` and this file's own
+   `.rpt-filter-bar .filter-label{display:none}` in the 660px block — so restoring
+   it needs a selector that outranks both. Scoped to .ff-tabs so only this field's
+   label comes back, not every filter label on the bar. */
+.rpt-filter-bar .ff-tabs .filter-label{display:flex}
+
 /* ── KPI group wrapper ── */
 .dash-kpi-group{display:flex;flex-direction:column;gap:0;margin-bottom:14px;width:100%;max-width:934px;margin-left:auto;margin-right:auto}
 .dash-kpi-source{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0}
@@ -65,7 +84,7 @@
 .dash-mc-label{font-size:10px;font-weight:700;color:var(--text);letter-spacing:.2px}
 .dash-mc-val{font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .dash-mc-col.current .dash-mc-label{color:var(--accent);font-weight:800}
-.dash-mc-col.current .dash-mc-bar{box-shadow:0 0 8px rgba(79,142,247,.35)}
+.dash-mc-col.current .dash-mc-bar{box-shadow:0 0 8px color-mix(in srgb, var(--accent) 35%, transparent)}
 .dash-mc-col.forecast .dash-mc-label{color:var(--muted)}
 
 /* ── Cumulative chart ── */
@@ -116,8 +135,8 @@
   .main,body.sidebar-expanded .main{margin-left:0;height:auto;min-height:100vh;padding-bottom:66px}
 
   .page-head{padding:12px}
-  .page-title{font-size:18px;letter-spacing:1px}
-  .page-sub{padding-left:0;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+  /* The heading uses the shared app.css `.page-title` at every width (18px on
+     mobile too) — no Dashboard-specific size override. */
   /* keep the Scan Receipt button inline next to the title (like Spending)
      instead of wrapping to its own full-width row */
   .page-head-top:has(.dash-head-actions){flex-wrap:nowrap}
@@ -162,8 +181,8 @@
 
 /* ── Filter bar overrides ── */
 .rpt-filter-bar{align-items: flex-end}
-.rpt-view-name{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--white);margin-right:auto;padding-bottom: 5px;}
-.rpt-view-name svg{width:14px;height:14px;color:var(--text)}
+.rpt-view-name{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--muted);margin-right:auto;padding-bottom: 5px;}
+.rpt-view-name svg{width:14px;height:14px;color:var(--muted)}
 
 /* ── Horizontal bar chart (CategoryBarChart) ── */
 .rpt-hbar-list{display:flex;flex-direction:column;gap:10px}
@@ -203,7 +222,7 @@
 .rpt-bva-ico{width:22px;height:22px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid}
 .rpt-bva-ico svg{width:11px;height:11px}
 .rpt-bva-track{flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden;position:relative;border:1px solid var(--border)}
-.rpt-bva-budget{position:absolute;top:0;left:0;height:100%;background:rgba(79,142,247,.18);border-radius:5px}
+.rpt-bva-budget{position:absolute;top:0;left:0;height:100%;background:color-mix(in srgb, var(--accent) 18%, transparent);border-radius:5px}
 .rpt-bva-actual{position:absolute;top:0;left:0;height:100%;background:var(--accent);border-radius:5px;transition:width .5s ease;z-index:1}
 .rpt-bva-actual.over{background:var(--red)}
 .rpt-bva-vals{display:flex;align-items:baseline;gap:4px;min-width:130px;justify-content:flex-end}

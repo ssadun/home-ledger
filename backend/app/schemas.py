@@ -23,6 +23,35 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+# ── Profile (self-service, /api/auth/me) ──────────────────────────────────────
+# Distinct from MemberOut below: that one is the ADMIN view of any user row from
+# Configuration → Members. This is the signed-in user editing their own record,
+# and it is the only shape that carries the avatar URL and language preference.
+
+class ProfileOut(BaseModel):
+    id: int
+    email: str
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
+    language: str = "en"
+    avatar_url: Optional[str] = None       # None → the client renders initials
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    language: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
 # ── Members (Users table managed from the Configuration page) ──────────────────
 
 class MemberCreate(BaseModel):

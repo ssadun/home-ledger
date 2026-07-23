@@ -196,7 +196,7 @@
       });
     }
 
-    React.useEffect(() => { document.documentElement.style.setProperty('--accent', '#4f8ef7'); }, []);
+    React.useEffect(() => { window.HL_THEME.accent('#4f8ef7'); }, []);
 
     // Hydrate accounts from the backend on mount, together with the institution
     // map (names + logos) so cards paint their logos on the first render rather
@@ -294,7 +294,6 @@
           <header className="page-head">
             <div className="page-head-top">
               <div className="page-title-wrap cfg-detail-title-wrap">
-                <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#8b5cf6' }}><Icon name="wallet" size={21} /></span>
                 <div className="cfg-title-col">
                   <h1 className="page-title">Accounts</h1>
                   <p className="page-subtitle">Balances across every account</p>
@@ -349,7 +348,7 @@
           <TweakSection label="Appearance" />
           <TweakColor label="Accent" value={'#4f8ef7'}
             options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
-            onChange={(v) => document.documentElement.style.setProperty('--accent', v)} />
+            onChange={(v) => window.HL_THEME.accent(v)} />
         </TweaksPanel>
       </div>
     );

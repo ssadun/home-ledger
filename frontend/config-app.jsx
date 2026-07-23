@@ -912,7 +912,6 @@
           <div className="page-head-top">
             <div className="cfg-detail-head-left">
               <div className="page-title-wrap cfg-detail-title-wrap">
-                <span className="cfg-title-icon" style={{ color: section.color }}><Icon name={section.icon} size={21} /></span>
                 <div className="cfg-title-col">
                   <h1 className="page-title">{section.label}</h1>
                   {section.desc && <p className="page-subtitle">{section.desc}</p>}

@@ -8,13 +8,41 @@
 @font-face{font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;src:url('../fonts/Inter_18pt-Bold.ttf') format('truetype');}
 @font-face{font-family:'Inter';font-style:normal;font-weight:800;font-display:swap;src:url('../fonts/Inter_18pt-ExtraBold.ttf') format('truetype');}
 
+/* ── Theme-agnostic tokens ──
+   Geometry and type never change between themes, so they live outside the
+   theme blocks and are declared exactly once. */
 :root{
-  /* Tell the browser this app is dark, so EVERY native control renders itself in
-     dark mode: the <input type="date"> calendar glyph and its dropdown panel,
-     number spinners, native selects, scrollbars, autofill.
-     Declared once here so a newly added field is correct by default — never
-     re-tint a native glyph per-field with filter:invert(), which double-inverts
-     against this and turns the icon black. */
+  /* Radii */
+  --radius:8px;
+  --radius2:12px;
+  --radius-modal:18px;
+  --radius-sm:6px;
+  --radius-xs:4px;
+  --radius-pill:20px;
+  /* Type */
+  --font-sans:'Inter',system-ui,sans-serif;
+  --font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --fs-base:15px;
+  --fs-table:12px;
+  --fs-metric:16px;
+  --fs-label:10px;
+  --lh-base:1.5;
+  --transition:all .15s;
+  --glow-accent:0 0 6px var(--accent);
+}
+
+/* ── DARK (default) ──
+   `data-theme` is written onto <html> by theme.js, synchronously in <head>,
+   before the first paint. The [data-theme="dark"] values below are byte-for-byte
+   the ones that used to sit on a bare :root, so dark rendering is unchanged.
+
+   color-scheme is now PER THEME. It tells the browser which way to render every
+   native control — the <input type="date"> calendar glyph and its dropdown,
+   number spinners, native selects, scrollbars, autofill. Never re-tint a native
+   glyph per-field with filter:invert(): it double-inverts against this and turns
+   the icon black. */
+:root,
+:root[data-theme="dark"]{
   color-scheme:dark;
 
   /* Surfaces */
@@ -50,25 +78,89 @@
   --mint:#4ade80;
   --fuchsia:#d946ef;
   --gold:#fbbf24;
-  /* Radii */
-  --radius:8px;
-  --radius2:12px;
-  --radius-modal:18px;
-  --radius-sm:6px;
-  --radius-xs:4px;
-  --radius-pill:20px;
+  /* Text that sits ON a filled --accent/--lavender chip. Dark theme's accent is
+     a LIGHT blue, so the label on it must be near-black — the inverse of light
+     theme. Anything painted over a filled accent must use this, never --text. */
+  --on-accent:#0d0f14;
   /* Elevation */
   --shadow-modal:0 24px 64px rgba(0,0,0,.6);
   --shadow-modal-lg:0 32px 80px rgba(0,0,0,.7);
   --shadow-dropdown:0 4px 12px rgba(0,0,0,.4);
+  --shadow-menu:0 8px 24px rgba(0,0,0,.4);
+  --shadow-sheet:0 -8px 32px rgba(0,0,0,.5);
   --shadow-tab-active:0 2px 10px rgba(79,142,247,.35);
-  --glow-accent:0 0 6px var(--accent);
-  /* Type */
-  --font-sans:'Inter',system-ui,sans-serif;
-  --fs-base:15px;
-  --fs-table:12px;
-  --fs-metric:16px;
-  --fs-label:10px;
-  --lh-base:1.5;
-  --transition:all .15s;
+  --backdrop:rgba(0,0,0,.8);
+}
+
+/* ── LIGHT ──
+   Every accent/status hue is DARKENED, not reused. The dark-theme values are
+   tuned to glow on a near-black page and fail contrast on a white one: #4f8ef7
+   is ~2.9:1 on white and --lime #bef264 is ~1.4:1, both far below the 4.5:1 AA
+   floor for the 10–12px labels and table cells that use them. Fills and borders
+   built from these via color-mix() stay soft because the tint percentage, not
+   the hue, controls their weight. */
+:root[data-theme="light"]{
+  color-scheme:light;
+
+  /* Surfaces */
+  --bg:#f5f7fb;
+  --bg2:#eef1f7;
+  --bg3:#ffffff;
+  --bg4:#e8ecf5;
+  /* Borders */
+  --border:#dbe1ec;
+  --border2:#c5cddc;
+  /* NOT the mid-grey #94a3b8 the name suggests. --separator also colours the
+     idle sidebar icons and the .fl-opt filter labels, and #94a3b8 lands at
+     2.27:1 on the light sidebar — under the 3:1 non-text floor, and well under
+     4.5:1 for the text. This value clears 4.61:1 on --bg2 and 5.22:1 on --bg3.
+     Dark keeps #6b7fa3, which was already 4.42:1 there. */
+  --separator:#646c85;
+  /* Text — `--white` means "highest-contrast text", so here it is a near-black */
+  --text:#1a1f2e;
+  --slate:#4a5470;
+  --muted:#646c85;
+  --white:#10131c;
+  --steel:#55607a;
+  /* Accents */
+  --accent:#3b6fd4;
+  --blue-dark:#2f5cb0;
+  --lavender:#7040d0;
+  /* Status / semantic */
+  --green:#15803d;
+  --lime:#4d7c0f;
+  --yellow:#a16207;
+  --orange:#c2410c;
+  --red:#dc2626;
+  --coral:#e11d48;
+  --pink:#db2777;
+  --rose:#be185d;
+  --sky:#0284c7;
+  --emerald:#059669;
+  --mint:#16a34a;
+  --fuchsia:#c026d3;
+  --gold:#b45309;
+  /* Light theme's accent is a DARK blue, so chip labels flip to white */
+  --on-accent:#ffffff;
+  /* Elevation — tinted navy rather than pure black, which reads as soot on a
+     light surface */
+  --shadow-modal:0 24px 64px rgba(31,41,71,.18);
+  --shadow-modal-lg:0 32px 80px rgba(31,41,71,.22);
+  --shadow-dropdown:0 4px 12px rgba(31,41,71,.15);
+  --shadow-menu:0 8px 24px rgba(31,41,71,.14);
+  --shadow-sheet:0 -8px 32px rgba(31,41,71,.16);
+  --shadow-tab-active:0 2px 10px rgba(59,111,212,.30);
+  /* A pure-black scrim is punishing on a light page; navy at 45% reads as a
+     dim rather than a blackout */
+  --backdrop:rgba(31,41,71,.45);
+}
+
+/* ── Aliases ──
+   These names are used across the stylesheets (and in the global design-system
+   docs) but were never defined here, so `var(--card-bg)` and friends resolved to
+   nothing — four such usages had no fallback and rendered invalid. */
+:root{
+  --card-bg:var(--bg3);
+  --card-hover-bg:var(--bg4);
+  --border-emphasis:var(--border2);
 }

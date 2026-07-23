@@ -17,7 +17,7 @@
     DailySpendChart, TopExpensesTable, PayerCompareChart
   } = window;
   const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakRadio } = window;
-  const { TxModal, ScanModal, DeleteConfirm } = window;
+  const { TxModal, DeleteConfirm } = window;
   const { RecSummaryStrip } = window;
   const { CalendarWidget } = window;
   const ExportData = window.ExportData;
@@ -61,14 +61,13 @@
     const [annualYear, setAnnualYear] = React.useState(CURRENT_YEAR);
     const [tab, setTab]     = React.useState('calendar');
     const [modal, setModal] = React.useState(null);
-    const [scan, setScan]   = React.useState(false);
     const [del, setDel]     = React.useState(null);
     // Bumped after every tx mutation; threaded into the aggregation memos below
     // (whose period-only dependency arrays would otherwise miss data changes).
     const [dataVersion, setDataVersion] = React.useState(0);
 
     React.useEffect(() => {
-      document.documentElement.style.setProperty('--accent', t.accent);
+      window.HL_THEME.accent(t.accent);
     }, [t.accent]);
 
     // Re-pull transactions from the DB (mutated into LEDGER.TX in place) and
@@ -186,17 +185,16 @@
           {/* ── Page header ── */}
           <header className="page-head">
             <div className="page-head-top">
-              <div className="page-title-wrap cfg-detail-title-wrap" style={{flex:1}}>
-                <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#ffffff' }}><Icon name="layout-dashboard" size={21} /></span>
+              {/* Same header structure as every other page (page-title-wrap
+                  cfg-detail-title-wrap > cfg-title-col) so the title treatment and
+                  the mobile app-logo (`.cfg-detail-title-wrap::before`) are shared,
+                  not a Dashboard one-off. On desktop the row carries no leading
+                  icon, so it reads identically to the old column layout. */}
+              <div className="page-title-wrap cfg-detail-title-wrap">
                 <div className="cfg-title-col">
                   <h1 className="page-title">Dashboard</h1>
                   <p className="page-subtitle">At-a-glance view of household finances</p>
                 </div>
-              </div>
-              <div className="head-actions dash-head-actions">
-                <button id="dash-scan-receipt-btn" className="action-modal-btn scan" onClick={() => setScan(true)}>
-                  <Icon name="scan-line" size={14} />Scan Receipt
-                </button>
               </div>
             </div>
 
@@ -435,7 +433,6 @@
         </div>
 
         {modal && <TxModal initial={modal.tx} scan={modal.scan} onClose={() => setModal(null)} onSave={saveTx} onDelete={(tx) => { setModal(null); setDel(tx); }} />}
-        {scan  && <ScanModal onClose={() => setScan(false)} onScanned={(tx) => { setScan(false); setModal({ mode: 'add', tx, scan: true }); }} />}
         {del   && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDelete} />}
 
         <TweaksPanel title="Tweaks">

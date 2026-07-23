@@ -15,12 +15,16 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script src="auth.js"></script>
+<script src="theme.js"></script>
 <link rel="stylesheet" href="styles/login.css" />
 </head>
 <body>
   <div class="orb orb1"></div>
   <div class="orb orb2"></div>
   <div class="orb orb3"></div>
+
+  <button type="button" class="theme-toggle" id="theme-toggle-btn"
+    aria-label="Switch colour theme" title="Switch colour theme"></button>
 
   <div class="login-page">
     <div class="login-card">
@@ -81,6 +85,23 @@
 
   <script>
     lucide.createIcons();
+
+    // Theme toggle. The icon shows the theme you'd switch TO, so dark mode
+    // offers a sun. Rewriting innerHTML rather than patching the <i> in place
+    // because lucide.createIcons() REPLACES the element with an <svg>, so any
+    // id/attribute set on the original <i> is gone after the first render.
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    function syncThemeIcon() {
+      const icon = window.HL_THEME.get() === 'dark' ? 'sun' : 'moon';
+      themeBtn.innerHTML =
+        '<i data-lucide="' + icon + '" style="width:16px;height:16px;"></i>';
+      lucide.createIcons();
+    }
+    themeBtn.addEventListener('click', function () {
+      window.HL_THEME.toggle();
+      syncThemeIcon();
+    });
+    syncThemeIcon();
 
     // If already logged in, skip to Dashboard
     if (window.HL_AUTH && window.HL_AUTH.getToken()) {

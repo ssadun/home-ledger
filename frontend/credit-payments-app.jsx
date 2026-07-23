@@ -220,7 +220,6 @@
           <header className="page-head">
             <div className="page-head-top">
               <div className="page-title-wrap cfg-detail-title-wrap">
-                <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#f97316' }}><Icon name="credit-card" size={21} /></span>
                 <div className="cfg-title-col">
                   <h1 className="page-title">Credit Payments</h1>
                   <p className="page-subtitle">Credit-card statements & payments</p>

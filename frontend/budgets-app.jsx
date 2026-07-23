@@ -157,7 +157,7 @@
     const [search, setSearch] = React.useState('');
     const [layout, setLayout] = window.HL_NAV.usePersistentView('list');
 
-    React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
+    React.useEffect(() => { window.HL_THEME.accent(t.accent); }, [t.accent]);
 
     function monthStep(d) {
       let m = month + d, y = year;
@@ -245,7 +245,6 @@
           <header className="page-head">
             <div className="page-head-top">
               <div className="page-title-wrap cfg-detail-title-wrap">
-                <span className="cfg-title-icon" id="page-header-icon" style={{ color: 'var(--yellow)' }}><Icon name="target" size={21} /></span>
                 <div className="cfg-title-col">
                   <h1 className="page-title">Budgets</h1>
                   <p className="page-subtitle">Monthly limits and spending progress</p>

@@ -55,45 +55,45 @@
   // ── Top-level menu ─────────────────────────────────────────────────────────
   const NAV = [
     { id: 'dashboard',     icon: 'layout-dashboard', label: 'Dashboard',     color: 'var(--white)',  href: 'Dashboard.html' },
-    { id: 'transactions',  icon: 'arrow-left-right', label: 'Transactions',  color: '#22c55e',       parent: 'tx' },
-    { id: 'accounts',      icon: 'wallet',           label: 'Accounts',      color: '#8b5cf6',       parent: 'acct' },
+    { id: 'transactions',  icon: 'arrow-left-right', label: 'Transactions',  color: 'var(--green)',       parent: 'tx' },
+    { id: 'accounts',      icon: 'wallet',           label: 'Accounts',      color: 'var(--lavender)',       parent: 'acct' },
     { id: 'budgets',       icon: 'target',           label: 'Budgets',       color: 'var(--yellow)', href: 'Budgets.html' },
     { id: 'configuration', icon: 'settings-2',       label: 'Configuration', color: 'var(--red)',    parent: 'cfg' },
   ];
 
   // ── Transactions submenu ───────────────────────────────────────────────────
   const NAV_TX_SUB = [
-    { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: '#22c55e', href: 'Spending.html' },
-    { id: 'credit-payments',  icon: 'credit-card',  label: 'Credit Payments',  color: '#ef4444', href: 'Credit Payments.html' },
+    { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: 'var(--green)', href: 'Spending.html' },
+    { id: 'credit-payments',  icon: 'credit-card',  label: 'Credit Payments',  color: 'var(--red)', href: 'Credit Payments.html' },
     { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--coral)', href: 'Subscriptions.html' },
-    { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: '#d946ef',      href: 'Recurring.html' },
+    { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: 'var(--fuchsia)',      href: 'Recurring.html' },
   ];
 
   // ── Accounts submenu ───────────────────────────────────────────────────────
   // The list page keeps id 'accounts' — same id as its parent — so landing on
   // Accounts.html lights up both the group and its first item.
   const NAV_ACCT_SUB = [
-    { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: '#8b5cf6', href: 'Accounts.html' },
-    { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: '#4f8ef7', href: 'Account Activity.html' },
+    { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: 'var(--lavender)', href: 'Accounts.html' },
+    { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: 'var(--accent)', href: 'Account Activity.html' },
     { id: 'statements',       icon: 'files',    label: 'Statements',       color: 'var(--yellow)', href: 'Statements.html' },
   ];
 
   // ── Configuration submenu (sectionId === CONFIG_SECTION === active id) ──────
   const NAV_CFG_SUB = [
-    { id: 'members',       sectionId: 'members',       icon: 'users',              label: 'Members',       color: '#22c55e', href: 'Members.html' },
-    { id: 'categories',    sectionId: 'categories',    icon: 'tag',                label: 'Categories',    color: '#8b5cf6', href: 'Categories.html' },
-    { id: 'currencies',    sectionId: 'currencies',    icon: 'circle-dollar-sign', label: 'Currencies',    color: '#fbbf24', href: 'Currencies.html' },
-    { id: 'cc-types',      sectionId: 'cc-types',      icon: 'credit-card',        label: 'Credit Cards',  color: '#bef264', href: 'Credit Cards.html' },
-    { id: 'debit-types',   sectionId: 'debit-types',   icon: 'wallet-cards',       label: 'Debit Cards',   color: '#38bdf8', href: 'Debit Cards.html' },
-    { id: 'account-types', sectionId: 'account-types', icon: 'landmark',           label: 'Account Types', color: '#4f8ef7', href: 'Account Types.html' },
-    { id: 'financial-institutions', sectionId: 'financial-institutions', icon: 'building-2', label: 'Financial Institutions', color: '#94a3b8', href: 'Financial Institutions.html' },
-    { id: 'statement-mappings', sectionId: 'statement-mappings', icon: 'file-symlink', label: 'Statement Value Mapping', color: '#38bdf8', href: 'Statement Value Mapping.html' },
-    { id: 'notifications',  sectionId: 'notifications',  icon: 'bell',               label: 'Notifications',  color: '#fbbf24', href: 'Notifications.html' },
-    { id: 'backup-export', sectionId: 'backup-export', icon: 'database-backup',    label: 'Backup & Export', color: '#34d399', href: 'Backup & Export.html' },
+    { id: 'members',       sectionId: 'members',       icon: 'users',              label: 'Members',       color: 'var(--green)', href: 'Members.html' },
+    { id: 'categories',    sectionId: 'categories',    icon: 'tag',                label: 'Categories',    color: 'var(--lavender)', href: 'Categories.html' },
+    { id: 'currencies',    sectionId: 'currencies',    icon: 'circle-dollar-sign', label: 'Currencies',    color: 'var(--gold)', href: 'Currencies.html' },
+    { id: 'cc-types',      sectionId: 'cc-types',      icon: 'credit-card',        label: 'Credit Cards',  color: 'var(--lime)', href: 'Credit Cards.html' },
+    { id: 'debit-types',   sectionId: 'debit-types',   icon: 'wallet-cards',       label: 'Debit Cards',   color: 'var(--sky)', href: 'Debit Cards.html' },
+    { id: 'account-types', sectionId: 'account-types', icon: 'landmark',           label: 'Account Types', color: 'var(--accent)', href: 'Account Types.html' },
+    { id: 'financial-institutions', sectionId: 'financial-institutions', icon: 'building-2', label: 'Financial Institutions', color: 'var(--steel)', href: 'Financial Institutions.html' },
+    { id: 'statement-mappings', sectionId: 'statement-mappings', icon: 'file-symlink', label: 'Statement Value Mapping', color: 'var(--sky)', href: 'Statement Value Mapping.html' },
+    { id: 'notifications',  sectionId: 'notifications',  icon: 'bell',               label: 'Notifications',  color: 'var(--gold)', href: 'Notifications.html' },
+    { id: 'backup-export', sectionId: 'backup-export', icon: 'database-backup',    label: 'Backup & Export', color: 'var(--emerald)', href: 'Backup & Export.html' },
   ];
 
   const NAV_BOTTOM = [
-    { id: 'logout', icon: 'log-out', label: 'Log Out', color: '#ef4444', idle: '#ef4444' },
+    { id: 'logout', icon: 'log-out', label: 'Log Out', color: 'var(--red)', idle: 'var(--red)' },
   ];
 
   // Every collapsible group, keyed by its NAV id. Config subitems carry their own
@@ -114,7 +114,7 @@
   }
 
   function SbItem({ item }) {
-    const idle = item.idle || '#6b7fa3';
+    const idle = item.idle || 'var(--separator)';
     const inner = (
       <React.Fragment>
         <span className="sidebar-item-icon"><Icon name={item.icon} size={20} color="currentColor" /></span>
@@ -128,11 +128,71 @@
           style={{ ...style, textDecoration: 'none' }}>{inner}</a>
       );
     }
-    const onClick = item.id === 'logout'
-      ? () => window.HL_AUTH && window.HL_AUTH.logout()
-      : undefined;
+    const onClick = item.onClick
+      || (item.id === 'logout' ? () => window.HL_AUTH && window.HL_AUTH.logout() : undefined);
     return (
       <button id={'sidebar-item-' + item.id + '-btn'} className={'sidebar-item' + (item.active ? ' active' : '')} title={item.label} style={style} onClick={onClick}>{inner}</button>
+    );
+  }
+
+  // The light/dark switch used to live here as an `SbThemeItem` in the sidebar's
+  // bottom section. It was removed from the menu; theme.js is still driven from
+  // the Profile page (profile-app.jsx) and the Login page's own toggle, so don't
+  // reintroduce a third switch here.
+
+  // Body-level mount point for the top-right profile button. Created on demand so
+  // no page has to add the element to its own HTML.
+  function profileHost() {
+    let el = document.getElementById('topbar-profile-host');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'topbar-profile-host';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  // Profile entry, pinned to the TOP RIGHT of the page (it used to be an item in
+  // the sidebar's bottom section). Shows the user's picture when they have one,
+  // falling back to a generic person icon.
+  //
+  // Rendered through a PORTAL into a body-level host rather than by each page's
+  // header. Every page builds its own `.page-head`, so putting the button there
+  // would mean the same markup pasted into 20 `*-app.jsx` files; the portal keeps
+  // one implementation and lets `<Sidebar>` — which every page already renders —
+  // carry it along. `.page-head-top` reserves the space it floats over (app.css).
+  //
+  // Reads the CACHED session blob (HL_AUTH.getUser(), written at login and
+  // refreshed by profile-data.js's syncSession) rather than calling /api/auth/me.
+  // nav.jsx renders on all 20 pages, so a fetch here would be 20 extra requests
+  // per session to render one small image. Consequence worth knowing: a session
+  // that logged in before the avatar existed carries no `avatar_url` until the
+  // Profile page is opened once, or the user signs in again.
+  //
+  // The initials fallback deliberately does NOT appear here — its helpers live in
+  // profile-data.js, which only Profile.html loads, and duplicating them into
+  // nav.jsx would put the same logic in two places for a tiny glyph.
+  function TopbarProfile({ active }) {
+    const [host] = React.useState(profileHost);
+    const [user, setUser] = React.useState(
+      () => (window.HL_AUTH && window.HL_AUTH.getUser()) || null
+    );
+    React.useEffect(() => {
+      const onChange = (e) => setUser(e.detail);
+      window.addEventListener('hl-profile-change', onChange);
+      return () => window.removeEventListener('hl-profile-change', onChange);
+    }, []);
+
+    const avatar = user && user.avatar_url;
+    const label = (user && (user.full_name || user.username)) || 'Profile';
+    return ReactDOM.createPortal(
+      <a id="topbar-profile-link" className={'topbar-profile' + (active ? ' active' : '')}
+        href="Profile.html" title={label} aria-label={label}>
+        {avatar
+          ? <img src={avatar} alt="" className="topbar-avatar" id="topbar-profile-avatar" />
+          : <Icon name="user-round" size={18} color="currentColor" />}
+      </a>,
+      host
     );
   }
 
@@ -156,7 +216,7 @@
   // outside-tap guard then reads that detached node as "tapped outside" and closes
   // the popup it just opened. That was the mobile submenu never expanding.
   function ParentGroup({ item, open, active, onToggle }) {
-    const style = { '--sidebar-active-color': item.color, '--sidebar-idle-color': '#6b7fa3', '--sidebar-active-bg': rgba(item.color, 0.12) };
+    const style = { '--sidebar-active-color': item.color, '--sidebar-idle-color': 'var(--separator)', '--sidebar-active-bg': rgba(item.color, 0.12) };
     const inGroup = active === item.id || (SUBMENUS[item.id] || []).some(s => subKey(s) === active);
     return (
       <div className={'sidebar-parent' + (open ? ' open' : '')} id={item.id + '-parent'}>
@@ -193,6 +253,8 @@
     const top = (n) => ({ ...n, active: n.id === active });
 
     return (
+      <React.Fragment>
+      <TopbarProfile active={active === 'profile'} />
       <nav className="sidebar" id="sidebar">
         <button id="sidebar-toggle-btn" className="sidebar-toggle" onClick={() => window.toggleSidebar()} title="Toggle sidebar">
           <span className="sidebar-toggle-icon"><Icon name="pyramid" size={76} color="var(--accent)" /></span>
@@ -214,8 +276,9 @@
         </div>
         <div className="sidebar-resizer" id="sidebar-resizer" title="Drag to resize" />
       </nav>
+      </React.Fragment>
     );
   }
 
-  window.HL_NAV = { Sidebar, SbItem, SbSubItem, rgba, NAV, NAV_TX_SUB, NAV_ACCT_SUB, NAV_CFG_SUB, NAV_BOTTOM, SUBMENUS, usePersistentView };
+  window.HL_NAV = { Sidebar, SbItem, SbSubItem, TopbarProfile, rgba, NAV, NAV_TX_SUB, NAV_ACCT_SUB, NAV_CFG_SUB, NAV_BOTTOM, SUBMENUS, usePersistentView };
 })();

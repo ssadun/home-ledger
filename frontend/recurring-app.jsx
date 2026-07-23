@@ -382,7 +382,7 @@
     const rz = useResizableColumns({ columns: COLS, storageKey: 'hl-recurring-colwidths' });
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
 
-    React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
+    React.useEffect(() => { window.HL_THEME.accent(t.accent); }, [t.accent]);
 
     // ── Filter ──
     const filtered = React.useMemo(() => {
@@ -489,7 +489,6 @@
             <div className="page-head-top">
               <div className="cfg-detail-head-left">
                 <div className="page-title-wrap cfg-detail-title-wrap">
-                  <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#d946ef' }}><Icon name="repeat" size={21} /></span>
                   <div className="cfg-title-col">
                     <h1 className="page-title">Recurring</h1>
                     <p className="page-subtitle">Scheduled repeating transactions</p>

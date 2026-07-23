@@ -429,7 +429,7 @@
     }), []);
     React.useEffect(() => { setCollapsedWeeks(new Set()); }, [month, year]);
 
-    React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
+    React.useEffect(() => { window.HL_THEME.accent(t.accent); }, [t.accent]);
 
     // Hydrate the household accounts once (starts empty in accounts-data.js).
     // Mutate the shared array in place so AccountBadge / AcctFilterBar — which
@@ -568,7 +568,6 @@
             <div className="page-head-top">
               <div className="cfg-detail-head-left">
                 <div className="page-title-wrap cfg-detail-title-wrap">
-                  <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#4f8ef7' }}><Icon name="landmark" size={21} /></span>
                   <div className="cfg-title-col">
                     <h1 className="page-title">Account Activity</h1>
                     <p className="page-subtitle">Money in and out, per account</p>

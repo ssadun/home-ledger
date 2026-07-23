@@ -3,7 +3,8 @@
    ============================================================================ */
 
 /* ── Layout: grid + detail side-by-side ── */
-.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;max-width:934px;margin-left:auto;margin-right:auto}
+.cal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;width:100%;max-width:934px;margin-left:auto;margin-right:auto}
+.cal-top-summary{width:100%;max-width:934px;display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin:0 auto}
 
 /* ── Calendar card ── */
 .cal-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;display:flex;flex-direction:column;gap:14px}
@@ -103,6 +104,8 @@
    ============================================================================ */
 
 @media (max-width:660px){
+  .cal-top-summary{max-width:522px;grid-template-columns:1fr 1fr}
+  .cal-top-summary .cal-total-chip{grid-column:1/-1}
   .cal-layout{grid-template-columns:minmax(0,522px);justify-content:center}
   .cal-card{padding:12px;gap:10px}
   .cal-month-label{font-size:14px}

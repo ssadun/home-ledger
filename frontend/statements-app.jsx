@@ -256,7 +256,6 @@
           <header className="page-head">
             <div className="page-head-top">
               <div className="page-title-wrap cfg-detail-title-wrap">
-                <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#38bdf8' }}><Icon name="files" size={21} /></span>
                 <div className="cfg-title-col">
                   <h1 className="page-title">Statements</h1>
                   <p className="page-subtitle">Uploaded bank-account statements</p>

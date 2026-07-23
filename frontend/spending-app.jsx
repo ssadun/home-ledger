@@ -201,7 +201,7 @@
     }, []);
 
     // apply accent tweak to root
-    React.useEffect(() => { document.documentElement.style.setProperty('--accent', t.accent); }, [t.accent]);
+    React.useEffect(() => { window.HL_THEME.accent(t.accent); }, [t.accent]);
 
     function monthStep(d) {
       let m = month + d, y = year;
@@ -330,7 +330,6 @@
             <div className="page-head-top">
               <div className="cfg-detail-head-left">
                 <div className="page-title-wrap cfg-detail-title-wrap">
-                  <span className="cfg-title-icon" id="page-header-icon" style={{ color: '#22c55e' }}><Icon name="shopping-bag" size={21} /></span>
                   <div className="cfg-title-col">
                     <h1 className="page-title">Spending</h1>
                     <p className="page-subtitle">Expenses by category and member</p>
