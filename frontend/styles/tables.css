@@ -136,6 +136,7 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 .page-info .sep{color:var(--border2);margin:0 7px}
 .page-controls{display:flex;align-items:center;gap:5px}
 .pager-rows{display:inline-flex;vertical-align:middle;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.pager-rows .ss-wrap.sel{width:96px;min-width:96px}
 .page-btn{min-width:30px;height:30px;padding:0 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--slate);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:var(--transition)}
 .page-btn svg{width:14px;height:14px}
 .page-btn:hover:not(:disabled){background:var(--bg4);color:var(--text);border-color:var(--border2)}
@@ -154,6 +155,10 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 
 /* ── Mobile (≤660px) — table → stacked cards ── */
 @media (max-width:660px){
+  .ledger-table tbody tr.tx-row:hover,
+  .ledger-table.zebra tbody tr.tx-row:hover,
+  .ledger-table.zebra tbody tr:nth-child(even of .tx-row):hover{background:var(--bg4)}
+  .ledger-table tbody tr.tx-row:hover .td-desc{color:var(--white)}
   /* table → compact 3-line stacked cards */
   .table-card{background:var(--bg2);border:none;border-radius:0;overflow:visible;padding:0 10px}
   .table-scroll{overflow:visible;padding-bottom:54px}

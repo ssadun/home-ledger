@@ -322,7 +322,7 @@
           <span className="pager-rows">
             <span className="pager-rows-label">Rows</span>
             <div className="select-wrap">
-              <StyledSelect id="pagination-rows-select" className="sel" style={{ minWidth: 62, padding: '4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
+              <StyledSelect id="pagination-rows-select" className="sel" style={{ minWidth: 96, padding: '4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
                 <option>10</option><option>20</option><option>30</option><option>40</option><option>50</option><option>100</option>
               </StyledSelect>
             </div>

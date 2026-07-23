@@ -97,7 +97,7 @@
 .chip svg{width:11px;height:11px;color:var(--accent);opacity:.7}
 .chip:hover{background:color-mix(in srgb, var(--accent) 18%, transparent);border-color:var(--accent)}
 .chip:hover svg{opacity:1}
-.chip .chip-k{color:var(--muted);font-weight:600}
+.chip .chip-k{color:var(--slate);font-weight:600}
 .chip .chip-v{color:var(--accent);font-weight:600}
 .chip-clear{border-color:var(--border2);background:none;color:var(--slate)}
 .chip-clear:hover{background:var(--bg4);color:var(--text);border-color:var(--border2)}

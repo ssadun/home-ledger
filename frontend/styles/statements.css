@@ -136,12 +136,6 @@
 
 /* ── Mobile: stack the table into cards ──────────────────────────────────── */
 @media (max-width: 660px) {
-  /* Keep the Import button inline next to the title; the overflow button
-     (.ha-overflow) relocates into the filters popover (.fp-actions, filters.css). */
-  .page-head-top:has(.st-head-actions){flex-wrap:nowrap}
-  .st-head-actions{flex:0 0 auto}
-  .st-head-actions .ha-overflow{display:none}
-
   .st-body { padding: 14px 12px 32px; }
   .st-table-wrap { border: none; background: none; }
   .st-table thead { display: none; }

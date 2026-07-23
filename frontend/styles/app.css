@@ -472,15 +472,28 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   /* header */
   .page-head{padding:12px;min-height:95px;display:flex;flex-direction:column;justify-content:center;gap:12px}
   .page-title{font-size:18px;letter-spacing:0}
+  /* List-page actions share one compact mobile header treatment. Extra actions
+     move into the Filters popover, while the primary action stays inline. */
+  .page-head-top:has(.sp-head-actions),
+  .page-head-top:has(.sub-head-actions),
+  .page-head-top:has(.rec-head-actions),
+  .page-head-top:has(.acct-head-actions),
+  .page-head-top:has(.bgt-head-actions),
+  .page-head-top:has(.dash-head-actions),
+  .page-head-top:has(.cp-head-actions),
+  .page-head-top:has(.st-head-actions){flex-wrap:nowrap}
+  .page-head-top .sp-head-actions,.page-head-top .sub-head-actions,.page-head-top .rec-head-actions,.page-head-top .acct-head-actions,
+  .page-head-top .bgt-head-actions,.page-head-top .dash-head-actions,.page-head-top .cp-head-actions,.page-head-top .st-head-actions{flex:0 0 auto}
+  .sp-head-actions .ha-overflow,.sub-head-actions .ha-overflow,.rec-head-actions .ha-overflow,
+  .acct-head-actions .ha-overflow,.bgt-head-actions .ha-overflow,.dash-head-actions .ha-overflow,
+  .cp-head-actions .ha-overflow,.st-head-actions .ha-overflow{display:none}
   /* App logo (lucide "pyramid") in place of the removed page-header-icon — mobile only.
-     Anchored on .cfg-detail-title-wrap so it lands to the left of the title exactly where
-     the per-page icon used to sit; Dashboard (plain .page-title-wrap, column layout) is
-     excluded on purpose. Painted via mask + background-color so it follows --accent in
-     both themes, the same colour the sidebar/login logo uses. */
-  .cfg-detail-title-wrap::before{
+     Anchored on every page title so it stays consistent throughout the app. Painted via
+     mask + background-color so it follows --accent in both themes. */
+  .page-title-wrap::before{
     content:"";
     flex:0 0 auto;
-    width:26px;height:26px;
+    width:30px;height:30px;
     background-color:var(--accent);
     -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 16.88a1 1 0 0 1-.32-1.43l9-13.02a1 1 0 0 1 1.64 0l9 13.01a1 1 0 0 1-.32 1.44l-8.51 4.86a2 2 0 0 1-1.98 0Z'/%3E%3Cpath d='M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat;
     mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 16.88a1 1 0 0 1-.32-1.43l9-13.02a1 1 0 0 1 1.64 0l9 13.01a1 1 0 0 1-.32 1.44l-8.51 4.86a2 2 0 0 1-1.98 0Z'/%3E%3Cpath d='M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat;

@@ -5,7 +5,7 @@
   const { Sidebar } = window.HL_NAV;
   const { CURRENT_YEAR } = window.LEDGER;
   const CP_API = window.HL_CREDIT_PAYMENTS_API;
-  const { CreditPaymentTable, CreditPaymentFormModal, CreditPaymentDetail, DeleteCreditPaymentConfirm } = window;
+  const { CreditPaymentTable, CreditPaymentFormModal, CreditPaymentDetail, DeleteCreditPaymentConfirm, Pagination } = window;
 
   // ── Filter bar ────────────────────────────────────────────────────────────
   // Same structure/classes as Account Activity's bar, but the only period filter
@@ -111,6 +111,9 @@
     const [year, setYear] = React.useState(CURRENT_YEAR);
     const [cardFilter, setCardFilter] = React.useState('all');
     const [search, setSearch] = React.useState('');
+    const [page, setPage] = React.useState(1);
+    const [perPage, setPerPage] = React.useState(() => { const v = +localStorage.getItem('hl-rows-per-page'); return [10, 20, 30, 40, 50, 100].includes(v) ? v : 10; });
+    React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     function yearStep(d) { setYear(y => y + d); }
 
     // Rows after filtering; records without a statement year always pass the year check.
@@ -125,8 +128,15 @@
       return true;
     }), [records, year, cardFilter, search]);
 
-    // Reset any checkbox selection when the filtered view changes.
-    React.useEffect(() => { setSelected(new Set()); }, [year, cardFilter, search]);
+    const total = visible.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    const curPage = Math.min(page, pages);
+    const start = (curPage - 1) * perPage;
+    const end = Math.min(start + perPage, total);
+    const pageRows = visible.slice(start, end);
+
+    // Filter and page-size changes restart pagination and clear page selections.
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [year, cardFilter, search, perPage]);
 
     // Attach a human card label to each record from the loaded cards.
     const labelRecords = React.useCallback((recs, cardList) => {
@@ -202,13 +212,16 @@
         });
     }
 
-    // Select-all — no pagination on this page, so it spans every visible record.
+    // Select-all follows the current page, matching the other paginated tables.
     const selectedIds = visible.filter(r => selected.has(r.id)).map(r => r.id);
-    const allSelected = visible.length > 0 && selectedIds.length === visible.length;
-    const someSelected = selectedIds.length > 0 && !allSelected;
+    const pageIds = pageRows.map(r => r.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+    const someSelected = !allSelected && pageIds.some(id => selected.has(id));
     const toggleSelectAll = () => setSelected(s => {
-      if (allSelected) return new Set();
-      return new Set(visible.map(r => r.id));
+      const next = new Set(s);
+      if (allSelected) pageIds.forEach(id => next.delete(id));
+      else pageIds.forEach(id => next.add(id));
+      return next;
     });
 
     function openEdit(record) { setDetail(null); setFormModal({ mode: 'edit', record }); }
@@ -250,12 +263,14 @@
               </div>
             )}
             <CreditPaymentTable
-              records={visible}
+              records={pageRows}
               onRowClick={setDetail}
               onEdit={(r) => setFormModal({ mode: 'edit', record: r })}
               onDelete={setDel}
               selectable selected={selected} onToggleSelect={toggleSelect}
               allSelected={allSelected} someSelected={someSelected} onToggleSelectAll={toggleSelectAll} />
+            <Pagination page={curPage} pages={pages} total={total} start={start} end={end}
+              perPage={perPage} setPage={setPage} setPerPage={setPerPage} />
           </div>
         </div>
 
