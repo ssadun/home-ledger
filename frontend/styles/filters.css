@@ -79,6 +79,8 @@
 .fp-col-tools{display:flex;flex-direction:column;gap:7px;width:100%}
 @media (max-width:660px){.fp-reset,.fp-col-tools{display:none}}
 .fp-clear:hover{text-decoration:underline}
+.fp-apply{width:100%;min-height:34px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);font-family:var(--font-sans);font-size:12px;font-weight:700;cursor:pointer;transition:var(--transition)}
+.fp-apply:hover{filter:brightness(1.08)}
 .filters-pop .filter-field{width:100%}
 .filters-pop .select-wrap,.filters-pop .sel{width:100%}
 /* Page header action buttons relocated into the popover on mobile (the title row

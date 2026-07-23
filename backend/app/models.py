@@ -86,6 +86,7 @@ class FinancialInstitution(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String, unique=True, index=True, nullable=False)  # "garanti"
     name = Column(String, nullable=False)                          # "Garanti BBVA"
+    short_name = Column(String)                                    # "Garanti"
     swift = Column(String)                                         # "TGBATRIS"
     logo = Column(Text)                                            # data: URI or https URL
     is_default = Column(Boolean, default=False)

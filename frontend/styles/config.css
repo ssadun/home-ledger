@@ -188,6 +188,7 @@
   .cfg-table.resizable td[data-label="Status"],
   .cfg-table.resizable td[data-label="Payer Visibility"],
   .cfg-table.resizable td[data-label="Date"],
+  .cfg-table.resizable td[data-label="Short Name"],
   .cfg-table.resizable td[data-label="Source"],
   .cfg-table.resizable td[data-label="SWIFT / BIC"],
   .cfg-table.resizable td[data-label="Lang"]{grid-column:1 / 3;grid-row:2;font-size:11px;color:var(--muted)}
@@ -205,9 +206,25 @@
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Date"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="SWIFT / BIC"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Username"],
-  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Date"],
-  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="SWIFT / BIC"]{grid-column:2;grid-row:2}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Date"]{
+           grid-column:2;grid-row:2}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Short Name"]{
+           grid-column:2;grid-row:2}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="SWIFT / BIC"]{
+           grid-column:3 / 5;grid-row:2;justify-content:flex-end}
   .cfg-table.resizable td[data-label="Rate → USD"]{grid-column:3 / 5;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])){
+           grid-template-rows:auto}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Icon"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Label"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Kind"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Color"]{
+           grid-row:1;align-self:center}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
+           grid-template-rows:auto}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Statement Tag"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Category"]{
+           grid-row:1;align-self:center}
   /* Password never shows on the card — masked dots carry no information */
   .cfg-table.resizable td[data-label="Password"]{display:none}
 
@@ -234,14 +251,31 @@
   .cfg-table.resizable.selectable td[data-label="Color"],
   .cfg-table.resizable.selectable td[data-label="Category"]{grid-column:4 / 6}
   .cfg-table.resizable.selectable td[data-label="Username"],
-  .cfg-table.resizable.selectable td[data-label="Date"]{grid-column:2 / 4}
+  .cfg-table.resizable.selectable td[data-label="Date"],
+  .cfg-table.resizable.selectable td[data-label="Short Name"]{grid-column:2 / 4}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Username"],
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Date"],
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="SWIFT / BIC"],
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Username"],
-  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Date"],
-  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="SWIFT / BIC"]{grid-column:3}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Date"]{grid-column:3}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Short Name"]{grid-column:3}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="SWIFT / BIC"]{
+           grid-column:4 / 6;justify-content:flex-end}
   .cfg-table.resizable.selectable td[data-label="Rate → USD"]{grid-column:4 / 6}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])){
+           grid-template-rows:auto}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td.td-select,
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Icon"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Label"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Kind"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Color"]{
+           grid-row:1;align-self:center}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
+           grid-template-rows:auto}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td.td-select,
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Statement Tag"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Category"]{
+           grid-row:1;align-self:center}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Status"]{grid-column:4;grid-row:2}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Payer Visibility"]{grid-column:5;grid-row:2}
   .cfg-table.selectable tbody tr.cfg-row.row-selected{

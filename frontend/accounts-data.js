@@ -28,23 +28,23 @@
   };
 
   // Financial institutions — drives the Accounts "Institution" picker.
-  // Managed via Configuration → Financial Institutions; each has a name + SWIFT/BIC
-  // code + optional logo, and persists to the backend `financial_institutions` table.
+  // Managed via Configuration → Financial Institutions; each has a name + short
+  // name + SWIFT/BIC code + optional logo, and persists to the backend table.
   // This literal is only the BOOTSTRAP shape shown before the API answers: pages that
   // render institutions call window.HL_INSTITUTIONS_API.hydrate(), which refills the
   // map below in place (see institutions-data.js). Logos live only on the server.
   const FINANCIAL_INSTITUTIONS = {
-    garanti:     { name: 'Garanti BBVA',      swift: 'TGBATRIS' },
-    isbank:      { name: 'İş Bankası',         swift: 'ISBKTRIS' },
-    ziraat:      { name: 'Ziraat Bankası',     swift: 'TCZBTR2A' },
-    vakifbank:   { name: 'VakıfBank',          swift: 'TVBATR2A' },
-    yapikredi:   { name: 'Yapı Kredi',         swift: 'YAPITRIS' },
-    akbank:      { name: 'Akbank',             swift: 'AKBKTRIS' },
-    qnb:         { name: 'QNB Finansbank',     swift: 'FNNBTRIS' },
-    denizbank:   { name: 'DenizBank',          swift: 'DENITRIS' },
-    halkbank:    { name: 'Halkbank',           swift: 'TRHBTR2A' },
-    burgan:      { name: 'Burgan Bank',        swift: 'TEKFTRIS' },
-    garantiemek: { name: 'Garanti BBVA Emeklilik', swift: '' },
+    garanti:     { name: 'Garanti BBVA',      shortName: 'Garanti',      swift: 'TGBATRIS' },
+    isbank:      { name: 'İş Bankası',         shortName: 'İş Bankası',   swift: 'ISBKTRIS' },
+    ziraat:      { name: 'Ziraat Bankası',     shortName: 'Ziraat',       swift: 'TCZBTR2A' },
+    vakifbank:   { name: 'VakıfBank',          shortName: 'VakıfBank',    swift: 'TVBATR2A' },
+    yapikredi:   { name: 'Yapı Kredi',         shortName: 'Yapı Kredi',   swift: 'YAPITRIS' },
+    akbank:      { name: 'Akbank',             shortName: 'Akbank',       swift: 'AKBKTRIS' },
+    qnb:         { name: 'QNB Finansbank',     shortName: 'QNB',          swift: 'FNNBTRIS' },
+    denizbank:   { name: 'DenizBank',          shortName: 'DenizBank',    swift: 'DENITRIS' },
+    halkbank:    { name: 'Halkbank',           shortName: 'Halkbank',     swift: 'TRHBTR2A' },
+    burgan:      { name: 'Burgan Bank',        shortName: 'Burgan',       swift: 'TEKFTRIS' },
+    garantiemek: { name: 'Garanti BBVA Emeklilik', shortName: 'Garanti Emek', swift: '' },
   };
 
   // FX rates (same as data.js)

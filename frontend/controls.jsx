@@ -134,12 +134,20 @@
   }
 
   // ── Filter bar ──────────────────────────────────────────────────────────
-  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, source, setSource, search, setSearch, onAdd, onScan, onResetCols, onResetOrder, orderIsDefault, extra, popActions }) {
+  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, onAdd, onScan, onResetCols, onResetOrder, orderIsDefault, extra, popActions }) {
     const [open, setOpen] = React.useState(false);
+    const [draft, setDraft] = React.useState({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source });
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
+      if (open) setDraft({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source });
+    }, [open, type, payer, payingFor, cat, paymentSource, source]);
+    React.useEffect(() => {
       if (!open) return;
-      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      // StyledSelect options are portaled to <body>; selecting one must not
+      // close this popover on mousedown before the option's click updates state.
+      const onDoc = (e) => {
+        if (anchorRef.current && !anchorRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setOpen(false);
+      };
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);
@@ -160,10 +168,18 @@
       type !== 'all' && { key: 'type', label: 'Type', val: cap(type), clear: () => setType('all') },
       payer !== 'all' && { key: 'payer', label: 'Payer', val: payer, clear: () => setPayer('all') },
       payingFor !== 'all' && { key: 'payingFor', label: 'Paying For', val: forLabel(payingFor), clear: () => setPayingFor('all') },
-      cat !== 'all' && { key: 'cat', label: 'Category', val: CATS[cat].label, clear: () => setCat('all') },
+      cat !== 'all' && { key: 'cat', label: 'Category', val: (CATS[cat] || {}).label || cat, clear: () => setCat('all') },
+      paymentSource && paymentSource !== 'all' && { key: 'paymentSource', label: 'Payment Source', val: ((paymentSourceOptions || []).find(o => o.value === paymentSource) || {}).label || paymentSource, clear: () => setPaymentSource && setPaymentSource('all') },
       source !== 'all' && { key: 'source', label: 'Source', val: sourceLabel(source), clear: () => setSource('all') },
     ].filter(Boolean);
-    const clearAll = () => { setType('all'); setPayer('all'); setPayingFor('all'); setCat('all'); setSource('all'); };
+    const clearAll = () => { setType('all'); setPayer('all'); setPayingFor('all'); setCat('all'); if (setPaymentSource) setPaymentSource('all'); setSource('all'); };
+    const clearDraft = () => setDraft({ type: 'all', payer: 'all', payingFor: 'all', cat: 'all', paymentSource: 'all', source: 'all' });
+    const applyFilters = () => {
+      setType(draft.type); setPayer(draft.payer); setPayingFor(draft.payingFor); setCat(draft.cat);
+      if (setPaymentSource) setPaymentSource(draft.paymentSource);
+      setSource(draft.source);
+      setOpen(false);
+    };
 
     return (
       <div className="filter-wrap">
@@ -200,28 +216,34 @@
                   {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
-                    {active.length > 0 && <button id="filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
+                    {active.length > 0 && <button id="filter-clear-all-btn" className="fp-clear" onClick={clearDraft}><Icon name="x" size={12} />Clear All</button>}
                   </div>
-                  <Select id="filter-type-select" label="Type" icon="filter" value={type} onChange={setType}>
+                  <Select id="filter-type-select" label="Type" icon="filter" value={draft.type} onChange={(value) => setDraft(d => ({ ...d, type: value }))}>
                     <option value="all">All Types</option>
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
                   </Select>
-                  <Select id="filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
+                  <Select id="filter-payer-select" label="Payer" icon="user" value={draft.payer} onChange={(value) => setDraft(d => ({ ...d, payer: value }))}>
                     <option value="all">All Payers</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                   </Select>
-                  <Select id="filter-payingfor-select" label="Paying For" icon="users" value={payingFor} onChange={setPayingFor}>
+                  <Select id="filter-payingfor-select" label="Paying For" icon="users" value={draft.payingFor} onChange={(value) => setDraft(d => ({ ...d, payingFor: value }))}>
                     <option value="all">All Beneficiaries</option>
                     <option value="Shared">Shared</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                     <option value="–">N/A</option>
                   </Select>
-                  <Select id="filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat}>
+                  <Select id="filter-category-select" label="Category" icon="tag" value={draft.cat} onChange={(value) => setDraft(d => ({ ...d, cat: value }))}>
                     <option value="all">All Categories</option>
                     {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
                   </Select>
-                  <Select id="filter-source-select" label="Source" icon="repeat" value={source} onChange={setSource}>
+                  {setPaymentSource && (
+                    <Select id="filter-payment-source-select" label="Payment Source" icon="wallet-cards" value={draft.paymentSource} onChange={(value) => setDraft(d => ({ ...d, paymentSource: value }))}>
+                      <option value="all">All Payment Sources</option>
+                      {(paymentSourceOptions || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </Select>
+                  )}
+                  <Select id="filter-source-select" label="Source" icon="repeat" value={draft.source} onChange={(value) => setDraft(d => ({ ...d, source: value }))}>
                     <option value="all">All Sources</option>
                     <option value="recurring">Recurring Only</option>
                     <option value="manual">Manual Only</option>
@@ -233,6 +255,7 @@
                       {onResetOrder && <window.ResetOrderButton onClick={onResetOrder} disabled={orderIsDefault} />}
                     </div>
                   )}
+                  <button id="filter-apply-btn" className="fp-apply" onClick={applyFilters}>Apply</button>
                 </div>
               )}
             </div>

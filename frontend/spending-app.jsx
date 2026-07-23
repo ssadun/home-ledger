@@ -47,6 +47,20 @@
     const acct = accts.find(a => a.id === value);
     return acct ? acct.name : (value || '');
   }
+
+  // Filter options need enough context to distinguish accounts with the same
+  // name. Institutions are stored on accounts by full name, so resolve that
+  // value back to the shared short name before composing the label.
+  function paymentSourceLabel(value) {
+    if (PM_LABEL[value]) return PM_LABEL[value];
+    const data = window.ACCOUNTS_DATA || {};
+    const acct = (data.ACCOUNTS || []).find(a => a.id === value);
+    if (!acct) return value || '';
+    const institutions = Object.values(data.FINANCIAL_INSTITUTIONS || {});
+    const institution = institutions.find(fi => fi.name === acct.institution || fi.shortName === acct.institution);
+    const shortName = institution && institution.shortName;
+    return shortName ? shortName + ' - ' + acct.name : acct.name;
+  }
   const EXPORT_COLS = [
     { key: 'date', label: 'Date' },
     { key: 'desc', label: 'Description' },
@@ -142,6 +156,11 @@
       const loadPayers = (window.HL_MEMBERS_API && window.HL_MEMBERS_API.hydrateLedgerPayers)
         ? window.HL_MEMBERS_API.hydrateLedgerPayers().catch(() => { /* keep static fallback */ })
         : Promise.resolve();
+      // Payment Source labels use institution short names, so hydrate that map
+      // before accounts and transactions are combined into filter options.
+      const loadInstitutions = (window.HL_INSTITUTIONS_API && window.HL_INSTITUTIONS_API.hydrate)
+        ? window.HL_INSTITUTIONS_API.hydrate().catch(() => { /* keep static fallback */ })
+        : Promise.resolve();
       const loadAccounts = (window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)
         ? window.HL_ACCOUNTS_API.list()
             .then(accts => {
@@ -151,7 +170,7 @@
             })
             .catch(() => { /* names just fall back to the raw id */ })
         : Promise.resolve();
-      Promise.all([loadCats, loadPayers, loadAccounts])
+      Promise.all([loadCats, loadPayers, loadInstitutions, loadAccounts])
         .then(() => window.HL_SPENDING_API.list())
         .then(data => { if (alive) { setRows(data); setLoadError(null); } })
         .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })
@@ -167,6 +186,7 @@
     const [payingFor, setPayingFor] = React.useState('all');
     const [cat, setCat] = React.useState('all');
     const [source, setSource] = React.useState('all');
+    const [paymentSource, setPaymentSource] = React.useState('all');
     const [search, setSearch] = React.useState('');
     const [sort, setSort] = React.useState({ col: 'date', dir: 'desc' });
     const [page, setPage] = React.useState(1);
@@ -219,15 +239,16 @@
         if (payer !== 'all' && r.payer !== payer) return false;
         if (payingFor !== 'all' && r.payingFor !== payingFor) return false;
         if (cat !== 'all' && r.cat !== cat) return false;
+        if (paymentSource !== 'all' && r.paymentMethod !== paymentSource) return false;
         if (source !== 'all') {
           if (source === 'recurring' && !r.recurringId) return false;
           if (source === 'manual' && r.recurringId) return false;
-          if (source !== 'recurring' && source !== 'manual' && r.recurringId !== source) return false;
+          if (source !== 'recurring' && source !== 'manual' && String(r.recurringId) !== String(source)) return false;
         }
         if (search.trim() && !r.desc.toLowerCase().includes(search.trim().toLowerCase())) return false;
         return true;
       });
-    }, [rows, month, year, type, payer, payingFor, cat, source, search]);
+    }, [rows, month, year, type, payer, payingFor, cat, paymentSource, source, search]);
 
     // ── sort ──
     const sorted = React.useMemo(() => {
@@ -252,7 +273,7 @@
     // memoized: stable identity keeps the memoized <TableBody> from re-rendering during column drags
     const pageRows = React.useMemo(() => sorted.slice(start, end), [sorted, start, end]);
 
-    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [month, year, type, payer, payingFor, cat, source, search, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [month, year, type, payer, payingFor, cat, paymentSource, source, search, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -304,6 +325,14 @@
 
     const cols = React.useMemo(() => COLS.filter(c => t.showConverted || !c.conv), [t.showConverted]);
 
+    const paymentSourceOptions = React.useMemo(() => {
+      const seen = new Set();
+      rows.forEach(r => { if (r.paymentMethod) seen.add(r.paymentMethod); });
+      return [...seen]
+        .map(value => ({ value, label: paymentSourceLabel(value) || value }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [rows]);
+
     // ── column resizing (TanStack Table) — widths persist in localStorage ──
     const rz = useResizableColumns({ columns: cols, storageKey: 'hl-spending-colwidths' });
     const onEditTx = React.useCallback((x) => setModal({ mode: 'edit', tx: x }), []);
@@ -345,7 +374,9 @@
               month={month} year={year} onMonthStep={monthStep}
               type={type} setType={setType} payer={payer} setPayer={setPayer}
               payingFor={payingFor} setPayingFor={setPayingFor}
-              cat={cat} setCat={setCat} source={source} setSource={setSource}
+              cat={cat} setCat={setCat}
+              paymentSource={paymentSource} setPaymentSource={setPaymentSource} paymentSourceOptions={paymentSourceOptions}
+              source={source} setSource={setSource}
               search={search} setSearch={setSearch}
               onResetCols={rz.resetSizes}
               onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}

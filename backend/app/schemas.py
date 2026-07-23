@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import AliasChoices, BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import date, datetime
 from app.models import TransactionType, Currency
@@ -141,6 +141,7 @@ class FinancialInstitutionOut(BaseModel):
     id: int
     key: str
     name: str
+    short_name: Optional[str] = None
     swift: Optional[str] = None
     logo: Optional[str] = None       # data: URI or https URL
     is_default: Optional[bool] = None
@@ -149,12 +150,14 @@ class FinancialInstitutionOut(BaseModel):
 class FinancialInstitutionCreate(BaseModel):
     key: str
     name: str
+    short_name: str = Field(validation_alias=AliasChoices("short_name", "shortName"))
     swift: Optional[str] = None
     logo: Optional[str] = None
 
 class FinancialInstitutionUpdate(BaseModel):
     key: Optional[str] = None
     name: Optional[str] = None
+    short_name: Optional[str] = Field(default=None, validation_alias=AliasChoices("short_name", "shortName"))
     swift: Optional[str] = None
     logo: Optional[str] = None
 

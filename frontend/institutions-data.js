@@ -5,9 +5,9 @@
 // persist to the backend `financial_institutions` table.
 //
 // Two consumers, two shapes:
-//   • config-app.jsx wants a LIST of { id, key, name, swift, logo } rows.
+//   • config-app.jsx wants a LIST of { id, key, name, shortName, swift, logo } rows.
 //   • accounts-data.js / accounts-components.jsx / import.jsx want the keyed MAP
-//     window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS = { key: {name, swift, logo} }.
+//     window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS = { key: {name, shortName, swift, logo} }.
 // hydrate() fills that map IN PLACE — accounts-components.jsx and import.jsx
 // destructure it at module load, so replacing the object would leave them holding
 // a stale reference.
@@ -21,15 +21,18 @@
       id: row.id,
       key: row.key,
       name: row.name || '',
+      shortName: row.short_name ?? row.shortName ?? '',
       swift: row.swift || '',
       logo: row.logo || '',
     };
   }
 
   function toApi(item) {
+    const shortName = item.shortName ?? item.short_name ?? '';
     return {
       key: item.key,
       name: item.name,
+      short_name: shortName,
       swift: item.swift || null,
       logo: item.logo || null,
     };
@@ -96,7 +99,7 @@
       try {
         if (!row) {
           // An institution the user added locally; recreate it wholesale.
-          const made = await create({ key, name: local.name || key, swift: local.swift, logo: local.logo });
+          const made = await create({ key, name: local.name || key, shortName: local.shortName || local.name || key, swift: local.swift, logo: local.logo });
           byKey[key] = made;
           changed = true;
         } else if (!row.logo) {
@@ -127,7 +130,7 @@
     const map = window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS;
     if (map) {
       Object.keys(map).forEach(k => { delete map[k]; });
-      rows.forEach(r => { map[r.key] = { name: r.name, swift: r.swift, logo: r.logo || undefined }; });
+      rows.forEach(r => { map[r.key] = { name: r.name, shortName: r.shortName, swift: r.swift, logo: r.logo || undefined }; });
     }
     return rows;
   }

@@ -21,6 +21,7 @@ from app.routers.statement_mappings import seed_default_statement_mappings, ensu
 from app.routers.institutions import (
     seed_default_institutions,
     ensure_institution,
+    ensure_short_name_column,
     normalize_institution_names,
 )
 _seed_db = SessionLocal()
@@ -38,10 +39,11 @@ try:
     seed_default_statement_mappings(_seed_db)
     # Backfill mappings added after the initial seed (idempotent on existing DBs).
     ensure_statement_mapping(_seed_db, "tr", "Emeklilik / Sigorta", "insurance")
+    ensure_short_name_column(_seed_db)
     seed_default_institutions(_seed_db)
     # Backfill institutions added after the initial seed (idempotent).
-    ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik")
-    ensure_institution(_seed_db, "teb", "TEB Türk Ekonomi Bankası", "TEBUTRIS")
+    ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik", short_name="Garanti Emek")
+    ensure_institution(_seed_db, "teb", "TEB Türk Ekonomi Bankası", "TEBUTRIS", short_name="TEB")
     # Heal institution names padded with whitespace, which break the name-based
     # match from accounts.institution and duplicate the entry in the picker.
     normalize_institution_names(_seed_db)

@@ -495,10 +495,12 @@
       columns: [
         { key: 'logo',  label: 'Logo', render: v => v ? <span className="cfg-logo-cell"><img src={v} alt="" /></span> : <span className="cfg-logo-cell cfg-logo-empty"><Icon name="building-2" size={14} /></span> },
         { key: 'name',  label: 'Name' },
+        { key: 'shortName', label: 'Short Name' },
         { key: 'swift', label: 'SWIFT / BIC', render: v => v ? <span className="cfg-mono">{v}</span> : <span style={{ color: 'var(--muted)' }}>—</span> },
       ],
       fields: [
         { key: 'name',  label: 'Name',       type: 'text', required: true, placeholder: 'e.g. Garanti BBVA' },
+        { key: 'shortName', label: 'Short Name', type: 'text', required: true, placeholder: 'e.g. Garanti' },
         { key: 'key',   label: 'Key',        type: 'text', required: true, placeholder: 'e.g. garanti', hint: 'Lowercase identifier' },
         { key: 'swift', label: 'SWIFT / BIC', type: 'text', placeholder: 'e.g. TGBATRIS', hint: '8 or 11-character bank code' },
         { key: 'logo',  label: 'Logo',        type: 'image', placeholder: 'Paste image URL (https://…)', hint: 'Paste an internet image URL or upload one from your computer' },
@@ -553,6 +555,7 @@
 
   // ── Item Modal ───────────────────────────────────────────────────────────
   function ItemModal({ section, item, onSave, onDelete, onHistory, onClose }) {
+    const FormError = window.HL_FORM && window.HL_FORM.FormError;
     const editing = !!item;
     const blank = {};
     section.fields.forEach(f => { blank[f.key] = f.type === 'checkbox' ? (f.default ?? false) : ''; });
@@ -560,13 +563,38 @@
     // Date fields flagged lockToday default to today's date for new entries, but stay editable.
     if (!editing) section.fields.forEach(fd => { if (fd.lockToday) initial[fd.key] = todayYMD(); });
     const [f, setF] = React.useState(initial);
-    const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+    const [err, setErr] = React.useState('');
+    const [invalid, setInvalid] = React.useState({});
+    const set = (k, v) => {
+      setF(p => ({ ...p, [k]: v }));
+      if (invalid[k]) setInvalid(p => ({ ...p, [k]: false }));
+      if (err) setErr('');
+    };
 
     function submit(e) {
       e.preventDefault();
-      for (const fd of section.fields.filter(x => x.required || (x.requiredOnCreate && !editing))) {
-        if (!f[fd.key] || !String(f[fd.key]).trim()) return;
+      const required = section.fields
+        .filter(x => x.required || (x.requiredOnCreate && !editing))
+        .map(fd => ({
+          key: fd.key,
+          label: fd.label,
+          ok: f[fd.key] !== undefined && f[fd.key] !== null && String(f[fd.key]).trim(),
+        }));
+      const result = window.HL_FORM && window.HL_FORM.checkRequired
+        ? window.HL_FORM.checkRequired(required)
+        : (() => {
+          const missing = required.filter(s => !s.ok);
+          const keys = {};
+          missing.forEach(s => { keys[s.key] = true; });
+          return { ok: !missing.length, keys, message: missing.length ? 'Please fill in the required fields.' : '' };
+        })();
+      if (!result.ok) {
+        setInvalid(result.keys);
+        setErr(result.message);
+        return;
       }
+      setInvalid({});
+      setErr('');
       const newId = editing ? item.id : (f.key || f.code || f.name || String(Date.now()));
       onSave({ ...f, id: newId });
     }
@@ -585,7 +613,7 @@
             <div className="cfg-modal-body">
               {section.fields.map(fd => (
                 fd.type === 'checkbox' ? (
-                  <div key={fd.key} className="form-field full">
+                  <div key={fd.key} className={'form-field full' + (invalid[fd.key] ? ' field-invalid' : '')}>
                     <label className="acct-check-label">
                       <input type="checkbox"
                         id={'cfg-field-' + fd.key}
@@ -597,8 +625,10 @@
                     {fd.hint && <span className="field-hint">{fd.hint}</span>}
                   </div>
                 ) : (
-                <div key={fd.key} className="form-field full">
-                  <span className="field-label">{fd.label}{(fd.required || (fd.requiredOnCreate && !editing)) ? ' *' : ''}</span>
+                <div key={fd.key} className={'form-field full' + (invalid[fd.key] ? ' field-invalid' : '')}>
+                  <span className="field-label">
+                    {fd.label}{(fd.required || (fd.requiredOnCreate && !editing)) && <span className="field-required-mark">*</span>}
+                  </span>
                   {(editing && fd.editHint ? fd.editHint : fd.hint) && <span className="field-hint">{editing && fd.editHint ? fd.editHint : fd.hint}</span>}
                   {fd.type === 'select' ? (
                     <StyledSelect className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
@@ -689,6 +719,11 @@
                 )
               ))}
             </div>
+            {FormError ? (
+              <FormError id="cfg-form-error" message={err} />
+            ) : (
+              err ? <div className="form-error" id="cfg-form-error">{err}</div> : null
+            )}
             <div className="modal-foot">
               {editing && (
                 <div className="cfg-modal-foot-left">
@@ -1180,6 +1215,7 @@
       if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
         try {
           const exists = (sectionData['financial-institutions'] || []).some(x => x.id === item.id);
+          const before = (sectionData['financial-institutions'] || []).find(x => x.id === item.id);
           const saved = exists
             ? await window.HL_INSTITUTIONS_API.update(item.id, item)
             : await window.HL_INSTITUTIONS_API.create(item);
@@ -1191,7 +1227,10 @@
           });
           // Keep the shared Accounts map in step so pickers/logos update without a reload.
           const map = window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS;
-          if (map) map[saved.key] = { name: saved.name, swift: saved.swift, logo: saved.logo || undefined };
+          if (map) {
+            if (before && before.key && before.key !== saved.key) delete map[before.key];
+            map[saved.key] = { name: saved.name, shortName: saved.shortName, swift: saved.swift, logo: saved.logo || undefined };
+          }
           setModal(null);
         } catch (err) {
           alert('Could not save institution: ' + (err.message || err));

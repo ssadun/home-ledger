@@ -1,7 +1,7 @@
 // Shared required-field validation for every data-entry form.
 // One home so the "why did Save do nothing?" warning looks and behaves the same
-// on Spending, Accounts, Budgets, Credit Payments, Recurring, Subscriptions and
-// Statements. Configuration forms already do their own thing (config-app.jsx).
+// on Spending, Accounts, Budgets, Credit Payments, Recurring, Subscriptions,
+// Statements, and Configuration.
 (function () {
   // specs: [{ key, label, ok }] — `ok` is truthy when the field is filled.
   // Returns { ok, keys, labels, message }; `keys` is a lookup ({fieldKey:true})
