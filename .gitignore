@@ -5,6 +5,7 @@ Thumbs.db
 .idea/
 .vscode/
 CLAUDE.md
+AGENTS.md
 
 # ── Live data (never commit — contains real accounts/financial data) ──
 data/
