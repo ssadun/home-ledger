@@ -187,6 +187,23 @@
      name collapsing, so wrap the badges/balance onto their own full-width line. */
   .acct-card-row{gap:11px;flex-wrap:wrap}
   .acct-card-end{gap:10px;flex-basis:100%;margin-left:0;justify-content:flex-end}
+  .acct-list .acct-card{padding:11px 12px;gap:8px}
+  .acct-list .acct-card-row{
+    display:grid;
+    grid-template-columns:34px minmax(0,1fr) max-content;
+    align-items:center;
+    gap:10px;
+  }
+  .acct-list .acct-card-end{
+    flex-basis:auto;
+    min-width:max-content;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:3px;
+  }
+  .acct-list .bal-display.bal-lg{font-size:17px}
+  .acct-list .acct-primary-tag,
+  .acct-list .acct-prepaid-tag{font-size:9px;letter-spacing:.3px}
 
   .acct-detail-modal{max-height:92vh}
   .detail-info-grid{grid-template-columns:1fr}
