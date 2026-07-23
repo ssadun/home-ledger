@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════════
    Home Ledger — export.css
-   The shared "Export Data" toolbar that sits directly below a screen's filters
+   The shared "More" toolbar item that sits directly below a screen's filters
    (window.ExportData → export-data.jsx). Reuses the dark-theme tokens and the
    signature rest-tint → hover button pattern. Load after filters.css.
    ════════════════════════════════════════════════════════════════════════ */
@@ -25,6 +25,7 @@
 .export-pop{position:absolute;top:calc(100% + 7px);right:0;z-index:120;width:252px;display:flex;flex-direction:column;gap:3px;padding:8px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:var(--shadow-dropdown);animation:modalIn .12s ease both}
 .export-pop-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-label);letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:3px 6px 6px}
 .export-pop-head svg{width:12px;height:12px}
+.export-tools{display:flex;flex-direction:column;gap:7px;padding:0 0 8px;margin-bottom:5px;border-bottom:1px solid var(--border)}
 
 .export-opt{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border-radius:6px;border:none;background:none;color:var(--text);cursor:pointer;transition:var(--transition);text-align:left;font-family:var(--font-sans)}
 .export-opt:hover{background:var(--bg4)}
@@ -41,4 +42,6 @@
   .export-anchor{flex:1 1 auto}
   .export-btn{width:100%;justify-content:center}
   .export-pop{width:100%}
+  .export-table-head{display:none}
+  .export-tools{display:none}
 }

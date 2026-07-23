@@ -25,12 +25,43 @@
   const { useReactTable, getCoreRowModel } = window.ReactTable;
   const EMPTY_DATA = []; // stable identity — we only use the sizing feature
 
-  function loadSizing(key) {
-    try { return JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { return {}; }
+  function userScopedKey(key) {
+    if (!key) return key;
+    try {
+      const user = window.HL_AUTH && window.HL_AUTH.getUser && window.HL_AUTH.getUser();
+      const id = user && (user.id || user.username || user.email);
+      if (id) return key + ':u:' + encodeURIComponent(String(id));
+    } catch (e) {}
+    return key;
   }
 
-  function loadOrder(key) {
-    try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : null; } catch (e) { return null; }
+  function loadWithLegacy(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw != null) return JSON.parse(raw);
+      const marker = ':u:';
+      let legacy = null;
+      if (key && key.indexOf(marker) > -1) {
+        const markerAt = key.indexOf(marker);
+        const suffix = key.endsWith('-order') ? '-order' : (key.endsWith('-hidden') ? '-hidden' : '');
+        legacy = key.slice(0, markerAt) + suffix;
+      }
+      if (legacy) {
+        const oldRaw = localStorage.getItem(legacy);
+        if (oldRaw != null) return JSON.parse(oldRaw);
+      }
+    } catch (e) {}
+    return fallback;
+  }
+
+  function loadSizing(key) {
+    const v = loadWithLegacy(key, {});
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  }
+
+  function loadList(key) {
+    const v = loadWithLegacy(key, null);
+    return Array.isArray(v) ? v : null;
   }
 
   // Inner content width of the scroll container: clientWidth INCLUDES horizontal
@@ -79,27 +110,35 @@
   }
 
   function useResizableColumns({ columns, storageKey, minSize = 80, maxSize = 600 }) {
+    const scopedStorageKey = React.useMemo(() => userScopedKey(storageKey), [storageKey]);
     // Controlled sizing state, seeded from localStorage so widths survive reloads.
-    const [columnSizing, setColumnSizing] = React.useState(() => (storageKey ? loadSizing(storageKey) : {}));
+    const [columnSizing, setColumnSizing] = React.useState(() => (scopedStorageKey ? loadSizing(scopedStorageKey) : {}));
     const tableRef = React.useRef(null);
 
     // ── Column ORDER state (drag-to-reorder) ──────────────────────────────
     // Persisted as an array of column keys at `<storageKey>-order`, seeded from
     // localStorage so a user's chosen order survives reloads. null = default order.
-    const orderKey = storageKey ? storageKey + '-order' : null;
-    const [order, setOrder] = React.useState(() => (orderKey ? loadOrder(orderKey) : null));
+    const orderKey = scopedStorageKey ? scopedStorageKey + '-order' : null;
+    const hiddenKey = scopedStorageKey ? scopedStorageKey + '-hidden' : null;
+    const [order, setOrder] = React.useState(() => (orderKey ? loadList(orderKey) : null));
+    const [hidden, setHidden] = React.useState(() => (hiddenKey ? loadList(hiddenKey) || [] : []));
     const [dragKey, setDragKey] = React.useState(null);   // column being dragged
     const [overKey, setOverKey] = React.useState(null);   // column under the cursor
+    const hiddenSet = React.useMemo(() => new Set(hidden), [hidden]);
+    const visibleColumns = React.useMemo(() => {
+      const out = columns.filter(c => !hiddenSet.has(c.key));
+      return out.length ? out : columns.slice(0, 1);
+    }, [columns, hiddenSet]);
 
     // Map our simple column descriptors to TanStack ColumnDefs.
     // size = initial width; minSize / maxSize = hard drag constraints (px).
-    const tableColumns = React.useMemo(() => columns.map(c => ({
+    const tableColumns = React.useMemo(() => visibleColumns.map(c => ({
       id: c.key,
       accessorKey: c.key,
       size: c.size,
       minSize: c.minSize,
       maxSize: c.maxSize,
-    })), [columns]);
+    })), [visibleColumns]);
 
     const table = useReactTable({
       data: EMPTY_DATA,
@@ -137,12 +176,12 @@
 
     // Persist widths — debounced, and never while a drag is in progress.
     React.useEffect(() => {
-      if (!storageKey || isResizing) return;
+      if (!scopedStorageKey || isResizing) return;
       const id = setTimeout(() => {
-        try { localStorage.setItem(storageKey, JSON.stringify(columnSizing)); } catch (e) {}
+        try { localStorage.setItem(scopedStorageKey, JSON.stringify(columnSizing)); } catch (e) {}
       }, 250);
       return () => clearTimeout(id);
-    }, [columnSizing, isResizing, storageKey]);
+    }, [columnSizing, isResizing, scopedStorageKey]);
 
     // Page-wide col-resize cursor + selection lock while dragging.
     React.useEffect(() => {
@@ -191,7 +230,7 @@
         if (document.body.classList.contains('col-resizing')) return;    // never fight an active drag
         const avail = innerWidth(wrap) - reservedWidth();
         if (avail <= 0) return;
-        const cur = columns.map(c => ({
+        const cur = visibleColumns.map(c => ({
           key: c.key,
           base: sizingRef.current[c.key] || c.size || 150,
           min: c.minSize != null ? c.minSize : minSize,
@@ -216,7 +255,7 @@
       };
       setup();
       return () => { if (ro) ro.disconnect(); if (rafId) cancelAnimationFrame(rafId); };
-    }, [columns, minSize, maxSize]);
+    }, [visibleColumns, minSize, maxSize]);
 
     // Reset: fit columns to the visible container width. Declared default
     // sizes are treated as proportions and scaled so the total equals the
@@ -226,7 +265,7 @@
       const el = tableRef.current;
       const wrap = el && (el.closest('.table-scroll') || el.parentElement);
       const avail = innerWidth(wrap) - reservedWidth();
-      const defs = columns.map(c => ({
+      const defs = visibleColumns.map(c => ({
         key: c.key,
         base: c.size || 150,
         min: c.minSize != null ? c.minSize : minSize,
@@ -237,24 +276,24 @@
       } else {
         table.resetColumnSizing(true);
       }
-      if (storageKey) { try { localStorage.removeItem(storageKey); } catch (e) {} }
-    }, [table, storageKey, columns, minSize, maxSize]);
+      if (scopedStorageKey) { try { localStorage.removeItem(scopedStorageKey); } catch (e) {} }
+    }, [table, scopedStorageKey, visibleColumns, minSize, maxSize]);
 
     // ── Column ordering ──────────────────────────────────────────────────
     // Resolve the user's saved order against the *current* column set: keep saved
     // keys that still exist (in saved order), then append any columns the saved
     // order doesn't mention (e.g. a column toggled back on, or a newly added one).
     const orderedColumns = React.useMemo(() => {
-      if (!order || !order.length) return columns;
-      const byKey = {}; columns.forEach(c => { byKey[c.key] = c; });
+      if (!order || !order.length) return visibleColumns;
+      const byKey = {}; visibleColumns.forEach(c => { byKey[c.key] = c; });
       const used = {}; const out = [];
       order.forEach(k => { if (byKey[k] && !used[k]) { out.push(byKey[k]); used[k] = 1; } });
-      columns.forEach(c => { if (!used[c.key]) out.push(c); });
+      visibleColumns.forEach(c => { if (!used[c.key]) out.push(c); });
       return out;
-    }, [columns, order]);
+    }, [visibleColumns, order]);
 
     const defaultKeys = React.useMemo(() => columns.map(c => c.key).join('\u0001'), [columns]);
-    const isDefaultOrder = orderedColumns.map(c => c.key).join('\u0001') === defaultKeys;
+    const isDefaultOrder = orderedColumns.map(c => c.key).join('\u0001') === defaultKeys && hidden.length === 0;
 
     // Move column `from` to occupy `to`'s slot, shifting the rest.
     const moveColumn = React.useCallback((from, to) => {
@@ -277,8 +316,29 @@
       } catch (e) {}
     }, [order, orderKey]);
 
-    // Restore the original column order and forget the saved one.
-    const resetOrder = React.useCallback(() => { setOrder(null); }, []);
+    React.useEffect(() => {
+      if (!hiddenKey) return;
+      try {
+        if (hidden && hidden.length) localStorage.setItem(hiddenKey, JSON.stringify(hidden));
+        else localStorage.removeItem(hiddenKey);
+      } catch (e) {}
+    }, [hidden, hiddenKey]);
+
+    const setColumnVisible = React.useCallback((key, visible) => {
+      setHidden(prev => {
+        const cur = new Set(prev || []);
+        if (visible) cur.delete(key);
+        else {
+          const currentlyVisible = columns.filter(c => !cur.has(c.key));
+          if (currentlyVisible.length <= 1 && currentlyVisible.some(c => c.key === key)) return prev;
+          cur.add(key);
+        }
+        return columns.filter(c => cur.has(c.key)).map(c => c.key);
+      });
+    }, [columns]);
+
+    // Restore the original column order/visibility and forget the saved layout.
+    const resetOrder = React.useCallback(() => { setOrder(null); setHidden([]); }, []);
 
     // Props to spread on each <th> to make it a drag-reorder source + drop target.
     // Grabbing the resize handle never starts a reorder (it preventDefaults the
@@ -298,7 +358,9 @@
     }), [dragKey, overKey, moveColumn]);
 
     return { tableRef, headersById, colSizeVars, isResizing, wasResizingRef, resetSizes,
-             orderedColumns, getReorderProps, resetOrder, isDefaultOrder, isReordering: !!dragKey };
+             orderedColumns, allColumns: columns, hiddenColumns: hidden, setColumnVisible,
+             getReorderProps, resetOrder, isDefaultOrder, isReordering: !!dragKey,
+             storageKey: scopedStorageKey };
   }
 
   // ── The grab handle ──
@@ -352,5 +414,45 @@
     );
   }
 
-  Object.assign(window, { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton });
+  function ColumnVisibilityButton({ columns, hiddenColumns, onChange, id }) {
+    if (!columns || !columns.length || !onChange) return null;
+    const Icon = window.Icon;
+    const [open, setOpen] = React.useState(false);
+    const ref = React.useRef(null);
+    const hidden = React.useMemo(() => new Set(hiddenColumns || []), [hiddenColumns]);
+    const visibleCount = columns.filter(c => !hidden.has(c.key)).length;
+    React.useEffect(() => {
+      if (!open) return;
+      const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+      const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('keydown', onKey);
+      return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+    }, [open]);
+    return (
+      <div className="colvis" ref={ref}>
+        <button id={id || 'column-visibility-btn'} type="button" className={'fp-reset colvis-btn' + (hidden.size ? ' has' : '')}
+          onClick={() => setOpen(o => !o)} title="Show Or Hide Table Columns">
+          <Icon name="columns-3" size={12} />Columns{hidden.size ? <span className="colvis-count">{hidden.size}</span> : null}
+        </button>
+        {open && (
+          <div className="colvis-pop">
+            {columns.map(c => {
+              const checked = !hidden.has(c.key);
+              const disabled = checked && visibleCount <= 1;
+              return (
+                <label key={c.key} className={'colvis-option' + (disabled ? ' disabled' : '')}>
+                  <input type="checkbox" checked={checked} disabled={disabled}
+                    onChange={(e) => onChange(c.key, e.target.checked)} />
+                  <span>{c.label || c.key}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  Object.assign(window, { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton, ColumnVisibilityButton });
 })();

@@ -202,7 +202,7 @@
   }
 
   // ── Filter bar (simpler than Transactions) ────────────────────────────
-  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, onResetCols, onResetOrder, orderIsDefault, exportEl, popActions }) {
+  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, exportEl, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -286,12 +286,6 @@
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                   </RecSelect>
-                  {(onResetCols || onResetOrder) && (
-                    <div className="fp-col-tools">
-                      {onResetCols && <window.FitColumnsButton onClick={onResetCols} />}
-                      {onResetOrder && <window.ResetOrderButton onClick={onResetOrder} disabled={orderIsDefault} />}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -500,10 +494,15 @@
                 <button id="rec-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>
               </div>
             </div>
-            <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency} onResetCols={rz.resetSizes} onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
+            <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency}
               popActions={<button id="rec-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>}
               exportEl={<ExportData entity="recurring" entityLabel="Recurring Items"
-                columns={EXPORT_COLS} rows={sorted} allRows={items} inline />} />
+                columns={EXPORT_COLS} rows={sorted} allRows={items} inline
+                tableTools={<React.Fragment>
+                  <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
+                  <window.FitColumnsButton onClick={rz.resetSizes} />
+                  <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
+                </React.Fragment>} />} />
           </header>
 
           {/* Layout: table */}
@@ -544,7 +543,7 @@
                   </thead>
                   <tbody>
                     {pageRows.length === 0 ? (
-                      <tr className="empty-row"><td colSpan={COLS.length + 1}>
+                      <tr className="empty-row"><td colSpan={orderKeys.length + 1}>
                         <div className="empty-state">
                           <Icon name="repeat" size={32} />
                           <span className="et">No recurring items match</span>

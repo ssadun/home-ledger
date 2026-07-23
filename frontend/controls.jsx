@@ -134,7 +134,7 @@
   }
 
   // ── Filter bar ──────────────────────────────────────────────────────────
-  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, onAdd, onScan, onResetCols, onResetOrder, orderIsDefault, extra, popActions }) {
+  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, onAdd, onScan, extra, popActions }) {
     const [open, setOpen] = React.useState(false);
     const [draft, setDraft] = React.useState({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source });
     const anchorRef = React.useRef(null);
@@ -249,12 +249,6 @@
                     <option value="manual">Manual Only</option>
                     {recItems.filter(r => r.status !== 'ended').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </Select>
-                  {(onResetCols || onResetOrder) && (
-                    <div className="fp-col-tools">
-                      {onResetCols && <window.FitColumnsButton onClick={onResetCols} />}
-                      {onResetOrder && <window.ResetOrderButton onClick={onResetOrder} disabled={orderIsDefault} />}
-                    </div>
-                  )}
                   <button id="filter-apply-btn" className="fp-apply" onClick={applyFilters}>Apply</button>
                 </div>
               )}

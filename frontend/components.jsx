@@ -163,6 +163,12 @@
     const recMap = window.RECURRING_DATA && window.RECURRING_DATA.TX_REC_MAP;
     const rec = recMap && recMap[tx.id];
     const keys = order && order.length ? order : TX_DEFAULT_ORDER;
+    const visible = new Set(keys);
+    const meta = [
+      visible.has('date') && { key: 'date', node: <span className="meta-date">{fmtDate(tx.date)} {dowOf(tx.date)}</span> },
+      visible.has('cat') && { key: 'cat', node: <span className="pm-badge"><Icon name={c.icon} size={11} style={{color: c.color}} />{c.label}</span> },
+      visible.has('payingFor') && { key: 'payingFor', node: <PayingForCell value={tx.payingFor} /> },
+    ].filter(Boolean);
     return (
       <tr className={'tx-row' + (flash ? ' row-flash' : '') + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(tx)} title="Edit transaction">
         {selectable && (
@@ -173,11 +179,7 @@
         )}
         {keys.map(k => TX_CELLS[k] && TX_CELLS[k](tx, rec))}
         <td className="td-meta-mobile" data-label="Meta">
-          <span className="meta-date">{fmtDate(tx.date)} {dowOf(tx.date)}</span>
-          <span className="meta-sep">·</span>
-          <span className="pm-badge"><Icon name={c.icon} size={11} style={{color: c.color}} />{c.label}</span>
-          <span className="meta-sep">·</span>
-          <PayingForCell value={tx.payingFor} />
+          {meta.map((m, i) => <React.Fragment key={m.key}>{i > 0 && <span className="meta-sep">·</span>}{m.node}</React.Fragment>)}
         </td>
       </tr>
     );

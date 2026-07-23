@@ -378,14 +378,17 @@
               paymentSource={paymentSource} setPaymentSource={setPaymentSource} paymentSourceOptions={paymentSourceOptions}
               source={source} setSource={setSource}
               search={search} setSearch={setSearch}
-              onResetCols={rz.resetSizes}
-              onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
               onAdd={() => setModal({ mode: 'add', tx: {} })}
               onScan={() => setScan(true)}
               popActions={<button id="sp-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>}
               extra={<ExportData entity="spending" entityLabel="Transactions"
                 period={year + '-' + String(month + 1).padStart(2, '0')}
-                columns={EXPORT_COLS} rows={sorted} allRows={rows} inline />} />
+                columns={EXPORT_COLS} rows={sorted} allRows={rows} inline
+                tableTools={<React.Fragment>
+                  <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
+                  <window.FitColumnsButton onClick={rz.resetSizes} />
+                  <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
+                </React.Fragment>} />} />
           </header>
 
           <div className="table-card">
@@ -426,7 +429,7 @@
                     ))}
                   </tr>
                 </thead>
-                <TableBody rows={pageRows} colCount={cols.length + 1} flashId={flashId} order={orderKeys}
+                <TableBody rows={pageRows} colCount={orderKeys.length + 1} flashId={flashId} order={orderKeys}
                   grouped={t.groupByWeek && sort.col === 'date'} month={month} year={year} onEdit={onEditTx}
                   selectable selectedSet={selected} onToggleSelect={toggleSelect}
                   collapsedWeeks={collapsedWeeks} onToggleWeek={toggleWeek} />

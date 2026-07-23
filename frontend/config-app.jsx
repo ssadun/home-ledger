@@ -749,9 +749,8 @@
   }
 
   // ── Filter bar (mirrors the Spending filter bar) — search + a Filters popover
-  //    that holds the per-section facet selects and the column tools (Fit / Reset Order). ──
-  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, onResetCols, onResetOrder, orderIsDefault, popActions }) {
-    const { FitColumnsButton, ResetOrderButton } = window;
+  //    for facet selects, with the shared More menu beside it. ──
+  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, moreNode, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -770,7 +769,6 @@
       key: fc.key, label: fc.label, val: facetLabel(fc, facets[fc.key]), clear: () => setFacet(fc.key, 'all'),
     }));
     const clearAll = () => facetCols.forEach(fc => setFacet(fc.key, 'all'));
-    const hasColTools = onResetCols || onResetOrder;
 
     return (
       <div className="filter-wrap cfg-filter-wrap">
@@ -785,6 +783,8 @@
               {search && <button id="cfg-filter-search-clear-btn" className="search-clear" onClick={() => setSearch('')} title="Clear search"><Icon name="x" size={13} /></button>}
             </div>
           </div>
+
+          {moreNode}
 
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
@@ -813,12 +813,6 @@
                       </div>
                     </div>
                   ))}
-                  {hasColTools && (
-                    <div className="fp-col-tools">
-                      {onResetCols && <FitColumnsButton onClick={onResetCols} />}
-                      {onResetOrder && <ResetOrderButton onClick={onResetOrder} disabled={orderIsDefault} />}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -930,7 +924,7 @@
     // saved widths for this section, re-fit once after layout settles.
     React.useEffect(() => {
       let saved = false;
-      try { saved = Object.keys(JSON.parse(localStorage.getItem('hl-cfg-' + section.id + '-colcfg') || '{}')).length > 0; } catch (e) {}
+      try { saved = Object.keys(JSON.parse(localStorage.getItem(rz.storageKey || ('hl-cfg-' + section.id + '-colcfg')) || '{}')).length > 0; } catch (e) {}
       if (saved) return;
       const id = requestAnimationFrame(() => requestAnimationFrame(() => rz.resetSizes()));
       return () => cancelAnimationFrame(id);
@@ -966,8 +960,13 @@
             table={section.id}
             search={search} setSearch={setSearch}
             facets={facets} setFacet={setFacet} facetCols={facetCols} searchCols={searchCols}
-            onResetCols={rz.resetSizes}
-            onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
+            moreNode={<ExportData entity={section.id} entityLabel={section.label}
+              columns={exportCols} rows={sortedItems} allRows={items} inline
+              tableTools={<React.Fragment>
+                <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
+                <FitColumnsButton onClick={rz.resetSizes} />
+                <ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
+              </React.Fragment>} />}
             popActions={popActions} />
         </header>
 

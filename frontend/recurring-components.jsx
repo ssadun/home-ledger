@@ -131,6 +131,12 @@
   };
   function RecRow({ rec, flash, onEdit, onHistory, extraClass, order, selectable, selected, onToggleSelect }) {
     const keys = order && order.length ? order : REC_DEFAULT_ORDER;
+    const visible = new Set(keys);
+    const meta = [
+      visible.has('status') && { key: 'status', node: <StatusBadge status={rec.status} /> },
+      visible.has('frequency') && { key: 'frequency', node: <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} /> },
+      visible.has('payer') && { key: 'payer', node: <PayerBadge name={rec.payer} /> },
+    ].filter(Boolean);
     return (
       <tr className={'tx-row rec-row' + (flash ? ' row-flash' : '') + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(rec)} title="Edit recurring item">
         {selectable && (
@@ -142,11 +148,7 @@
         {keys.map(k => REC_CELLS[k] && REC_CELLS[k](rec))}
         {/* Mobile meta */}
         <td className="td-meta-mobile" data-label="Meta">
-          <StatusBadge status={rec.status} />
-          <span className="meta-sep">·</span>
-          <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} />
-          <span className="meta-sep">·</span>
-          <PayerBadge name={rec.payer} />
+          {meta.map((m, i) => <React.Fragment key={m.key}>{i > 0 && <span className="meta-sep">·</span>}{m.node}</React.Fragment>)}
         </td>
       </tr>
     );

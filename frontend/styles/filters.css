@@ -52,7 +52,7 @@
 .ff-filters{order:5}
 .ff-search{order:3;margin-left:auto}
 .ff-add{order:6}
-/* Export Data field — sits between Search and Filters, shares .filters-btn styling */
+/* More field — sits between Search and Filters, shares .filters-btn styling */
 .ff-export{order:4}
 .ff-export .export-pop{width:252px}
 @media (max-width:660px){
@@ -64,6 +64,10 @@
 .filters-btn{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:var(--font-sans);font-size:var(--fs-table);font-weight:600;cursor:pointer;transition:var(--transition);white-space:nowrap}
 .filters-btn svg{width:14px;height:14px}
 .filters-btn .filters-caret{width:13px;height:13px;color:var(--muted);transition:transform .15s}
+@media (min-width:661px){
+  .ff-export .filters-btn > .lc,
+  .ff-filters .filters-btn > .lc{display:none}
+}
 .filters-btn.open .filters-caret{transform:rotate(180deg)}
 .filters-btn:hover{border-color:var(--border2);background:var(--bg4)}
 .filters-btn.has{border-color:color-mix(in srgb, var(--accent) 45%, transparent);color:var(--accent)}
@@ -76,8 +80,16 @@
 .fp-reset{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:8px 10px;border-radius:var(--radius);background:none;border:1px solid var(--border2);color:var(--slate);font-size:11px;font-weight:600;cursor:pointer;transition:var(--transition);letter-spacing:.2px}
 .fp-reset:hover{border-color:color-mix(in srgb, var(--accent) 45%, transparent);color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent)}
 .fp-reset:disabled{opacity:.4;cursor:not-allowed;border-color:var(--border2);color:var(--slate);background:none}
-.fp-col-tools{display:flex;flex-direction:column;gap:7px;width:100%}
-@media (max-width:660px){.fp-reset,.fp-col-tools{display:none}}
+.colvis{position:relative;width:100%}
+.colvis-btn.has{border-color:color-mix(in srgb, var(--accent) 45%, transparent);color:var(--accent)}
+.colvis-count{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--on-accent);font-size:10px;font-weight:800}
+.colvis-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:130;width:100%;max-height:236px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:7px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:var(--shadow-dropdown)}
+.colvis-option{display:flex;align-items:center;gap:8px;min-height:28px;padding:5px 7px;border-radius:6px;color:var(--text);font-size:12px;font-weight:600;cursor:pointer}
+.colvis-option:hover{background:var(--bg4)}
+.colvis-option input{accent-color:var(--accent)}
+.colvis-option span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colvis-option.disabled{opacity:.45;cursor:not-allowed}
+@media (max-width:660px){.fp-reset{display:none}}
 .fp-clear:hover{text-decoration:underline}
 .fp-apply{width:100%;min-height:34px;border:1px solid var(--accent);border-radius:var(--radius);background:var(--accent);color:var(--on-accent);font-family:var(--font-sans);font-size:12px;font-weight:700;cursor:pointer;transition:var(--transition)}
 .fp-apply:hover{filter:brightness(1.08)}

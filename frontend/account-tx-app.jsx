@@ -138,7 +138,7 @@
   }
 
   // ── Filter bar ──────────────────────────────────────────────────────────
-  function AcctFilterBar({ month, year, onMonthStep, account, setAccount, txType, setTxType, direction, setDirection, search, setSearch, onResetCols, onResetOrder, orderIsDefault, extra }) {
+  function AcctFilterBar({ month, year, onMonthStep, account, setAccount, txType, setTxType, direction, setDirection, search, setSearch, extra }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -221,12 +221,6 @@
                     <option value="incoming">Incoming</option>
                     <option value="outgoing">Outgoing</option>
                   </Sel>
-                  {(onResetCols || onResetOrder) && (
-                    <div className="fp-col-tools">
-                      {onResetCols && <window.FitColumnsButton onClick={onResetCols} />}
-                      {onResetOrder && <window.ResetOrderButton onClick={onResetOrder} disabled={orderIsDefault} />}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -271,6 +265,12 @@
   };
   function AtxRow({ tx, extraClass, order, selectable, selected, onToggleSelect, onOpenDetail }) {
     const keys = order && order.length ? order : ATX_DEFAULT_ORDER;
+    const visible = new Set(keys);
+    const meta = [
+      visible.has('date') && { key: 'date', node: <span className="meta-date">{fmtDate(tx.date)} {dowOf(tx.date)}</span> },
+      visible.has('accountId') && { key: 'accountId', node: <AccountBadge accountId={tx.accountId} /> },
+      visible.has('txType') && { key: 'txType', node: <TxTypeBadge txType={tx.txType} /> },
+    ].filter(Boolean);
     return (
       <tr className={'tx-row' + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')}
         onClick={() => onOpenDetail && onOpenDetail(tx)} title="View record details">
@@ -283,11 +283,7 @@
         {keys.map(k => ATX_CELLS[k] && ATX_CELLS[k](tx))}
         {/* Mobile meta row */}
         <td className="td-meta-mobile" data-label="Meta">
-          <span className="meta-date">{fmtDate(tx.date)} {dowOf(tx.date)}</span>
-          <span className="meta-sep">·</span>
-          <AccountBadge accountId={tx.accountId} />
-          <span className="meta-sep">·</span>
-          <TxTypeBadge txType={tx.txType} />
+          {meta.map((m, i) => <React.Fragment key={m.key}>{i > 0 && <span className="meta-sep">·</span>}{m.node}</React.Fragment>)}
         </td>
       </tr>
     );
@@ -581,11 +577,14 @@
               txType={txType} setTxType={setTxType}
               direction={direction} setDirection={setDirection}
               search={search} setSearch={setSearch}
-              onResetCols={rz.resetSizes}
-              onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
               extra={<ExportData entity="account-activity" entityLabel="Records"
                 period={year + '-' + String(month + 1).padStart(2, '0')}
-                columns={EXPORT_COLS} rows={sorted} allRows={rows} inline />} />
+                columns={EXPORT_COLS} rows={sorted} allRows={rows} inline
+                tableTools={<React.Fragment>
+                  <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
+                  <window.FitColumnsButton onClick={rz.resetSizes} />
+                  <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
+                </React.Fragment>} />} />
           </header>
 
 
@@ -631,14 +630,14 @@
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr className="empty-row"><td colSpan={COLS.length + 1}>
+                    <tr className="empty-row"><td colSpan={orderKeys.length + 1}>
                       <div className="empty-state">
                         <Icon name="loader" size={32} className="spin" />
                         <span className="et">Loading account activity…</span>
                       </div>
                     </td></tr>
                   ) : loadErr ? (
-                    <tr className="empty-row"><td colSpan={COLS.length + 1}>
+                    <tr className="empty-row"><td colSpan={orderKeys.length + 1}>
                       <div className="empty-state">
                         <Icon name="alert-triangle" size={32} style={{ color: 'var(--red)' }} />
                         <span className="et">Couldn't load account activity</span>
@@ -646,7 +645,7 @@
                       </div>
                     </td></tr>
                   ) : pageRows.length === 0 ? (
-                    <tr className="empty-row"><td colSpan={COLS.length + 1}>
+                    <tr className="empty-row"><td colSpan={orderKeys.length + 1}>
                       <div className="empty-state">
                         <Icon name="landmark" size={32} />
                         <span className="et">No account activity matches</span>
