@@ -302,8 +302,9 @@
   /* match Spending's sleek header buttons (inherit padding:8px 14px from the
      generic .page-head-top .action-modal-btn rule); no chunky min-height */
   .cfg-head-actions .action-modal-btn{width:auto;justify-content:center}
-  /* Overflow action button (e.g. Add Currency) moves into the filters popover
-     (.fp-actions, see filters.css); keep only the first button next to the title. */
-  .cfg-head-actions .ha-overflow{display:none}
+  /* Add stays in the mobile header when it fits; config-app.jsx moves it into
+     More Actions only when the measured title/action row would overflow. */
+  .cfg-head-actions .ha-overflow.cfg-add-overflowed{
+           position:absolute;visibility:hidden;pointer-events:none}
   /* page-sub hidden globally */
 }

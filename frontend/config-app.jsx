@@ -931,13 +931,60 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const popActions = <button id="cfg-add-item-fp-btn" className="action-modal-btn ok" onClick={onAdd}><Icon name="plus" size={14} />{section.addLabel || 'Add Item'}</button>;
+    const headTopRef = React.useRef(null);
+    const headLeftRef = React.useRef(null);
+    const addBtnRef = React.useRef(null);
+    const tcmbBtnRef = React.useRef(null);
+    const [addInMore, setAddInMore] = React.useState(false);
+    React.useLayoutEffect(() => {
+      let raf = 0;
+      const measure = () => {
+        if (!window.matchMedia('(max-width: 660px)').matches) {
+          setAddInMore(false);
+          return;
+        }
+        if (section.id === 'currencies') {
+          setAddInMore(true);
+          return;
+        }
+        const head = headTopRef.current;
+        const left = headLeftRef.current;
+        const add = addBtnRef.current;
+        if (!head || !left || !add) return;
+        const headWidth = head.getBoundingClientRect().width;
+        const leftWidth = Math.ceil(left.scrollWidth || left.getBoundingClientRect().width);
+        const addWidth = Math.ceil(add.getBoundingClientRect().width);
+        const tcmbWidth = tcmbBtnRef.current ? Math.ceil(tcmbBtnRef.current.getBoundingClientRect().width) : 0;
+        const needed = leftWidth + addWidth + tcmbWidth + (tcmbWidth ? 18 : 10);
+        setAddInMore(needed > headWidth);
+      };
+      const schedule = () => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(measure);
+      };
+      schedule();
+      window.addEventListener('resize', schedule);
+      let ro = null;
+      if (typeof ResizeObserver !== 'undefined' && headTopRef.current) {
+        ro = new ResizeObserver(schedule);
+        [headTopRef.current, headLeftRef.current, addBtnRef.current, tcmbBtnRef.current].filter(Boolean).forEach(el => ro.observe(el));
+      }
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener('resize', schedule);
+        if (ro) ro.disconnect();
+      };
+    }, [section.id, section.label, section.addLabel]);
+
+    const popActions = addInMore
+      ? <button id="cfg-add-item-fp-btn" className="action-modal-btn ok" onClick={onAdd}><Icon name="plus" size={14} />{section.addLabel || 'Add Item'}</button>
+      : null;
 
     return (
       <React.Fragment>
         <header className="page-head">
-          <div className="page-head-top">
-            <div className="cfg-detail-head-left">
+          <div className="page-head-top" ref={headTopRef}>
+            <div className="cfg-detail-head-left" ref={headLeftRef}>
               <div className="page-title-wrap cfg-detail-title-wrap">
                 <div className="cfg-title-col">
                   <h1 className="page-title">{section.label}</h1>
@@ -947,11 +994,11 @@
             </div>
             <div className="head-actions cfg-head-actions">
               {section.id === 'currencies' && (
-                <button id="cfg-tcmb-retrieve-btn" className="action-modal-btn tcmb cfg-tcmb-btn" onClick={onTcmb}>
+                <button id="cfg-tcmb-retrieve-btn" ref={tcmbBtnRef} className="action-modal-btn tcmb cfg-tcmb-btn" onClick={onTcmb}>
                   <Icon name="refresh-cw" size={14} />Retrieve From TCMB
                 </button>
               )}
-              <button id="cfg-add-item-btn" className="action-modal-btn ok cfg-add-btn ha-overflow" onClick={onAdd}>
+              <button id="cfg-add-item-btn" ref={addBtnRef} className={'action-modal-btn ok cfg-add-btn ha-overflow' + (addInMore ? ' cfg-add-overflowed' : '')} onClick={onAdd} aria-hidden={addInMore} tabIndex={addInMore ? -1 : undefined}>
                 <Icon name="plus" size={14} />{section.addLabel || 'Add Item'}
               </button>
             </div>
