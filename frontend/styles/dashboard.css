@@ -13,13 +13,13 @@
    The .ff-tabs descendant also outranks the `.rpt-filter-bar .sel{min-width:0}`
    in the 660px block below, so the control keeps 150px on mobile too. */
 .rpt-filter-bar .ff-tabs .ss-wrap.sel{width:180px;min-width:180px}
+.rpt-filter-bar .filter-field{flex-direction:row;align-items:center;gap:6px}
 
-/* Keep the "View" label visible on mobile. TWO rules hide it there — filters.css
+/* Keep Dashboard filter labels visible on mobile. TWO rules hide them there — filters.css
    `.filter-label{display:none}` and this file's own
    `.rpt-filter-bar .filter-label{display:none}` in the 660px block — so restoring
-   it needs a selector that outranks both. Scoped to .ff-tabs so only this field's
-   label comes back, not every filter label on the bar. */
-.rpt-filter-bar .ff-tabs .filter-label{display:flex}
+   them needs a selector that outranks both. Scoped to Dashboard's filter fields. */
+.rpt-filter-bar .filter-field .filter-label{display:flex}
 
 /* ── KPI group wrapper ── */
 .dash-kpi-group{display:flex;flex-direction:column;gap:0;margin-bottom:14px;width:100%;max-width:934px;margin-left:auto;margin-right:auto}
@@ -176,7 +176,7 @@
 
 /* ── Filter bar overrides ── */
 .rpt-filter-bar{align-items: flex-end}
-.rpt-view-name{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--muted);margin-right:auto;padding-bottom: 5px;}
+.rpt-view-name{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--muted);margin-right:auto;padding-bottom: 5px;padding-left:4px}
 .rpt-view-name svg{width:14px;height:14px;color:var(--muted)}
 
 /* ── Horizontal bar chart (CategoryBarChart) ── */

@@ -27,6 +27,8 @@
   const CURRENT_MONTH = window.LEDGER.CURRENT_MONTH; // 0-indexed: Jan=0, Jun=5, etc.
 
   const { Sidebar } = window.HL_NAV;
+  const DASH_VIEW_KEY = 'hl-dashboard-view';
+  const DEFAULT_TAB = 'calendar';
 
   // ── CSV export schema (transactions feeding the dashboard) ──
   const PM_LABEL = { 'credit-card': 'Credit Card', 'debit-card': 'Debit Card', 'cash': 'Cash' };
@@ -59,7 +61,14 @@
     const [month, setMonth] = React.useState(CURRENT_MONTH);
     const [year, setYear]   = React.useState(CURRENT_YEAR);
     const [annualYear, setAnnualYear] = React.useState(CURRENT_YEAR);
-    const [tab, setTab]     = React.useState('calendar');
+    const [tab, setTab]     = React.useState(() => {
+      try {
+        const saved = localStorage.getItem(DASH_VIEW_KEY);
+        return TABS.some(tb => tb.key === saved) ? saved : DEFAULT_TAB;
+      } catch (e) {
+        return DEFAULT_TAB;
+      }
+    });
     const [modal, setModal] = React.useState(null);
     const [del, setDel]     = React.useState(null);
     // Bumped after every tx mutation; threaded into the aggregation memos below
@@ -69,6 +78,10 @@
     React.useEffect(() => {
       window.HL_THEME.accent(t.accent);
     }, [t.accent]);
+
+    React.useEffect(() => {
+      try { localStorage.setItem(DASH_VIEW_KEY, tab); } catch (e) {}
+    }, [tab]);
 
     // Re-pull transactions from the DB (mutated into LEDGER.TX in place) and
     // force the read-only memos to recompute.
