@@ -15,19 +15,33 @@ router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
 
 def _apply_rates(tx: Transaction, db: Session):
-    """Otomatik kur dönüşümü uygula."""
+    """Otomatik kur dönüşümü uygula.
+
+    Bir para biriminin kendine dönüşümü (TRY→TRY, USD→USD) kur tablosundan
+    BAĞIMSIZ olarak her zaman bilinir; sadece çapraz dönüşümler bir ExchangeRate
+    satırı gerektirir. Bu yüzden self-conversion'ı rate_row kontrolünün DIŞINDA
+    yazıyoruz — aksi halde o tarihe ait TCMB kuru DB'de yoksa (ör. eski/ileri
+    tarihli banka ekstresi içe aktarımı) TRY işlemler bile amount_try=None kalır
+    ve panolarda ₺0 görünürler.
+    """
     rate_row = db.query(ExchangeRate).filter(ExchangeRate.date <= tx.date).order_by(ExchangeRate.date.desc()).first()
-    if rate_row and rate_row.usd_try:
-        tx.exchange_rate = rate_row.usd_try
-        if tx.currency == "TRY":
-            tx.amount_try = tx.amount
-            tx.amount_usd = tx.amount / rate_row.usd_try
-        elif tx.currency == "USD":
-            tx.amount_usd = tx.amount
-            tx.amount_try = tx.amount * rate_row.usd_try
-        elif tx.currency == "EUR" and rate_row.eur_try:
-            tx.amount_try = tx.amount * rate_row.eur_try
-            tx.amount_usd = tx.amount_try / rate_row.usd_try
+    usd_try = rate_row.usd_try if rate_row else None
+    eur_try = rate_row.eur_try if rate_row else None
+    if usd_try:
+        tx.exchange_rate = usd_try
+
+    if tx.currency == "TRY":
+        tx.amount_try = tx.amount
+        if usd_try:
+            tx.amount_usd = tx.amount / usd_try
+    elif tx.currency == "USD":
+        tx.amount_usd = tx.amount
+        if usd_try:
+            tx.amount_try = tx.amount * usd_try
+    elif tx.currency == "EUR" and eur_try:
+        tx.amount_try = tx.amount * eur_try
+        if usd_try:
+            tx.amount_usd = tx.amount_try / usd_try
 
 
 @router.get("/", response_model=List[TransactionOut])

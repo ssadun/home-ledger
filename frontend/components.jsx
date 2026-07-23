@@ -15,7 +15,13 @@
     return DOW[dt.getDay()];
   }
   function grp(v, dec = 2) {
-    return v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    // Shared money formatter used on every page — must never throw. A transaction
+    // can legitimately carry a null amount_try/amount_usd (backend never computed
+    // a rate for it), which reaches here as null/NaN; coerce to 0 rather than
+    // crashing the whole React tree (there are no error boundaries).
+    const n = Number(v);
+    return (Number.isFinite(n) ? n : 0)
+      .toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
   window.LEDGER_FMT = { fmtDate, dowOf, grp, SYM, MONTHS };

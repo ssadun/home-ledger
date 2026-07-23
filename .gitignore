@@ -54,3 +54,6 @@ test-results/
 # Local symlink → the claude-playwright container's test-results, so screenshots
 # are browsable at nas:8088/shots/ via dev-server.py. Machine-specific, never commit.
 frontend/shots
+
+# Playwright test artifacts (symlink to claude-playwright/test-results)
+.pw-artifacts
