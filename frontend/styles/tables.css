@@ -103,22 +103,22 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 /* ── Payment method (plain text) ── */
 .pm-plain{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:var(--fs-table);white-space:nowrap}
 .pm-plain svg{flex-shrink:0}
-/* Payment-method cell: institution (muted) next to the account name (emphasized) */
+/* Payment-method cell: institution next to the account name, both muted */
 .pm-acct-cell{max-width:100%;min-width:0}
 .pm-inst{color:var(--muted);flex-shrink:0}
 .pm-dot{color:var(--muted);opacity:.6;flex-shrink:0}
-.pm-acct{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pm-acct{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pm-num{color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:.3px;font-size:11px}
 
 /* ── Week-of-month group header (collapsible — click toggles the group) ── */
 .week-group-row{cursor:pointer}
-.week-group-row td{padding:9px 12px 7px;background:color-mix(in srgb, var(--accent) 6%, transparent);border-bottom:1px solid var(--border);box-shadow:inset 3px 0 0 var(--accent);transition:background .15s}
+.week-group-row td{padding:9px 12px 7px;background:color-mix(in srgb, var(--accent) 6%, transparent);border-bottom:1px solid var(--border);transition:background .15s}
 .week-group-row:hover td{background:color-mix(in srgb, var(--accent) 11%, transparent)}
-.week-group-row .week-group-label,.week-group-row .week-group-range{vertical-align:middle}
-.week-group-label{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent);line-height:1}
-.week-group-label svg{color:var(--accent);flex-shrink:0}
+.week-group-row .week-group-label,.week-group-row .week-group-range,.week-group-row .week-group-chevron{vertical-align:middle}
+.week-group-label{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);line-height:1}
+.week-group-label svg{color:var(--muted);flex-shrink:0}
 .week-group-range{margin-left:9px;padding-left:10px;border-left:1px solid var(--border2);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1}
-.week-group-chevron{transition:transform .15s ease}
+.week-group-chevron{margin-left:-2px;margin-right:6px;transition:transform .15s ease}
 .week-group-row.wk-collapsed .week-group-chevron{transform:rotate(-90deg)}
 .week-group-count{display:inline-flex;align-items:center;margin-left:9px;padding:1px 7px;border-radius:99px;background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.3px;line-height:1}
 
@@ -126,7 +126,7 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 .ledger-table.week-cards .week-spacer td{height:0;padding:0;border:none !important;background:transparent !important}
 /* Row zebra — parity restarts per week (.row-alt set in JSX) */
 .ledger-table.week-cards.zebra tbody tr:nth-child(even of .tx-row){background:none}
-.ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:color-mix(in srgb, var(--border) 12%, transparent)}
+.ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:color-mix(in srgb, var(--border) 40%, transparent)}
 .ledger-table.week-cards.zebra tbody tr.tx-row:hover{background:var(--bg4)}
 
 /* ── Pagination ── */
@@ -147,7 +147,7 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 .ledger-table.dens-compact td{padding:6px 14px}
 .ledger-table.dens-compact .td-date .dow{display:none}
 .ledger-table.dens-comfy td{padding:13px 14px}
-.ledger-table.zebra tbody tr:nth-child(even of .tx-row){background:color-mix(in srgb, var(--border) 22%, transparent)}
+.ledger-table.zebra tbody tr:nth-child(even of .tx-row){background:color-mix(in srgb, var(--border) 40%, transparent)}
 .ledger-table.zebra tbody tr.tx-row:hover{background:var(--bg4)}
 .ledger-table.mono-amt .amount-val.income,
 .ledger-table.mono-amt .amount-val.expense{color:var(--text)}
@@ -166,10 +166,10 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
            padding:9px 13px;margin:0 0 6px}
   .ledger-table tbody tr.tx-row:last-child{border-bottom:1px solid var(--border)}
   .ledger-table tbody tr:hover{background:var(--bg2)}
-  .ledger-table.zebra tbody tr:nth-child(even of .tx-row){background:color-mix(in srgb, var(--border) 12%, transparent)}
+  .ledger-table.zebra tbody tr:nth-child(even of .tx-row){background:color-mix(in srgb, var(--border) 40%, transparent)}
   /* grouped mode: card zebra restarts per week via .row-alt */
   .ledger-table.week-cards.zebra tbody tr:nth-child(even of .tx-row){background:var(--bg2)}
-  .ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:color-mix(in srgb, var(--border) 12%, transparent)}
+  .ledger-table.week-cards.zebra tbody tr.tx-row.row-alt{background:color-mix(in srgb, var(--border) 40%, transparent)}
   .ledger-table.week-cards.zebra .tx-row.row-alt td{background:none}
   .ledger-table.week-cards tbody tr.tx-row:hover td{background:none}
   .ledger-table td,
@@ -206,12 +206,15 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
   /* week-group-row: bordered strip card (matches tx cards) */
   .ledger-table tbody tr.week-group-row,
   .ledger-table.week-cards tbody tr.week-group-row{display:flex;align-items:center;grid-template-columns:none;
-           background:color-mix(in srgb, var(--accent) 6%, transparent);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;padding:0;margin:12px 0 8px}
+           background:color-mix(in srgb, var(--accent) 6%, transparent);border:1px solid var(--border);border-radius:10px;padding:0;margin:12px 0 8px}
   .ledger-table tbody tr.week-group-row:first-child,
   .ledger-table.week-cards tbody tr.week-group-row:first-child{margin-top:0}
   .ledger-table tbody tr.week-group-row td,
   .ledger-table.week-cards tbody tr.week-group-row td{flex:1;display:flex;align-items:center;
            padding:10px 13px;border:none;background:none;border-radius:0;box-shadow:none}
+  /* Collapse chevron parked at the card's right edge on mobile */
+  .ledger-table tbody tr.week-group-row .week-group-chevron,
+  .ledger-table.week-cards tbody tr.week-group-row .week-group-chevron{order:99;margin:0 0 0 auto}
   /* Reset week-card borders on mobile */
   .ledger-table.week-cards .week-spacer{display:none}
   .ledger-table.week-cards .tx-row td:first-child{border-left:none}
@@ -383,6 +386,17 @@ body.col-resizing * { cursor: col-resize !important; }
 .row-select-box:indeterminate::after {
   content: ''; position: absolute; left: 3px; top: 6px; width: 7px; height: 2px; background: #fff;
 }
+:root[data-theme="light"] .row-select-box:checked,
+:root[data-theme="light"] .row-select-box:indeterminate {
+  background: color-mix(in srgb, var(--accent) 50%, var(--bg3));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border2));
+}
+:root[data-theme="light"] .row-select-box:checked::after {
+  border-color: var(--slate);
+}
+:root[data-theme="light"] .row-select-box:indeterminate::after {
+  background: var(--slate);
+}
 .ledger-table tbody tr.tx-row.row-selected td       { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .ledger-table tbody tr.tx-row.row-selected:hover td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
@@ -391,6 +405,9 @@ body.col-resizing * { cursor: col-resize !important; }
   padding: 8px 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); border-bottom: 1px solid var(--border);
 }
 .bulk-count   { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
+/* Leading count doubles as a select-all / clear-all checkbox — reset the button chrome. */
+button.bulk-count { border: none; background: none; font-family: inherit; cursor: pointer; padding: 3px 6px; margin: -3px -6px; border-radius: 6px; transition: all .15s; }
+button.bulk-count:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .bulk-actions { display: inline-flex; align-items: center; gap: 8px; }
 
 @media (max-width: 660px) {
@@ -401,5 +418,15 @@ body.col-resizing * { cursor: col-resize !important; }
   .ledger-table.selectable td[data-label="Amount"]     { grid-column: 3; }
   .ledger-table.selectable td.td-meta-mobile           { grid-column: 2; }
   .ledger-table.selectable td[data-label="Payment"]    { grid-column: 3; }
+  .ledger-table.selectable tbody tr.tx-row.row-selected {
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+  }
+  .ledger-table.selectable tbody tr.tx-row.row-selected:hover {
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg2));
+  }
+  .ledger-table.selectable tbody tr.tx-row.row-selected td {
+    background: none !important;
+  }
   .bulk-bar { margin: 0 0 6px; border-radius: 8px; border: 1px solid var(--border); }
 }

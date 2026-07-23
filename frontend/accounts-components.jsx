@@ -488,9 +488,11 @@
       linked: initial.linked || '',
       pension: initial.pension ? { ...initial.pension } : {}
     });
+    const [invalid, setInvalid] = React.useState({});
+    const [formErr, setFormErr] = React.useState('');
     // Any edit dismisses a previous save error — it described the values as they
     // were, and leaving it up next to changed fields reads as a live complaint.
-    const set = (k, v) => { if (onClearError) onClearError(); setF((p) => ({ ...p, [k]: v })); };
+    const set = (k, v) => { if (onClearError) onClearError(); if (formErr) { setFormErr(''); setInvalid({}); } setF((p) => ({ ...p, [k]: v })); };
     // BES fields live in a nested object (accounts.pension JSON column), so they
     // get their own setter rather than going through `set`.
     const setPen = (k, v) => setF((p) => ({ ...p, pension: { ...p.pension, [k]: v } }));
@@ -510,7 +512,12 @@
 
     function submit() {
       // Cash accounts have no institution — only a name (and owner) are required.
-      if (!f.name.trim() || (!isCash && !f.institution.trim())) return;
+      const vr = window.HL_FORM.checkRequired([
+        { key: 'name', label: 'Name', ok: !!f.name.trim() },
+        { key: 'institution', label: 'Institution', ok: isCash || !!f.institution.trim() },
+      ]);
+      setInvalid(vr.keys); setFormErr(vr.message);
+      if (!vr.ok) return;
       const bal = parseFloat(f.balance) || 0;
       const result = {
         ...initial,
@@ -581,12 +588,12 @@
             </div>
 
             <div className="form-grid">
-              <div className="form-field">
-                <span className="field-label">Account Name</span>
+              <div className={"form-field" + (invalid.name ? ' field-invalid' : '')}>
+                <span className="field-label">Account Name<span className="field-required-mark">*</span></span>
                 <input id="acct-form-name-input" className="field-input" placeholder="e.g. Vakıfbank Salary" value={f.name} onChange={(e) => set('name', e.target.value)} />
               </div>
-              <div className="form-field">
-                <span className="field-label">Institution</span>
+              <div className={"form-field" + (invalid.institution ? ' field-invalid' : '')}>
+                <span className="field-label">Institution{!isCash && <span className="field-required-mark">*</span>}</span>
                 <StyledSelect id="acct-form-institution-input" className="field-input" value={f.institution || ''} onChange={(e) => set('institution', e.target.value)}>
                   <option value="">— Select Institution —</option>
                   {Object.keys(FINANCIAL_INSTITUTIONS || {}).map((k) => {
@@ -910,6 +917,8 @@
           <div id="acct-form-error" className="acct-form-error">
             <Icon name="alert-triangle" size={14} />{error}
           </div>}
+
+          <window.HL_FORM.FormError message={formErr} id="acct-form-required-error" />
 
           <div className="modal-foot">
             <button id="acct-form-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>

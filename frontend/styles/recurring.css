@@ -146,6 +146,9 @@
      of wrapping to a full-width row. Overrides app.css's full-width row. */
   .page-head-top:has(.rec-head-actions){flex-wrap:nowrap}
   .rec-head-actions{flex:0 0 auto}
+  /* Overflow button (.ha-overflow) relocates into the filters popover
+     (.fp-actions, see filters.css); it's hidden inline here. */
+  .rec-head-actions .ha-overflow{display:none}
 
   .rec-group-cards{grid-template-columns:1fr}
 
@@ -159,7 +162,7 @@
        padding:9px 13px;margin:0 0 6px}
   .rec-table tbody tr.tx-row:last-child{border-bottom:1px solid var(--border)}
   .rec-table tbody tr:hover{background:var(--bg2)}
-  .rec-table.zebra tbody tr:nth-child(even of .tx-row){background:var(--bg2)}
+  .rec-table.zebra tbody tr:nth-child(even of .tx-row){background:color-mix(in srgb, var(--border) 40%, transparent)}
   .rec-table td,.rec-table td{display:flex;align-items:center;gap:4px;padding:0;white-space:nowrap;border:none}
   .rec-table td.num{text-align:right}
   .rec-table tbody tr.tx-row td::before{display:none}
@@ -176,25 +179,50 @@
   .rec-table td[data-label="Weekend"]{display:none !important}
   .rec-table td[data-label="Payer"]{display:none !important}
   .rec-table td[data-label="Next Due"]{display:none !important}
-  .rec-table td.td-meta-mobile{display:flex !important;grid-column:1 / -1;grid-row:2;order:3;
-       gap:5px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:nowrap;overflow:hidden}
+  /* Meta keeps content-priority: overflow:visible (overriding the global
+     .ledger-table.resizable td{overflow:hidden} that would otherwise floor the
+     grid item's automatic minimum at 0) so its minimum is min-content — the full
+     "Status · Frequency" thanks to nowrap — and the 1fr track never shrinks below
+     it. The payment column then takes only the leftover and truncates. */
+  .rec-table td.td-meta-mobile{display:flex !important;grid-column:1;grid-row:2;order:3;
+       gap:5px;font-size:11px;color:var(--muted);align-items:center;flex-wrap:nowrap;white-space:nowrap;
+       overflow:visible}
+  .rec-table td.td-meta-mobile > *{white-space:nowrap}
 
-  /* Line 3: Payment method (full width) — was falling into grid auto-placement
-     (landing in the narrow leading column track) since it had no explicit
-     placement, which only showed a gap for empty values but broke the layout
-     when an account name was present. */
-  .rec-table td[data-label="Payment Method"]{grid-column:1 / -1;grid-row:3;order:4;
-       min-width:0;overflow:hidden}
+  /* Payment method rides on line 2 (right), like Spending's Payment cell — the
+     card stays 2 lines, never a 3rd row. Muted + right-aligned; min-width:0 +
+     overflow give it a 0 grid-minimum so it yields to the meta and ellipsises. */
+  .rec-table td[data-label="Payment Method"]{grid-column:2;grid-row:2;order:4;
+       justify-content:flex-end;min-width:0;overflow:hidden;font-size:11px;color:var(--muted)}
+  .rec-table td[data-label="Payment Method"] .pm-plain{min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap}
+  /* Drop the payer badge (+ its leading separator) from the meta line on mobile:
+     the payment method takes the right slot, so Status · Frequency is all that
+     fits on the left. Payer stays in the row's detail modal. */
+  .rec-table td.td-meta-mobile .payer-badge,
+  .rec-table td.td-meta-mobile .meta-sep:has(+ .payer-badge){display:none}
 
   /* Mass-delete: insert a leading checkbox column spanning both stacked rows.
      The generic .selectable rules in tables.css target Description/Amount cells,
      which the rec-table doesn't have, so scope the grid placement here. */
   .rec-table.selectable tbody tr.tx-row{grid-template-columns:auto 1fr auto}
-  .rec-table.selectable td.td-select{display:flex;grid-column:1;grid-row:1 / span 3;align-items:center;justify-content:center;padding:0}
+  .rec-table.selectable td.td-select{display:flex;grid-column:1;grid-row:1 / span 2;align-items:center;justify-content:center;padding:0}
   .rec-table.selectable td[data-label="Name"]{grid-column:2;grid-row:1}
   .rec-table.selectable td[data-label="Amount"]{grid-column:3;grid-row:1}
-  .rec-table.selectable td.td-meta-mobile{grid-column:2 / -1;grid-row:2}
-  .rec-table.selectable td[data-label="Payment Method"]{grid-column:2 / -1;grid-row:3}
+  .rec-table.selectable td.td-meta-mobile{grid-column:2;grid-row:2}
+  .rec-table.selectable td[data-label="Payment Method"]{grid-column:3;grid-row:2}
+
+  /* Selected row: paint the whole card, not the individual grid cells. The
+     shared desktop rule (tables.css) tints each td, which on this grid layout
+     leaves the row gaps + padding showing the card bg → a patchy highlight.
+     Higher specificity than the zebra .rec-table.zebra …:nth-child rule so an
+     even (striped) selected row still lights up. */
+  .rec-table.selectable tbody tr.tx-row.row-selected{
+       background:color-mix(in srgb, var(--accent) 10%, var(--bg2));
+       border-color:color-mix(in srgb, var(--accent) 60%, var(--border))}
+  .rec-table.selectable tbody tr.tx-row.row-selected:hover{
+       background:color-mix(in srgb, var(--accent) 14%, var(--bg2))}
+  .rec-table.selectable tbody tr.tx-row.row-selected td{background:none !important}
 
   /* empty state */
   .rec-table tbody tr.empty-row{display:block;background:none;border:none;padding:0;margin:0}

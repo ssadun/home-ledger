@@ -102,6 +102,12 @@
    ============================================================================ */
 
 @media (max-width:660px){
+  /* Keep the title row on one line; the action button (.ha-overflow) relocates
+     into the filters popover (.fp-actions, see filters.css). */
+  .page-head-top:has(.bgt-head-actions){flex-wrap:nowrap}
+  .bgt-head-actions{flex:0 0 auto}
+  .bgt-head-actions .ha-overflow{display:none}
+
   html,body{overflow:auto;height:auto}
 
   .main,body.sidebar-expanded .main{margin-left:0;height:auto;min-height:100vh;padding-bottom:66px}

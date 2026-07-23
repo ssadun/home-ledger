@@ -131,9 +131,15 @@
     const pct = limitTRY ? Math.round((spent / limitTRY) * 100) : 0;
     const badRange = start && end && end < start;
     const sym = SYM[cur] || '₺';
+    const [invalid, setInvalid] = React.useState({});
+    const [formErr, setFormErr] = React.useState('');
 
     function submit() {
-      if (!limitNum || badRange) return;
+      const v = window.HL_FORM.checkRequired([
+        { key: 'limit', label: 'Monthly Limit', ok: !!limitNum },
+      ]);
+      setInvalid(v.keys); setFormErr(v.message);
+      if (!v.ok || badRange) return;
       onSave({ cat, limit: limitNum, currency: cur, start, end });
     }
 
@@ -182,10 +188,10 @@
 
             {badRange && <div className="bgt-range-warn"><Icon name="alert-triangle" size={13} />End date must be on or after the start date.</div>}
 
-            <div className="form-field full">
-              <span className="field-label">Monthly Limit</span>
+            <div className={"form-field full" + (invalid.limit ? ' field-invalid' : '')}>
+              <span className="field-label">Monthly Limit<span className="field-required-mark">*</span></span>
               <div className="amount-input-wrap">
-                <CurrencyInput id="bgt-modal-limit-input" value={limit} currency={cur} onChange={(v) => setLimit(v)} />
+                <CurrencyInput id="bgt-modal-limit-input" value={limit} currency={cur} onChange={(v) => { setLimit(v); if (formErr) { setFormErr(''); setInvalid({}); } }} />
                 <StyledSelect id="bgt-modal-currency-select" className="field-input" value={cur} onChange={(e) => setCur(e.target.value)}>
                   <option>TRY</option><option>USD</option><option>EUR</option>
                 </StyledSelect>
@@ -198,6 +204,8 @@
               <div className="cp"><span className="cp-k">Utilization</span><span className="cp-v" style={{ color: pct > 100 ? 'var(--red)' : pct >= 80 ? 'var(--orange)' : 'var(--green)' }}>{pct}%</span></div>
             </div>
           </div>
+
+          <window.HL_FORM.FormError message={formErr} id="bgt-modal-form-error" />
 
           <div className="modal-foot">
             {editing && <button id="bgt-modal-remove-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onRemove(initial.cat)}><Icon name="trash-2" size={14} />Remove</button>}

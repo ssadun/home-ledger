@@ -225,21 +225,17 @@
 
     return (
       <React.Fragment>
-        <div className="cal-top-summary">
+        <div className="cal-layout">
+          {/* ── Left column: Total Balance chip + calendar grid card ── */}
+          <div className="cal-col">
           {acctCount > 0 && (
             <span className={'cal-total-chip' + (acctTotal < 0 ? ' negative' : '')}>
               <Icon name="wallet" size={13} />
               <span className="cal-total-label">Total Balance</span>
-              <span className="cal-total-sub">{acctCount} account{acctCount !== 1 ? 's' : ''}</span>
+              <span className="cal-total-sub">({acctCount} account{acctCount !== 1 ? 's' : ''})</span>
               <b>{acctTotal < 0 ? '−₺' : '₺'}{grp(Math.abs(acctTotal), 0)}</b>
             </span>
           )}
-          <span className="cal-chip income"><Icon name="arrow-down-left" size={11} />Income<b>₺{grp(mInc, 0)}</b></span>
-          <span className="cal-chip expense"><Icon name="arrow-up-right" size={11} />Expense<b>₺{grp(mExp, 0)}</b></span>
-        </div>
-
-        <div className="cal-layout">
-          {/* ── Calendar grid card ── */}
           <div className="cal-card">
           {pmOptions.length > 0 && (
             <div className="cal-filter">
@@ -286,8 +282,14 @@
             ))}
           </div>
           </div>
+          </div>
 
-          {/* ── Day detail panel ── */}
+          {/* ── Right column: Income/Expense chips + day detail panel ── */}
+          <div className="cal-col">
+          <div className="cal-summary">
+            <span className="cal-chip income"><Icon name="arrow-down-left" size={11} />Income<b>₺{grp(mInc, 0)}</b></span>
+            <span className="cal-chip expense"><Icon name="arrow-up-right" size={11} />Expense<b>₺{grp(mExp, 0)}</b></span>
+          </div>
           <div className="cal-detail">
           {sel ? (
             <React.Fragment>
@@ -345,6 +347,7 @@
               <span className="es">Click any day to see its transactions and navigate to records.</span>
             </div>
           )}
+          </div>
           </div>
         </div>
       </React.Fragment>

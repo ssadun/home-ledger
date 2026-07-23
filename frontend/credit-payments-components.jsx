@@ -103,11 +103,17 @@
       minimum: initial.minimum != null ? String(initial.minimum) : '',
       cur: initial.cur || 'TRY',
     });
-    const set = (k, v) => setF(p => ({ ...p, ...(typeof k === 'object' ? k : { [k]: v }) }));
+    const [invalid, setInvalid] = React.useState({});
+    const [formErr, setFormErr] = React.useState('');
+    const set = (k, v) => { if (formErr) { setFormErr(''); setInvalid({}); } setF(p => ({ ...p, ...(typeof k === 'object' ? k : { [k]: v }) })); };
 
-    const valid = !!(f.accountId && f.year && f.month && f.paymentDate);
     function submit() {
-      if (!valid) return;
+      const v = window.HL_FORM.checkRequired([
+        { key: 'accountId', label: 'Credit Card', ok: !!f.accountId },
+        { key: 'paymentDate', label: 'Payment Due Date', ok: !!f.paymentDate },
+      ]);
+      setInvalid(v.keys); setFormErr(v.message);
+      if (!v.ok) return;
       onSave({
         ...initial,
         accountId: Number(f.accountId),
@@ -136,8 +142,8 @@
           </div>
 
           <div className="modal-body">
-            <div className="form-field full">
-              <span className="field-label">Credit Card</span>
+            <div className={"form-field full" + (invalid.accountId ? ' field-invalid' : '')}>
+              <span className="field-label">Credit Card<span className="field-required-mark">*</span></span>
               <StyledSelect id="cp-modal-card-select" className="field-input" value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>
                 <option value="">— Select Card —</option>
                 {cards.map(c => (
@@ -168,8 +174,8 @@
                 <span className="field-label">Cutover Date</span>
                 <DateInput id="cp-modal-cutover-input" className="field-input" value={f.cutoverDate} onChange={(e) => set('cutoverDate', e.target.value)} />
               </div>
-              <div className="form-field">
-                <span className="field-label">Payment Due Date</span>
+              <div className={"form-field" + (invalid.paymentDate ? ' field-invalid' : '')}>
+                <span className="field-label">Payment Due Date<span className="field-required-mark">*</span></span>
                 <DateInput id="cp-modal-payment-input" className="field-input" value={f.paymentDate} onChange={(e) => set('paymentDate', e.target.value)} />
               </div>
             </div>
@@ -191,9 +197,11 @@
             </div>
           </div>
 
+          <window.HL_FORM.FormError message={formErr} id="cp-modal-form-error" />
+
           <div className="modal-foot">
             <button id="cp-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button id="cp-modal-save-btn" className="amb ok" onClick={submit} disabled={!valid} title={valid ? '' : 'Pick a card, period and payment date'}><Icon name="save" size={14} />Save</button>
+            <button id="cp-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />Save</button>
           </div>
         </div>
       </div>

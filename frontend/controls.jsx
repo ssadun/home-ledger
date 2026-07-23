@@ -330,16 +330,23 @@
       amt: initial.amt != null ? String(initial.amt) : '',
       paymentMethod: initial.paymentMethod || '',
     });
-    const set = (k, v) => setF(p => ({ ...p, ...(typeof k === 'object' ? k : { [k]: v }) }));
+    const [invalid, setInvalid] = React.useState({});
+    const [formErr, setFormErr] = React.useState('');
+    const set = (k, v) => { if (formErr) { setFormErr(''); setInvalid({}); } setF(p => ({ ...p, ...(typeof k === 'object' ? k : { [k]: v }) })); };
     const amtNum = parseFloat(f.amt) || 0;
     const tryV = +(amtNum * FX[f.cur].toTRY).toFixed(2);
     const usdV = +(amtNum * FX[f.cur].toUSD).toFixed(2);
 
-    // Every field must be filled before a record can be created/saved.
-    const valid = !!(f.date && f.cat && f.payer && f.payingFor && f.type && f.cur
-      && f.desc.trim() && amtNum && f.paymentMethod);
+    // Description, Amount and Payment Method are the fields a user can leave
+    // blank — the rest (date, category, payer…) always carry a default value.
     function submit() {
-      if (!valid) return;
+      const v = window.HL_FORM.checkRequired([
+        { key: 'desc', label: 'Description', ok: !!f.desc.trim() },
+        { key: 'amt', label: 'Amount', ok: !!amtNum },
+        { key: 'paymentMethod', label: 'Payment Method', ok: !!f.paymentMethod },
+      ]);
+      setInvalid(v.keys); setFormErr(v.message);
+      if (!v.ok) return;
       onSave({ ...initial, date: f.date, payer: f.payer, payingFor: f.payingFor, cat: f.cat, desc: f.desc.trim(), type: f.type, cur: f.cur, amt: amtNum, paymentMethod: f.paymentMethod, tryV, usdV });
     }
     const paymentAccounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type) || (a.type === 'bank' && a.showInPaymentMethod));
@@ -412,22 +419,22 @@
               </div>
             </div>
 
-            <div className="form-field full">
-              <span className="field-label">Description</span>
+            <div className={"form-field full" + (invalid.desc ? ' field-invalid' : '')}>
+              <span className="field-label">Description<span className="field-required-mark">*</span></span>
               <input id="tx-modal-desc-input" className="field-input" placeholder="e.g. Migros weekly shop" value={f.desc} onChange={(e) => set('desc', e.target.value)} />
             </div>
 
             <div className="form-grid">
-              <div className="form-field full">
-                <span className="field-label">Payment Method</span>
+              <div className={"form-field full" + (invalid.paymentMethod ? ' field-invalid' : '')}>
+                <span className="field-label">Payment Method<span className="field-required-mark">*</span></span>
                 <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
                   groups={pmGroups} accounts={paymentAccounts} />
               </div>
             </div>
 
             <div className="form-grid">
-              <div className="form-field full">
-                <span className="field-label">Amount</span>
+              <div className={"form-field full" + (invalid.amt ? ' field-invalid' : '')}>
+                <span className="field-label">Amount<span className="field-required-mark">*</span></span>
                 <div className="amount-input-wrap">
                   <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />
                   <StyledSelect id="tx-modal-currency-select" className="field-input" value={f.cur} onChange={(e) => set('cur', e.target.value)}>
@@ -438,10 +445,12 @@
             </div>
           </div>
 
+          <window.HL_FORM.FormError message={formErr} id="tx-modal-form-error" />
+
           <div className="modal-foot">
             {editing && <button id="tx-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}
             <button id="tx-modal-cancel-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Cancel</button>
-            <button id="tx-modal-save-btn" className="amb ok" onClick={submit} disabled={!valid} title={valid ? '' : 'Fill in all fields to continue'}><Icon name="save" size={14} />Save</button>
+            <button id="tx-modal-save-btn" className="amb ok" onClick={submit}><Icon name="save" size={14} />Save</button>
           </div>
         </div>
       </div>

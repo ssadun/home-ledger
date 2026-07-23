@@ -28,7 +28,7 @@
   ];
 
   // ── Budgets filter bar with mobile Filters popover ──
-  function BgtFilterBar({ search, setSearch, sort, setSort, month, year, monthStep, layout, setLayout, exportEl }) {
+  function BgtFilterBar({ search, setSearch, sort, setSort, month, year, monthStep, layout, setLayout, exportEl, popActions }) {
     const [filtersOpen, setFiltersOpen] = React.useState(false);
     const filtersRef = React.useRef(null);
 
@@ -93,6 +93,7 @@
               </button>
               {filtersOpen && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter & Sort</span>
                     {active.length > 0 && <button id="bgt-filters-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -250,10 +251,13 @@
                   <p className="page-subtitle">Monthly limits and spending progress</p>
                 </div>
               </div>
-              <button id="bgt-new-btn" className="action-modal-btn ok" onClick={() => setModal({})}><Icon name="plus" size={14} />New Budget</button>
+              <div className="head-actions bgt-head-actions">
+                <button id="bgt-new-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({})}><Icon name="plus" size={14} />New Budget</button>
+              </div>
             </div>
             <BgtFilterBar search={search} setSearch={setSearch} sort={t.sort} setSort={v => setTweak('sort', v)}
               month={month} year={year} monthStep={monthStep} layout={layout} setLayout={setLayout}
+              popActions={<button id="bgt-new-fp-btn" className="action-modal-btn ok" onClick={() => setModal({})}><Icon name="plus" size={14} />New Budget</button>}
               exportEl={<ExportData entity="budgets" entityLabel="Budgets"
                 period={year + '-' + String(month + 1).padStart(2, '0')}
                 columns={EXPORT_COLS} rows={filtered} allRows={rows} inline />} />

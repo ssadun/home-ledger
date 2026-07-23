@@ -110,14 +110,18 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .head-actions{display:flex;gap:8px;flex-shrink:0}
 
 /* ── Profile button (top right of every page) ──
-   Rendered once by nav.jsx into a body-level portal host, so it is NOT part of
-   any page's `.page-head` markup. It floats over the header band, and the
-   padding-right below is what reserves the space it sits in — without it a
-   page's own `.head-actions` would slide under the button. Sized 34px to match
-   `.cfg-back`, the app's standard square header control. */
-#topbar-profile-host{position:fixed;top:14px;right:16px;z-index:150}
+   Rendered once by nav.jsx into a portal host. On pages WITH a `.head-actions`
+   bar the host is mounted inside it (class `hl-inflow`) so the avatar flows in
+   next to the buttons and aligns with them via flexbox. On pages without one it
+   stays a body-level element pinned to the top-right — there the padding-right
+   below reserves the space it floats over. Sized 34px to match `.cfg-back`, the
+   app's standard square header control. */
+#topbar-profile-host{position:fixed;top:16px;right:16px;z-index:150}
+#topbar-profile-host.hl-inflow{position:static;top:auto;right:auto;z-index:auto;display:inline-flex;align-items:center}
 .page-head-top{padding-right:50px}
-.topbar-profile{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;border-radius:50%;background:var(--bg3);color:var(--slate);cursor:pointer;overflow:hidden;transition:all .15s;text-decoration:none}
+/* In-flow: the avatar takes real space in .head-actions, so drop the reserve. */
+.page-head-top:has(#topbar-profile-host.hl-inflow){padding-right:0}
+.topbar-profile{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--silver);border-radius:50%;background:var(--bg3);color:var(--slate);cursor:pointer;overflow:hidden;transition:all .15s;text-decoration:none}
 .topbar-profile:hover{background:var(--bg4);color:var(--accent)}
 .topbar-profile.active{color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .topbar-avatar{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
@@ -481,11 +485,12 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
     -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 16.88a1 1 0 0 1-.32-1.43l9-13.02a1 1 0 0 1 1.64 0l9 13.01a1 1 0 0 1-.32 1.44l-8.51 4.86a2 2 0 0 1-1.98 0Z'/%3E%3Cpath d='M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat;
     mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 16.88a1 1 0 0 1-.32-1.43l9-13.02a1 1 0 0 1 1.64 0l9 13.01a1 1 0 0 1-.32 1.44l-8.51 4.86a2 2 0 0 1-1.98 0Z'/%3E%3Cpath d='M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat;
   }
-  /* title on row 1, action buttons wrap to their own full-width row 2.
-     Row 2 sits below the profile button, so it reclaims the space the header
-     reserves for it (see #topbar-profile-host) instead of losing 50px. */
+  /* Title on row 1; the action bar wraps to its own full-width row 2, with the
+     in-flow avatar (its last child) riding along. No -50px reclaim: in-flow
+     pages drop the header's padding-right reserve entirely (see the :has rule
+     by #topbar-profile-host), so there is nothing to claw back. */
   .page-head-top{flex-wrap:wrap;gap:10px}
-  .head-actions{flex:1 0 100%;margin-right:-50px}
+  .head-actions{flex:1 0 100%;margin-right:0}
 
   /* filter bar: all controls in one row */
   .summary-row{margin-left:12px;margin-right:12px;display:grid;grid-template-columns:1fr 1fr}
@@ -554,10 +559,29 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 .acct-form-error{display:flex;align-items:center;gap:8px;margin:0 20px 14px;padding:9px 12px;border-radius:var(--radius2);font-size:12px;font-weight:600;color:var(--red);border:1px solid color-mix(in srgb, var(--red) 45%, transparent);background:color-mix(in srgb, var(--red) 12%, transparent)}
 .acct-form-error svg{flex:none}
 
+/* ── Required-field validation (shared by every data-entry form) ──────────────
+   `.form-error` is the warning line shown above the footer when Save is pressed
+   with a required field empty; `.form-field.field-invalid` red-outlines the
+   offending control, whatever widget it wraps (input, StyledSelect, DateInput,
+   CurrencyInput, PaymentMethodSelect). Powered by window.HL_FORM. */
+.form-error{display:flex;align-items:center;gap:8px;margin:0 20px 12px;padding:9px 12px;border-radius:var(--radius2);font-size:12px;font-weight:600;color:var(--red);border:1px solid color-mix(in srgb, var(--red) 45%, transparent);background:color-mix(in srgb, var(--red) 12%, transparent)}
+.form-error svg{flex:none}
+.field-required-mark{color:var(--red);font-weight:700;margin-left:2px}
+.form-field.field-invalid > .field-input,
+.form-field.field-invalid input.field-input,
+.form-field.field-invalid .pm-trigger,
+.form-field.field-invalid .date-input-wrap > input.field-input{border-color:var(--red) !important;box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 15%, transparent)}
+
 .acct-check-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
 .acct-check-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
 .acct-check-label input[type="checkbox"]:checked{background:var(--accent);border-color:var(--accent)}
 .acct-check-label input[type="checkbox"]:checked::after{content:'✓';color:var(--white);font-size:12px;font-weight:700;line-height:1}
+:root[data-theme="light"] input[type="checkbox"]{accent-color:color-mix(in srgb, var(--accent) 50%, var(--bg3))}
+:root[data-theme="light"] .acct-check-label input[type="checkbox"]:checked{
+  background:color-mix(in srgb, var(--accent) 50%, var(--bg3));
+  border-color:color-mix(in srgb, var(--accent) 55%, var(--border2));
+}
+:root[data-theme="light"] .acct-check-label input[type="checkbox"]:checked::after{color:var(--slate)}
 .acct-check-label svg{color:var(--gold)}
 /* Low-emphasis variant — label text and icon both drop to --muted */
 .acct-check-label.muted,.acct-check-label.muted svg{color:var(--muted)}

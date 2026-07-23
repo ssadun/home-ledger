@@ -140,14 +140,25 @@
   // the Profile page (profile-app.jsx) and the Login page's own toggle, so don't
   // reintroduce a third switch here.
 
-  // Body-level mount point for the top-right profile button. Created on demand so
-  // no page has to add the element to its own HTML.
-  function profileHost() {
+  // Mount point for the top-right profile button. Preferred parent is the page's
+  // action bar (`.head-actions`), so the avatar sits IN-FLOW next to the header
+  // buttons and aligns with them via flexbox (no guessed `top`). Pages that have
+  // no action bar (Dashboard, Account Activity, Notifications, Budgets, Backup,
+  // Profile) fall back to a body-level element kept fixed at the top-right.
+  // Created on demand so no page has to add the element to its own HTML.
+  function mountProfileHost() {
     let el = document.getElementById('topbar-profile-host');
     if (!el) {
       el = document.createElement('div');
       el.id = 'topbar-profile-host';
-      document.body.appendChild(el);
+    }
+    const bar = document.querySelector('.head-actions');
+    if (bar) {
+      el.classList.add('hl-inflow');
+      if (el.parentNode !== bar) bar.appendChild(el);
+    } else {
+      el.classList.remove('hl-inflow');
+      if (el.parentNode !== document.body) document.body.appendChild(el);
     }
     return el;
   }
@@ -173,10 +184,13 @@
   // profile-data.js, which only Profile.html loads, and duplicating them into
   // nav.jsx would put the same logic in two places for a tiny glyph.
   function TopbarProfile({ active }) {
-    const [host] = React.useState(profileHost);
+    // Resolved AFTER commit: the page renders its `.head-actions` after
+    // <Sidebar>, so the bar isn't in the DOM yet during this component's render.
+    const [host, setHost] = React.useState(null);
     const [user, setUser] = React.useState(
       () => (window.HL_AUTH && window.HL_AUTH.getUser()) || null
     );
+    React.useEffect(() => { setHost(mountProfileHost()); }, []);
     React.useEffect(() => {
       const onChange = (e) => setUser(e.detail);
       window.addEventListener('hl-profile-change', onChange);
@@ -185,6 +199,7 @@
 
     const avatar = user && user.avatar_url;
     const label = (user && (user.full_name || user.username)) || 'Profile';
+    if (!host) return null;
     return ReactDOM.createPortal(
       <a id="topbar-profile-link" className={'topbar-profile' + (active ? ' active' : '')}
         href="Profile.html" title={label} aria-label={label}>

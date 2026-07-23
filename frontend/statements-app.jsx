@@ -13,7 +13,7 @@
   // ── Filter bar ────────────────────────────────────────────────────────────
   // Same structure/classes as Credit Payments' bar — Year stepper, search, and an
   // Account filter in the Filters popup.
-  function StatementFilterBar({ year, onYearStep, acctFilter, setAcctFilter, search, setSearch, accounts }) {
+  function StatementFilterBar({ year, onYearStep, acctFilter, setAcctFilter, search, setSearch, accounts, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -62,6 +62,7 @@
               </button>
               {open && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="st-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -261,23 +262,24 @@
                   <p className="page-subtitle">Uploaded bank-account statements</p>
                 </div>
               </div>
-              <div className="head-actions">
+              <div className="head-actions st-head-actions">
                 <button id="st-import-btn" className="action-modal-btn scan" onClick={() => setImportWiz({ preAccId: null })}><Icon name="file-down" size={14} />Import Statement</button>
-                <button id="st-add-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button>
+                <button id="st-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button>
               </div>
             </div>
             <StatementFilterBar
               year={year} onYearStep={yearStep}
               acctFilter={acctFilter} setAcctFilter={setAcctFilter}
               search={search} setSearch={setSearch}
-              accounts={accounts} />
+              accounts={accounts}
+              popActions={<button id="st-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button>} />
           </header>
 
           <div className="st-body">
             {loadError && <div className="st-error" id="st-load-error"><Icon name="alert-triangle" size={13} />{loadError}</div>}
             {selectedIds.length > 0 && (
               <div className="bulk-bar" id="st-bulk-bar">
-                <span className="bulk-count"><Icon name="check-square" size={14} />{selectedIds.length} selected</span>
+                <button id="st-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selectedIds.length} selected</button>
                 <div className="bulk-actions">
                   <button id="st-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                   <button id="st-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>

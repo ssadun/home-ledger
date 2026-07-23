@@ -594,7 +594,7 @@
           <div className="table-card">
             {selected.size > 0 && (
               <div className="bulk-bar" id="atx-bulk-bar">
-                <span className="bulk-count"><Icon name="check-square" size={14} />{selected.size} selected</span>
+                <button id="atx-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selected.size} selected</button>
                 <div className="bulk-actions">
                   <button id="atx-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                   <button id="atx-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
@@ -672,8 +672,8 @@
                         <tr className={'week-group-row' + (collapsed ? ' wk-collapsed' : '')} key={'wk-' + g.wk}
                           onClick={() => toggleWeek(g.wk)} title={collapsed ? 'Expand week' : 'Collapse week'}>
                           <td colSpan={99}>
+                            <Icon name="chevron-down" size={12} className="week-group-chevron" />
                             <span className="week-group-label">
-                              <Icon name="chevron-down" size={12} className="week-group-chevron" />
                               <Icon name="calendar-range" size={12} />Week {g.wk}
                             </span>
                             <span className="week-group-range">{weekRangeLabel(g.wk, month, year)}</span>

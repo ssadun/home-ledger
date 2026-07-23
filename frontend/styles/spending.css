@@ -4,7 +4,7 @@
    ============================================================================ */
 
 /* Zebra — boost contrast against the --bg2 table surface (non-grouped mode) */
-.ledger-table.zebra tbody tr:nth-child(even of .tx-row){ background: rgba(42,47,74,.32); }
+.ledger-table.zebra tbody tr:nth-child(even of .tx-row){ background: color-mix(in srgb, var(--border) 40%, transparent); }
 .ledger-table.zebra tbody tr.tx-row:hover{ background: var(--bg4); }
 
 /* Mobile: keep the first action button inline next to the title (in

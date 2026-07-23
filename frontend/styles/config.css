@@ -62,14 +62,14 @@
 .cfg-badge{display:inline-flex;align-items:center;border-radius:10px;font-size:11px;font-weight:600;text-transform:capitalize}
 .cfg-badge-income{color:var(--green)}
 .cfg-badge-expense{color:var(--coral)}
-.cfg-badge-admin{color:var(--gold)}
+.cfg-badge-admin{color:var(--red)}
 .cfg-badge-user{color:var(--accent)}
 .cfg-pw-mask{color:var(--muted);letter-spacing:2px;font-size:11px}
 .cfg-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.5px;color:var(--steel)}
 .cfg-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600}
 .cfg-status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:currentColor}
 .cfg-status-active{color:var(--green)}
-.cfg-status-active .cfg-status-dot{box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent)}
+.cfg-status-active .cfg-status-dot{box-shadow:none}
 .cfg-status-inactive{color:var(--muted)}
 
 /* ── Empty state ── */
@@ -146,42 +146,109 @@
 
 /* ── Responsive — two views only: computer (>660px) & mobile (500–660px) ── */
 @media (max-width:660px){
-  /* cfg tables → stacked cards (tables.css hides thead / blockifies the table) */
+  /* cfg tables → Spending-style compact stacked cards */
   .cfg-table-wrap{padding:10px}
-  .cfg-table tbody tr.cfg-row{display:flex;flex-direction:column;gap:8px;
-           background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-           padding:11px 13px;margin:0 0 8px}
+  .cfg-table tbody tr.cfg-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-rows:auto auto;
+           gap:2px 10px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+           padding:9px 13px;margin:0 0 6px}
   .cfg-table tbody tr.cfg-row:hover{background:var(--bg2)}
-  /* zebra striping carries onto mobile cards too (parity matches desktop) */
-  .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:rgba(42,47,74,.42)}
-  .cfg-table.zebra tbody tr.cfg-row:nth-child(even):hover{background:rgba(42,47,74,.42)}
-  .cfg-table td[data-label]{display:flex;align-items:center;justify-content:space-between;
-           gap:12px;width:100%;min-height:24px;white-space:normal}
-  .cfg-table td[data-label]::before{content:attr(data-label);font-size:10px;font-weight:700;
-           letter-spacing:1px;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+  .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:color-mix(in srgb, var(--border) 40%, transparent)}
+  .cfg-table.zebra tbody tr.cfg-row:nth-child(even):hover{background:color-mix(in srgb, var(--border) 40%, transparent)}
+  .cfg-table td[data-label]{display:flex;align-items:center;gap:5px;width:auto;min-height:0;
+           padding:0;white-space:nowrap;border:none;overflow:hidden}
+  .cfg-table td[data-label]::before{display:none}
   .cfg-table td:not([data-label]){display:none}
   .cfg-table td[data-label="Actions"]{justify-content:flex-end;margin-top:2px}
   .cfg-table td[data-label="Actions"]::before{display:none}
   .cfg-act-btn{min-height:36px;padding:7px 14px}
 
-  /* Detail section tables (Currencies, Members, …) → 4-column grid card:
-     two caption|value pairs per line, captions aligned in their own column.
-     Each td uses display:contents so its ::before (caption) and value land as
-     direct grid items of the row grid; auto-placement flows them L→R, wrapping. */
-  .cfg-table.resizable tbody tr.cfg-row{display:grid;flex-direction:unset;
-           grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);
-           gap:9px 11px;align-items:center}
-  .cfg-table.resizable td[data-label]{display:contents}
-  .cfg-table.resizable td[data-label]::before{content:attr(data-label);
-           font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-           color:var(--muted);white-space:nowrap;align-self:center;justify-self:start}
+  /* Line 1: primary identity on the left, value badge/rate/category on the right. */
+  .cfg-table.resizable td[data-label="Icon"],
+  .cfg-table.resizable td[data-label="Logo"]{grid-column:1;grid-row:1 / span 2;align-self:center;justify-content:center}
+  .cfg-table.resizable td[data-label="Name"],
+  .cfg-table.resizable td[data-label="Label"],
+  .cfg-table.resizable td[data-label="Code"],
+  .cfg-table.resizable td[data-label="Statement Tag"]{grid-column:1 / 3;grid-row:1;min-width:0;
+           font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Name"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Label"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Code"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Name"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Label"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Code"]{grid-column:2;grid-row:1}
+  .cfg-table.resizable td[data-label="Role"],
+  .cfg-table.resizable td[data-label="Rate → TRY"],
+  .cfg-table.resizable td[data-label="Kind"],
+  .cfg-table.resizable td[data-label="Color"],
+  .cfg-table.resizable td[data-label="Category"]{grid-column:3 / 5;grid-row:1;justify-content:flex-end;font-weight:600}
+  .cfg-table.resizable td[data-label="Color"]{min-width:18px}
 
-  /* Mass-delete: checkbox → full-width strip atop each stacked card (overrides the
-     `td:not([data-label])` hide with higher specificity). */
-  .cfg-table.selectable td.td-select{display:flex;grid-column:1 / -1;align-items:center;justify-content:flex-start;
-           width:auto;padding:0 0 6px;margin:0;border-bottom:1px solid var(--border)}
-  .cfg-table.selectable tbody tr.cfg-row.row-selected{border-color:var(--accent);background:rgba(79,142,247,.08)}
-  .cfg-table.selectable tbody tr.cfg-row.row-selected td{background:none}
+  /* Line 2: muted meta on the left; one short secondary value can sit right. */
+  .cfg-table.resizable td[data-label="Username"],
+  .cfg-table.resizable td[data-label="Status"],
+  .cfg-table.resizable td[data-label="Payer Visibility"],
+  .cfg-table.resizable td[data-label="Date"],
+  .cfg-table.resizable td[data-label="Source"],
+  .cfg-table.resizable td[data-label="SWIFT / BIC"],
+  .cfg-table.resizable td[data-label="Lang"]{grid-column:1 / 3;grid-row:2;font-size:11px;color:var(--muted)}
+  .cfg-table.resizable td[data-label="Status"],
+  .cfg-table.resizable td[data-label="Payer Visibility"],
+  .cfg-table.resizable td[data-label="Source"],
+  .cfg-table.resizable td[data-label="Lang"]{display:none}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Status"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Payer Visibility"]{
+           display:flex;grid-row:2;font-size:11px;color:var(--muted);justify-content:flex-end}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Status"]{grid-column:3}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Payer Visibility"]{grid-column:4}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Kind"]) td[data-label="Color"]{display:none}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Username"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Date"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="SWIFT / BIC"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Username"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Date"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="SWIFT / BIC"]{grid-column:2;grid-row:2}
+  .cfg-table.resizable td[data-label="Rate → USD"]{grid-column:3 / 5;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
+  /* Password never shows on the card — masked dots carry no information */
+  .cfg-table.resizable td[data-label="Password"]{display:none}
+
+  /* Mass-delete: checkbox → compact leading box on line 1 (matches the app cards),
+     overriding the `td:not([data-label])` hide with higher specificity. */
+  .cfg-table.resizable.selectable tbody tr.cfg-row{grid-template-columns:auto auto minmax(0,1fr) auto auto}
+  .cfg-table.resizable.selectable td.td-select{display:flex;grid-column:1;grid-row:1 / span 2;
+           align-items:center;justify-content:center;width:auto;padding:0;margin:0;border:none}
+  .cfg-table.resizable.selectable td[data-label="Icon"],
+  .cfg-table.resizable.selectable td[data-label="Logo"]{grid-column:2}
+  .cfg-table.resizable.selectable td[data-label="Name"],
+  .cfg-table.resizable.selectable td[data-label="Label"],
+  .cfg-table.resizable.selectable td[data-label="Code"],
+  .cfg-table.resizable.selectable td[data-label="Statement Tag"]{grid-column:2 / 4}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Name"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Label"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Code"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Name"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Label"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Code"]{grid-column:3}
+  .cfg-table.resizable.selectable td[data-label="Role"],
+  .cfg-table.resizable.selectable td[data-label="Rate → TRY"],
+  .cfg-table.resizable.selectable td[data-label="Kind"],
+  .cfg-table.resizable.selectable td[data-label="Color"],
+  .cfg-table.resizable.selectable td[data-label="Category"]{grid-column:4 / 6}
+  .cfg-table.resizable.selectable td[data-label="Username"],
+  .cfg-table.resizable.selectable td[data-label="Date"]{grid-column:2 / 4}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Username"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Date"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="SWIFT / BIC"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Username"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="Date"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Logo"]) td[data-label="SWIFT / BIC"]{grid-column:3}
+  .cfg-table.resizable.selectable td[data-label="Rate → USD"]{grid-column:4 / 6}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Status"]{grid-column:4;grid-row:2}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Payer Visibility"]{grid-column:5;grid-row:2}
+  .cfg-table.selectable tbody tr.cfg-row.row-selected{
+           border-color:color-mix(in srgb, var(--accent) 60%, var(--border));
+           background:color-mix(in srgb, var(--accent) 10%, var(--bg2))}
+  .cfg-table.selectable tbody tr.cfg-row.row-selected:hover{background:color-mix(in srgb, var(--accent) 14%, var(--bg2))}
+  .cfg-table.selectable tbody tr.cfg-row.row-selected td{background:none !important}
 
   /* currency history: "current" row marked by gold border instead of cell tint */
   .cfg-hist-current{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)}

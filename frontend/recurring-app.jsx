@@ -202,7 +202,7 @@
   }
 
   // ── Filter bar (simpler than Transactions) ────────────────────────────
-  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, onResetCols, onResetOrder, orderIsDefault, exportEl }) {
+  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, onResetCols, onResetOrder, orderIsDefault, exportEl, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -261,6 +261,7 @@
               </button>
               {open && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="rec-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -496,10 +497,11 @@
                 </div>
               </div>
               <div className="head-actions rec-head-actions">
-                <button id="rec-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>
+                <button id="rec-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>
               </div>
             </div>
             <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency} onResetCols={rz.resetSizes} onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
+              popActions={<button id="rec-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>}
               exportEl={<ExportData entity="recurring" entityLabel="Recurring Items"
                 columns={EXPORT_COLS} rows={sorted} allRows={items} inline />} />
           </header>
@@ -509,7 +511,7 @@
             <div className="table-card">
               {selected.size > 0 && (
                 <div className="bulk-bar" id="rec-bulk-bar">
-                  <span className="bulk-count"><Icon name="check-square" size={14} />{selected.size} selected</span>
+                  <button id="rec-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selected.size} selected</button>
                   <div className="bulk-actions">
                     <button id="rec-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                     <button id="rec-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
@@ -572,15 +574,14 @@
                           <tr className={'week-group-row' + (collapsed ? ' wk-collapsed' : '')} key={'wk-' + g.key}
                             onClick={() => toggleWeek(g.key)} title={collapsed ? 'Expand week' : 'Collapse week'}>
                             <td colSpan={99}>
+                              <Icon name="chevron-down" size={12} className="week-group-chevron" />
                               {g.key === 'none' ? (
                                 <span className="week-group-label">
-                                  <Icon name="chevron-down" size={12} className="week-group-chevron" />
                                   <Icon name="calendar-off" size={12} />No Upcoming Date
                                 </span>
                               ) : (
                                 <React.Fragment>
                                   <span className="week-group-label">
-                                    <Icon name="chevron-down" size={12} className="week-group-chevron" />
                                     <Icon name="calendar-range" size={12} />{weekHeading(g.due)}
                                   </span>
                                   <span className="week-group-range">{weekRange(g.due)}</span>

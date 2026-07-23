@@ -363,12 +363,20 @@
       amount: initial.amount != null ? String(initial.amount) : '',
       paymentMethod: initial.paymentMethod || '',
     });
-    const set = (k, v) => setF(p => ({ ...p, ...(typeof k === 'object' ? k : { [k]: v }) }));
+    const [invalid, setInvalid] = React.useState({});
+    const [formErr, setFormErr] = React.useState('');
+    const set = (k, v) => { if (formErr) { setFormErr(''); setInvalid({}); } setF(p => ({ ...p, ...(typeof k === 'object' ? k : { [k]: v }) })); };
     const amtNum = parseFloat(f.amount) || 0;
     const tryV = +(amtNum * FX[f.cur].toTRY).toFixed(2);
 
     function submit() {
-      if (!f.name.trim() || !amtNum) return;
+      const v = window.HL_FORM.checkRequired([
+        { key: 'name', label: 'Name', ok: !!f.name.trim() },
+        { key: 'amount', label: 'Amount', ok: !!amtNum },
+        { key: 'paymentMethod', label: 'Payment Method', ok: !!f.paymentMethod },
+      ]);
+      setInvalid(v.keys); setFormErr(v.message);
+      if (!v.ok) return;
       const saved = {
         ...initial,
         name: f.name.trim(), desc: f.desc.trim(), cat: f.cat, status: f.status,
@@ -423,8 +431,8 @@
             <div className="modal-body">
               {/* Row 1: Name + Category */}
               <div className="form-grid">
-                <div className="form-field">
-                  <span className="field-label">Name</span>
+                <div className={"form-field" + (invalid.name ? ' field-invalid' : '')}>
+                  <span className="field-label">Name<span className="field-required-mark">*</span></span>
                   <input id="rec-modal-name-input" className="field-input" placeholder="e.g. Netflix, Rent, Gym" value={f.name} onChange={e => set('name', e.target.value)} />
                 </div>
                 <div className="form-field">
@@ -511,16 +519,16 @@
 
               {/* Row 6: Payment Method */}
               <div className="form-grid">
-                <div className="form-field full">
-                  <span className="field-label">Payment Method</span>
+                <div className={"form-field full" + (invalid.paymentMethod ? ' field-invalid' : '')}>
+                  <span className="field-label">Payment Method<span className="field-required-mark">*</span></span>
                   <RecPaymentMethodSelect value={f.paymentMethod} onChange={v => set('paymentMethod', v)} />
                 </div>
               </div>
 
               {/* Row 7: Amount */}
               <div className="form-grid">
-                <div className="form-field full">
-                  <span className="field-label">Amount</span>
+                <div className={"form-field full" + (invalid.amount ? ' field-invalid' : '')}>
+                  <span className="field-label">Amount<span className="field-required-mark">*</span></span>
                   <div className="amount-input-wrap">
                     <input id="rec-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
                     <StyledSelect id="rec-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
@@ -544,6 +552,8 @@
               <LinkedTransactionsList recId={initial.id} />
             </div>
           )}
+
+          {tab === 'details' && <window.HL_FORM.FormError message={formErr} id="rec-modal-form-error" />}
 
           <div className="modal-foot">
             {editing && <button id="rec-modal-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(initial)}><Icon name="trash-2" size={14} />Delete</button>}

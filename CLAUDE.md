@@ -507,6 +507,18 @@ Nothing else needs to move in lockstep: `frontend/sw.js` deliberately does no
 caching (an earlier caching version caused a stale-asset bug), so there is no
 service-worker cache version to bust and clients always fetch fresh assets.
 
+**After a successful `git commit`/push, sweep the Playwright screenshot scratch
+`.pw-artifacts/`.** Those PNGs are one-shot VS Code verification throwaways,
+gitignored (never part of a commit), and nothing else clears them — so a commit
+is the checkpoint at which the work's screenshots are spent and the folder is
+emptied. **Do NOT `rm .pw-artifacts/*.png` outright** — multiple agents run
+concurrently and a blind wipe would destroy another agent's in-flight
+screenshots. Sweep by age instead, so only stale (spent) files go and any file
+a concurrent agent just wrote survives:
+```sh
+find .pw-artifacts -name '*.png' -mmin +10 -delete
+```
+
 ## Test User
 
 User: sadunsevingen@gmail.com

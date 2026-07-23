@@ -204,7 +204,7 @@
   }
 
   // ── Filter bar (simpler than Transactions) ────────────────────────────
-  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, onResetCols, onResetOrder, orderIsDefault, exportNode }) {
+  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, onResetCols, onResetOrder, orderIsDefault, exportNode, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -263,6 +263,7 @@
               </button>
               {open && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="sub-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -495,10 +496,11 @@
                 </div>
               </div>
               <div className="head-actions sub-head-actions">
-                <button id="sub-add-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Subscription</button>
+                <button id="sub-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Subscription</button>
               </div>
             </div>
             <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency} onResetCols={rz.resetSizes} onResetOrder={rz.resetOrder} orderIsDefault={rz.isDefaultOrder}
+              popActions={<button id="sub-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Subscription</button>}
               exportNode={<ExportData entity="subscriptions" entityLabel="Subscriptions"
                 columns={EXPORT_COLS} rows={sorted} allRows={items} inline />} />
           </header>
@@ -509,7 +511,7 @@
             <div className="table-card">
               {selected.size > 0 && (
                 <div className="bulk-bar" id="sub-bulk-bar">
-                  <span className="bulk-count"><Icon name="check-square" size={14} />{selected.size} selected</span>
+                  <button id="sub-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selected.size} selected</button>
                   <div className="bulk-actions">
                     <button id="sub-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                     <button id="sub-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
@@ -572,15 +574,14 @@
                           <tr className={'week-group-row' + (collapsed ? ' wk-collapsed' : '')} key={'wk-' + g.key}
                             onClick={() => toggleWeek(g.key)} title={collapsed ? 'Expand week' : 'Collapse week'}>
                             <td colSpan={99}>
+                              <Icon name="chevron-down" size={12} className="week-group-chevron" />
                               {g.key === 'none' ? (
                                 <span className="week-group-label">
-                                  <Icon name="chevron-down" size={12} className="week-group-chevron" />
                                   <Icon name="calendar-off" size={12} />No Upcoming Date
                                 </span>
                               ) : (
                                 <React.Fragment>
                                   <span className="week-group-label">
-                                    <Icon name="chevron-down" size={12} className="week-group-chevron" />
                                     <Icon name="calendar-range" size={12} />{weekHeading(g.due)}
                                   </span>
                                   <span className="week-group-range">{weekRange(g.due)}</span>

@@ -10,7 +10,7 @@
   // ── Filter bar ────────────────────────────────────────────────────────────
   // Same structure/classes as Account Activity's bar, but the only period filter
   // is a Year stepper (no month) — statements are filtered by their statement year.
-  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards }) {
+  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -59,6 +59,7 @@
               </button>
               {open && (
                 <div className="filters-pop">
+                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="cp-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -226,21 +227,22 @@
                 </div>
               </div>
               <div className="head-actions cp-head-actions">
-                <button id="cp-add-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>
+                <button id="cp-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>
               </div>
             </div>
             <CreditPaymentFilterBar
               year={year} onYearStep={yearStep}
               cardFilter={cardFilter} setCardFilter={setCardFilter}
               search={search} setSearch={setSearch}
-              cards={cards} />
+              cards={cards}
+              popActions={<button id="cp-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>} />
           </header>
 
           <div className="cp-body">
             {loadError && <div className="cp-error" id="cp-load-error"><Icon name="alert-triangle" size={13} />{loadError}</div>}
             {selectedIds.length > 0 && (
               <div className="bulk-bar" id="cp-bulk-bar">
-                <span className="bulk-count"><Icon name="check-square" size={14} />{selectedIds.length} selected</span>
+                <button id="cp-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selectedIds.length} selected</button>
                 <div className="bulk-actions">
                   <button id="cp-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                   <button id="cp-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
