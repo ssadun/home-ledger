@@ -61,8 +61,8 @@ body:not(.sidebar-expanded) .sidebar-system-label{display:none}
 
 /* items */
 .sidebar-item{display:flex;align-items:center;gap:8px;padding:10px 8px;margin:6px 6px;border-radius:8px;background:none;border:none;color:var(--slate);font-family:var(--font-sans);font-size:13px;font-weight:600;line-height:1;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;width:calc(100% - 12px);box-sizing:border-box}
-.sidebar-item:hover{background:var(--sidebar-active-bg);color:var(--text)}
-.sidebar-item.active{background:var(--sidebar-active-bg);color:var(--text)}
+.sidebar-item:hover{background:var(--sidebar-active-bg);color:var(--sidebar-active-color)}
+.sidebar-item.active{background:var(--sidebar-active-bg);color:var(--sidebar-active-color)}
 .sidebar-item-icon{flex-shrink:0;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:var(--sidebar-idle-color,var(--separator));line-height:1}
 .sidebar-item.active .sidebar-item-icon,.sidebar-item:hover .sidebar-item-icon{color:var(--sidebar-active-color)}
 .sidebar-item-icon svg{width:20px;height:20px;color:inherit;display:block}
@@ -78,7 +78,7 @@ body:not(.sidebar-expanded) .sidebar-item-chevron{display:none}
 /* chevron tracks the menu icon color: idle at rest, accent on hover/open */
 .sidebar-parent > .sidebar-item:hover .sidebar-item-chevron{color:var(--sidebar-active-color)}
 .sidebar-parent.open .sidebar-item-chevron{transform:rotate(180deg);color:var(--sidebar-active-color)}
-.sidebar-parent.open > .sidebar-item{color:var(--text)}
+.sidebar-parent.open > .sidebar-item{color:var(--sidebar-active-color)}
 .sidebar-parent.open > .sidebar-item .sidebar-item-icon{color:var(--sidebar-active-color)}
 .sidebar-submenu{max-height:500px;overflow:hidden;transition:max-height .3s ease,opacity .25s ease;opacity:1}
 .sidebar-submenu.closed{max-height:0;opacity:0}
@@ -86,9 +86,9 @@ body:not(.sidebar-expanded) .sidebar-submenu.closed{max-height:0 !important;poin
 .sidebar-subitem{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:9px;padding:6px 8px 6px 30px;margin:2px 6px;border-radius:6px;background:none;border:none;color:var(--slate);font-family:var(--font-sans);font-size:12px;font-weight:500;line-height:1;cursor:pointer;text-align:left;transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;width:calc(100% - 12px);box-sizing:border-box;text-decoration:none}
 .sidebar-subitem::before{content:'';position:absolute;left:19px;top:50%;transform:translateY(-50%);width:2px;height:60%;min-height:12px;border-radius:2px;background:var(--item-color,var(--accent));opacity:0.5;transition:opacity .15s,height .15s}
 .sidebar-subitem:hover::before{opacity:1;height:75%}
-.sidebar-subitem:hover{background:color-mix(in srgb,var(--item-color,var(--accent)) 12%,transparent);color:var(--text)}
+.sidebar-subitem:hover{background:color-mix(in srgb,var(--item-color,var(--accent)) 12%,transparent);color:var(--item-color,var(--accent))}
 .sidebar-subitem:hover .subitem-icon{color:var(--item-color,var(--accent));opacity:1}
-.sidebar-subitem.active{background:color-mix(in srgb,var(--item-color,var(--accent)) 12%,transparent);color:var(--text)}
+.sidebar-subitem.active{background:color-mix(in srgb,var(--item-color,var(--accent)) 12%,transparent);color:var(--item-color,var(--accent))}
 .sidebar-subitem.active::before{opacity:1;height:75%}
 .sidebar-subitem.active .subitem-icon{color:var(--item-color,var(--accent));opacity:1}
 .subitem-icon{flex-shrink:0;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:var(--item-color,var(--accent));opacity:.65;transition:opacity .15s}
