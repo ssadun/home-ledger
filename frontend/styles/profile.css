@@ -27,6 +27,7 @@
 /* ── Avatar ── */
 .pf-avatar-row{display:flex;align-items:flex-start;gap:16px}
 .pf-avatar{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;border:1px solid var(--border2);transition:opacity .15s}
+:root[data-theme="dark"] .pf-avatar{border-color:var(--muted)}
 .pf-avatar.busy{opacity:.5}
 .pf-avatar-img{width:100%;height:100%;object-fit:cover;display:block}
 /* The initials disc is painted with a saturated accent token, so its label needs
