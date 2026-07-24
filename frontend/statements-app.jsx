@@ -192,30 +192,54 @@
     }
 
     function handleSave(rec) {
-      const op = rec.id ? ST_API.update(rec.id, rec) : ST_API.create(rec);
+      const editing = !!rec.id;
+      const op = window.HL_OP_NOTIFY.promise(
+        editing ? ST_API.update(rec.id, rec) : ST_API.create(rec),
+        {
+          pending: editing ? 'Updating statement...' : 'Saving statement...',
+          success: editing ? 'Statement updated.' : 'Statement saved.',
+          error: false,
+        }
+      );
       op.then(() => reload())
         .then(() => { setFormModal(null); setDetail(null); })
-        .catch(err => setLoadError(err.message));
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show((editing ? 'Could not update statement: ' : 'Could not save statement: ') + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     function handleDelete() {
       const target = del;
-      ST_API.remove(target.id)
+      window.HL_OP_NOTIFY.promise(
+        ST_API.remove(target.id),
+        { pending: 'Deleting statement...', success: 'Statement deleted.', error: false }
+      )
         .then(() => { setDel(null); setDetail(null); return reload(); })
-        .catch(err => setLoadError(err.message));
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show('Could not delete statement: ' + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     // Mass delete — loops the per-row API (no bulk endpoint needed); keeps rows that
     // failed so the user sees exactly what remains, and never silently drops errors.
     function confirmBatchDelete() {
       const ids = records.filter(r => selected.has(r.id)).map(r => r.id);
-      Promise.allSettled(ids.map(id => ST_API.remove(id)))
+      window.HL_OP_NOTIFY.promise(
+        Promise.allSettled(ids.map(id => ST_API.remove(id))),
+        { pending: 'Deleting selected statements...', success: 'Selected statements deleted.', error: false }
+      )
         .then(results => {
           const failed = results.filter(r => r.status === 'rejected').length;
           setSelected(new Set());
           setBatchDel(false);
           return reload().then(() => {
-            if (failed) setLoadError(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.');
+            if (failed) {
+              const msg = failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.';
+              setLoadError(msg);
+              window.HL_OP_NOTIFY.show(msg, { type: 'error', timeout: 4200 });
+            }
           });
         });
     }
@@ -238,16 +262,22 @@
     // net delta and persist it. Finally reload the archive — the wizard has created
     // a Statement record per imported bank account.
     function handleImport(rows, byAcc) {
-      window.HL_ACCOUNTS_API.list().then(fresh => {
-        const affected = fresh.filter(a => byAcc && byAcc[a.id]);
-        return Promise.all(affected.map(a => {
-          const updated = { ...a, balance: +(a.balance + byAcc[a.id].delta).toFixed(2) };
-          return window.HL_ACCOUNTS_API.update(a._dbId, updated);
-        }));
-      })
+      window.HL_OP_NOTIFY.promise(
+        window.HL_ACCOUNTS_API.list().then(fresh => {
+          const affected = fresh.filter(a => byAcc && byAcc[a.id]);
+          return Promise.all(affected.map(a => {
+            const updated = { ...a, balance: +(a.balance + byAcc[a.id].delta).toFixed(2) };
+            return window.HL_ACCOUNTS_API.update(a._dbId, updated);
+          }));
+        }),
+        { pending: 'Updating account balances...', success: 'Account balances updated.', error: false }
+      )
         .then(() => ST_API.statementAccounts())
         .then(acctList => { setAccounts(acctList); return reload(acctList); })
-        .catch(err => setLoadError(err.message));
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show('Could not update account balances: ' + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     return (

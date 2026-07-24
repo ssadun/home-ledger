@@ -116,6 +116,52 @@
     React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     function yearStep(d) { setYear(y => y + d); }
 
+    const headTopRef = React.useRef(null);
+    const headLeftRef = React.useRef(null);
+    const headActionsRef = React.useRef(null);
+    const addBtnRef = React.useRef(null);
+    const [addInMore, setAddInMore] = React.useState(false);
+    React.useLayoutEffect(() => {
+      let raf = 0;
+      const measure = () => {
+        if (!window.matchMedia('(max-width: 660px)').matches) {
+          setAddInMore(false);
+          return;
+        }
+        const head = headTopRef.current;
+        const left = headLeftRef.current;
+        const actions = headActionsRef.current;
+        const add = addBtnRef.current;
+        if (!head || !left || !actions || !add) return;
+
+        const headWidth = Math.floor(head.getBoundingClientRect().width);
+        const leftWidth = Math.ceil(left.scrollWidth || left.getBoundingClientRect().width);
+        const actionsWidth = Math.ceil(actions.getBoundingClientRect().width);
+        const addWidth = Math.ceil(add.getBoundingClientRect().width);
+        const actionGap = parseFloat(getComputedStyle(actions).columnGap || getComputedStyle(actions).gap) || 0;
+        const headGap = parseFloat(getComputedStyle(head).columnGap || getComputedStyle(head).gap) || 10;
+        const baseActionsWidth = addInMore ? actionsWidth : Math.max(0, actionsWidth - addWidth - actionGap);
+        const needed = leftWidth + headGap + baseActionsWidth + (baseActionsWidth ? actionGap : 0) + addWidth;
+        setAddInMore(needed > headWidth);
+      };
+      const schedule = () => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(measure);
+      };
+      schedule();
+      window.addEventListener('resize', schedule);
+      let ro = null;
+      if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(schedule);
+        [headTopRef.current, headLeftRef.current, headActionsRef.current, addBtnRef.current].filter(Boolean).forEach(el => ro.observe(el));
+      }
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener('resize', schedule);
+        if (ro) ro.disconnect();
+      };
+    }, [addInMore]);
+
     // Rows after filtering; records without a statement year always pass the year check.
     const visible = React.useMemo(() => records.filter(r => {
       if (r.year != null && r.year !== year) return false;
@@ -184,30 +230,54 @@
     }
 
     function handleSave(rec) {
-      const op = rec.id ? CP_API.update(rec.id, rec) : CP_API.create(rec);
+      const editing = !!rec.id;
+      const op = window.HL_OP_NOTIFY.promise(
+        editing ? CP_API.update(rec.id, rec) : CP_API.create(rec),
+        {
+          pending: editing ? 'Updating credit payment...' : 'Saving credit payment...',
+          success: editing ? 'Credit payment updated.' : 'Credit payment saved.',
+          error: false,
+        }
+      );
       op.then(() => reload())
         .then(() => { setFormModal(null); setDetail(null); })
-        .catch(err => setLoadError(err.message));
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show((editing ? 'Could not update credit payment: ' : 'Could not save credit payment: ') + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     function handleDelete() {
       const target = del;
-      CP_API.remove(target.id)
+      window.HL_OP_NOTIFY.promise(
+        CP_API.remove(target.id),
+        { pending: 'Deleting credit payment...', success: 'Credit payment deleted.', error: false }
+      )
         .then(() => { setDel(null); setDetail(null); return reload(); })
-        .catch(err => setLoadError(err.message));
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show('Could not delete credit payment: ' + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     // Mass delete — loops the per-row API (no bulk endpoint needed); keeps rows that
     // failed so the user sees exactly what remains, and never silently drops errors.
     function confirmBatchDelete() {
       const ids = records.filter(r => selected.has(r.id)).map(r => r.id);
-      Promise.allSettled(ids.map(id => CP_API.remove(id)))
+      window.HL_OP_NOTIFY.promise(
+        Promise.allSettled(ids.map(id => CP_API.remove(id))),
+        { pending: 'Deleting selected credit payments...', success: 'Selected credit payments deleted.', error: false }
+      )
         .then(results => {
           const failed = results.filter(r => r.status === 'rejected').length;
           setSelected(new Set());
           setBatchDel(false);
           return reload().then(() => {
-            if (failed) setLoadError(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.');
+            if (failed) {
+              const msg = failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.';
+              setLoadError(msg);
+              window.HL_OP_NOTIFY.show(msg, { type: 'error', timeout: 4200 });
+            }
           });
         });
     }
@@ -232,15 +302,15 @@
         <Sidebar active="credit-payments" />
         <div className="main">
           <header className="page-head">
-            <div className="page-head-top">
-              <div className="page-title-wrap cfg-detail-title-wrap">
+            <div className="page-head-top" ref={headTopRef}>
+              <div className="page-title-wrap cfg-detail-title-wrap" ref={headLeftRef}>
                 <div className="cfg-title-col">
-                  <h1 className="page-title">Credit Payments</h1>
+                  <h1 className="page-title">Card Payments</h1>
                   <p className="page-subtitle">Credit-card statements & payments</p>
                 </div>
               </div>
-              <div className="head-actions cp-head-actions">
-                <button id="cp-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>
+              <div className="head-actions cp-head-actions" ref={headActionsRef}>
+                <button id="cp-add-btn" ref={addBtnRef} className={'action-modal-btn ok ha-overflow' + (addInMore ? ' cp-add-overflowed' : '')} onClick={() => setFormModal({ mode: 'add', record: {} })} aria-hidden={addInMore} tabIndex={addInMore ? -1 : undefined}><Icon name="plus" size={14} />Add Statement</button>
               </div>
             </div>
             <CreditPaymentFilterBar
@@ -248,7 +318,7 @@
               cardFilter={cardFilter} setCardFilter={setCardFilter}
               search={search} setSearch={setSearch}
               cards={cards}
-              popActions={<button id="cp-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Credit Payment</button>} />
+              popActions={addInMore ? <button id="cp-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button> : null} />
           </header>
 
           <div className="cp-body">

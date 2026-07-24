@@ -126,6 +126,12 @@
 /* ── Mobile: stack the table into cards ──────────────────────────────────── */
 @media (max-width: 660px) {
   .cp-body { padding: 14px 12px 32px; }
+  .cp-head-actions .ha-overflow { display: inline-flex; }
+  .cp-head-actions .ha-overflow.cp-add-overflowed {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+  }
   .cp-table-wrap { border: none; background: none; }
   .cp-table thead { display: none; }
   .cp-table, .cp-table tbody { display: block; width: 100%; }

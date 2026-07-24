@@ -116,14 +116,18 @@
       setSavingInfo(true);
       setInfoErr('');
       try {
-        adopt(await API.update({
-          full_name: form.full_name.trim(),
-          username: form.username.trim(),
-          email: form.email.trim(),
-        }));
+        adopt(await window.HL_OP_NOTIFY.promise(
+          API.update({
+            full_name: form.full_name.trim(),
+            username: form.username.trim(),
+            email: form.email.trim(),
+          }),
+          { pending: 'Saving profile...', success: 'Profile saved.', error: false }
+        ));
         flash('Profile saved.');
       } catch (err) {
         setInfoErr(err.message);
+        window.HL_OP_NOTIFY.show('Could not save profile: ' + err.message, { type: 'error', timeout: 4200 });
       }
       setSavingInfo(false);
     };
@@ -136,11 +140,15 @@
       if (pw.next !== pw.confirm) { setPwErr('The two new passwords do not match.'); return; }
       setSavingPw(true);
       try {
-        await API.changePassword(pw.current, pw.next);
+        await window.HL_OP_NOTIFY.promise(
+          API.changePassword(pw.current, pw.next),
+          { pending: 'Updating password...', success: 'Password changed.', error: false }
+        );
         setPw({ current: '', next: '', confirm: '' });
         flash('Password changed.');
       } catch (err) {
         setPwErr(err.message);
+        window.HL_OP_NOTIFY.show('Could not update password: ' + err.message, { type: 'error', timeout: 4200 });
       }
       setSavingPw(false);
     };
@@ -153,10 +161,14 @@
       setAvatarBusy(true);
       setAvatarErr('');
       try {
-        adopt(await API.uploadAvatar(file));
+        adopt(await window.HL_OP_NOTIFY.promise(
+          API.uploadAvatar(file),
+          { pending: 'Uploading picture...', success: 'Picture updated.', error: false }
+        ));
         flash('Picture updated.');
       } catch (err) {
         setAvatarErr(err.message);
+        window.HL_OP_NOTIFY.show('Could not update picture: ' + err.message, { type: 'error', timeout: 4200 });
       }
       setAvatarBusy(false);
     };
@@ -165,10 +177,14 @@
       setAvatarBusy(true);
       setAvatarErr('');
       try {
-        adopt(await API.deleteAvatar());
+        adopt(await window.HL_OP_NOTIFY.promise(
+          API.deleteAvatar(),
+          { pending: 'Removing picture...', success: 'Picture removed.', error: false }
+        ));
         flash('Picture removed.');
       } catch (err) {
         setAvatarErr(err.message);
+        window.HL_OP_NOTIFY.show('Could not remove picture: ' + err.message, { type: 'error', timeout: 4200 });
       }
       setAvatarBusy(false);
     };
@@ -177,11 +193,15 @@
       const prev = profile;
       setProfile((p) => ({ ...p, language: v }));   // optimistic
       try {
-        adopt(await API.update({ language: v }));
+        adopt(await window.HL_OP_NOTIFY.promise(
+          API.update({ language: v }),
+          { pending: 'Saving language preference...', success: 'Language preference saved.', error: false }
+        ));
         flash('Language preference saved.');
       } catch (err) {
         setProfile(prev);                            // roll back on failure
         setInfoErr(err.message);
+        window.HL_OP_NOTIFY.show('Could not save language preference: ' + err.message, { type: 'error', timeout: 4200 });
       }
     };
 

@@ -91,22 +91,32 @@
     }
 
     async function saveTx(tx) {
+      const editing = !!tx.id;
       try {
-        if (!tx.id) await window.HL_SPENDING_API.create(tx);
-        else        await window.HL_SPENDING_API.update(tx.id, tx);
+        await window.HL_OP_NOTIFY.promise(
+          editing ? window.HL_SPENDING_API.update(tx.id, tx) : window.HL_SPENDING_API.create(tx),
+          {
+            pending: editing ? 'Updating transaction...' : 'Saving transaction...',
+            success: editing ? 'Transaction updated.' : 'Transaction saved.',
+            error: false,
+          }
+        );
         await refreshTx();
         setModal(null);
       } catch (e) {
-        alert('Could not save transaction: ' + ((e && e.message) || e));
+        window.HL_OP_NOTIFY.show((editing ? 'Could not update transaction: ' : 'Could not save transaction: ') + ((e && e.message) || e), { type: 'error', timeout: 4200 });
       }
     }
     async function confirmDelete() {
       try {
-        await window.HL_SPENDING_API.remove(del.id);
+        await window.HL_OP_NOTIFY.promise(
+          window.HL_SPENDING_API.remove(del.id),
+          { pending: 'Deleting transaction...', success: 'Transaction deleted.', error: false }
+        );
         await refreshTx();
         setDel(null);
       } catch (e) {
-        alert('Could not delete transaction: ' + ((e && e.message) || e));
+        window.HL_OP_NOTIFY.show('Could not delete transaction: ' + ((e && e.message) || e), { type: 'error', timeout: 4200 });
       }
     }
 

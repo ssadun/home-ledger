@@ -149,8 +149,16 @@
     React.useEffect(() => { reload(); }, [reload]);
 
     async function save(h) {
+      const editing = !!h.id;
       try {
-        const saved = h.id ? await window.HL_INVESTMENTS_API.update(h.id, h) : await window.HL_INVESTMENTS_API.create(h);
+        const saved = await window.HL_OP_NOTIFY.promise(
+          editing ? window.HL_INVESTMENTS_API.update(h.id, h) : window.HL_INVESTMENTS_API.create(h),
+          {
+            pending: editing ? 'Updating holding...' : 'Saving holding...',
+            success: editing ? 'Holding updated.' : 'Holding saved.',
+            error: false,
+          }
+        );
         setHoldings(prev => {
           const arr = prev || [];
           return h.id ? arr.map(x => x.id === saved.id ? saved : x) : [saved, ...arr];
@@ -158,15 +166,23 @@
         setFlashId(saved.id);
         setModal(null);
         setTimeout(() => setFlashId(null), 1500);
-      } catch (e) { setError(e.message || 'Could not save holding.'); }
+      } catch (e) {
+        const msg = e.message || 'Could not save holding.';
+        setError(msg);
+        window.HL_OP_NOTIFY.show((editing ? 'Could not update holding: ' : 'Could not save holding: ') + msg, { type: 'error', timeout: 4200 });
+      }
     }
     async function confirmDelete() {
       const id = del.id;
       try {
-        await window.HL_INVESTMENTS_API.remove(id);
+        await window.HL_OP_NOTIFY.promise(window.HL_INVESTMENTS_API.remove(id), { pending: 'Deleting holding...', success: 'Holding deleted.', error: false });
         setHoldings(prev => (prev || []).filter(x => x.id !== id));
         setDel(null);
-      } catch (e) { setError(e.message || 'Could not delete holding.'); }
+      } catch (e) {
+        const msg = e.message || 'Could not delete holding.';
+        setError(msg);
+        window.HL_OP_NOTIFY.show('Could not delete holding: ' + msg, { type: 'error', timeout: 4200 });
+      }
     }
 
     // Holding add/edit/delete dialogs are portaled to <body> so they overlay the

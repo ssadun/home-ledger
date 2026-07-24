@@ -10,6 +10,17 @@ body{background:var(--bg2);color:var(--text);font-family:var(--font-sans);font-s
 ::-webkit-scrollbar-thumb:hover{background:var(--separator)}
 button{font-family:var(--font-sans)}
 
+/* ── Cross-page operation feedback ─────────────────────────────────────── */
+.hl-op-toast{position:fixed;right:18px;bottom:18px;z-index:320;display:flex;align-items:center;gap:9px;max-width:min(360px,calc(100vw - 32px));min-height:40px;padding:10px 13px;border-radius:8px;border:1px solid var(--border2);background:var(--bg);color:var(--text);box-shadow:var(--shadow-lg);font-size:13px;font-weight:650;line-height:1.25;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity .16s ease,transform .16s ease,border-color .16s ease}
+.hl-op-toast.show{opacity:1;transform:translateY(0)}
+.hl-op-toast svg{flex:none}
+.hl-op-toast.pending{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));color:var(--accent)}
+.hl-op-toast.pending svg{animation:hl-op-spin .8s linear infinite}
+.hl-op-toast.success{border-color:color-mix(in srgb,var(--green) 45%,var(--border));color:var(--green)}
+.hl-op-toast.error{border-color:color-mix(in srgb,var(--red) 50%,var(--border));color:var(--red)}
+@keyframes hl-op-spin{to{transform:rotate(360deg)}}
+@media (max-width:660px){.hl-op-toast{left:12px;right:12px;bottom:72px;max-width:none;justify-content:center;text-align:center}}
+
 /* ── App shell ── */
 .app{height:100vh}
 

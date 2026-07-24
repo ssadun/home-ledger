@@ -241,9 +241,15 @@
 
     function handleSave(acc) {
       setSaveError(null);
-      const op = acc._dbId
-        ? window.HL_ACCOUNTS_API.update(acc._dbId, acc)
-        : window.HL_ACCOUNTS_API.create(acc);
+      const editing = !!acc._dbId;
+      const op = window.HL_OP_NOTIFY.promise(
+        editing ? window.HL_ACCOUNTS_API.update(acc._dbId, acc) : window.HL_ACCOUNTS_API.create(acc),
+        {
+          pending: editing ? 'Updating account...' : 'Saving account...',
+          success: editing ? 'Account updated.' : 'Account saved.',
+          error: false,
+        }
+      );
       op.then(saved => {
         setAccounts(prev => acc._dbId
           ? prev.map(a => a._dbId === saved._dbId ? saved : a)
@@ -251,22 +257,31 @@
         flash(saved.id);
         setFormModal(null);
         setDetail(null);
-      })
+        })
         // Keep the form open and show why — a rejected save (most often the
         // per-type unique IBAN / card number) used to land in `loadError`, which
         // nothing renders, so Save simply appeared to do nothing.
-        .catch(err => setSaveError(err.message));
+        .catch(err => {
+          setSaveError(err.message);
+          window.HL_OP_NOTIFY.show((editing ? 'Could not update account: ' : 'Could not save account: ') + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     function handleDelete() {
       const target = del;
-      window.HL_ACCOUNTS_API.remove(target._dbId)
+      window.HL_OP_NOTIFY.promise(
+        window.HL_ACCOUNTS_API.remove(target._dbId),
+        { pending: 'Deleting account...', success: 'Account deleted.', error: false }
+      )
         .then(() => {
           setAccounts(prev => prev.filter(a => a._dbId !== target._dbId));
           setDel(null);
           setDetail(null);
         })
-        .catch(err => setLoadError(err.message));
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show('Could not delete account: ' + err.message, { type: 'error', timeout: 4200 });
+        });
     }
 
     function openEdit(account) {

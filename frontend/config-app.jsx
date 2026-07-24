@@ -508,7 +508,7 @@
     },
     {
       id: 'statement-mappings', label: 'Statement Value Mapping', icon: 'file-symlink', color: 'var(--sky)', addLabel: 'Add Mapping',
-      desc: 'Map bank-statement tags (Etiket) to categories on import',
+      desc: 'Map bank-statement tags to categories',
       columns: [
         { key: 'lang',   label: 'Lang', render: v => <span className={'cfg-badge'}>{String(v || 'tr').toUpperCase()}</span> },
         { key: 'etiket', label: 'Statement Tag' },
@@ -1180,14 +1180,38 @@
     const section = view ? SECTIONS.find(s => s.id === view) : null;
     const items = view ? (sectionData[view] || []) : [];
 
+    function sectionLabel(fallback) {
+      return (section && section.label) || fallback || 'item';
+    }
+
+    function notifySave(op, exists, label) {
+      return window.HL_OP_NOTIFY.promise(op, {
+        pending: (exists ? 'Updating ' : 'Saving ') + label + '...',
+        success: label + (exists ? ' updated.' : ' saved.'),
+        error: false,
+      });
+    }
+
+    function notifyDelete(op, label, batch) {
+      return window.HL_OP_NOTIFY.promise(op, {
+        pending: batch ? 'Deleting selected ' + label + '...' : 'Deleting ' + label + '...',
+        success: batch ? 'Selected ' + label + ' deleted.' : label + ' deleted.',
+        error: false,
+      });
+    }
+
     async function saveItem(item) {
       // Categories persist to the DB; detect create vs update by existing id.
       if (view === 'categories' && window.HL_CATEGORIES_API) {
+        const exists = (sectionData.categories || []).some(x => x.id === item.id);
         try {
-          const exists = (sectionData.categories || []).some(x => x.id === item.id);
-          const saved = exists
-            ? await window.HL_CATEGORIES_API.update(item.id, item)
-            : await window.HL_CATEGORIES_API.create(item);
+          const saved = await notifySave(
+            exists
+            ? window.HL_CATEGORIES_API.update(item.id, item)
+            : window.HL_CATEGORIES_API.create(item),
+            exists,
+            'category'
+          );
           setSectionData(prev => {
             const list = prev.categories || [];
             const idx = list.findIndex(x => x.id === saved.id);
@@ -1196,17 +1220,21 @@
           });
           setModal(null);
         } catch (err) {
-          alert('Could not save category: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show((exists ? 'Could not update category: ' : 'Could not save category: ') + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       // Members persist to the Users table; detect create vs update by existing id.
       if (view === 'members' && window.HL_MEMBERS_API) {
+        const exists = (sectionData.members || []).some(x => x.id === item.id);
         try {
-          const exists = (sectionData.members || []).some(x => x.id === item.id);
-          const saved = exists
-            ? await window.HL_MEMBERS_API.update(item.id, item)
-            : await window.HL_MEMBERS_API.create(item);
+          const saved = await notifySave(
+            exists
+            ? window.HL_MEMBERS_API.update(item.id, item)
+            : window.HL_MEMBERS_API.create(item),
+            exists,
+            'member'
+          );
           setSectionData(prev => {
             const list = prev.members || [];
             const idx = list.findIndex(x => x.id === saved.id);
@@ -1215,17 +1243,21 @@
           });
           setModal(null);
         } catch (err) {
-          alert('Could not save member: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show((exists ? 'Could not update member: ' : 'Could not save member: ') + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       // Currencies persist to the currency_rates table; detect create vs update by existing id.
       if (view === 'currencies' && window.HL_CURRENCIES_API) {
+        const exists = (sectionData.currencies || []).some(x => x.id === item.id);
         try {
-          const exists = (sectionData.currencies || []).some(x => x.id === item.id);
-          const saved = exists
-            ? await window.HL_CURRENCIES_API.update(item.id, item)
-            : await window.HL_CURRENCIES_API.create(item);
+          const saved = await notifySave(
+            exists
+            ? window.HL_CURRENCIES_API.update(item.id, item)
+            : window.HL_CURRENCIES_API.create(item),
+            exists,
+            'currency'
+          );
           setSectionData(prev => {
             const list = prev.currencies || [];
             const idx = list.findIndex(x => x.id === saved.id);
@@ -1234,17 +1266,21 @@
           });
           setModal(null);
         } catch (err) {
-          alert('Could not save currency: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show((exists ? 'Could not update currency: ' : 'Could not save currency: ') + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       // Statement value mappings persist to the statement_mappings table.
       if (view === 'statement-mappings' && window.HL_STATEMENT_MAPPINGS_API) {
+        const exists = (sectionData['statement-mappings'] || []).some(x => x.id === item.id);
         try {
-          const exists = (sectionData['statement-mappings'] || []).some(x => x.id === item.id);
-          const saved = exists
-            ? await window.HL_STATEMENT_MAPPINGS_API.update(item.id, item)
-            : await window.HL_STATEMENT_MAPPINGS_API.create(item);
+          const saved = await notifySave(
+            exists
+            ? window.HL_STATEMENT_MAPPINGS_API.update(item.id, item)
+            : window.HL_STATEMENT_MAPPINGS_API.create(item),
+            exists,
+            'mapping'
+          );
           setSectionData(prev => {
             const list = prev['statement-mappings'] || [];
             const idx = list.findIndex(x => x.id === saved.id);
@@ -1253,18 +1289,22 @@
           });
           setModal(null);
         } catch (err) {
-          alert('Could not save mapping: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show((exists ? 'Could not update mapping: ' : 'Could not save mapping: ') + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       // Financial institutions persist to the financial_institutions table.
       if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
+        const exists = (sectionData['financial-institutions'] || []).some(x => x.id === item.id);
         try {
-          const exists = (sectionData['financial-institutions'] || []).some(x => x.id === item.id);
           const before = (sectionData['financial-institutions'] || []).find(x => x.id === item.id);
-          const saved = exists
-            ? await window.HL_INSTITUTIONS_API.update(item.id, item)
-            : await window.HL_INSTITUTIONS_API.create(item);
+          const saved = await notifySave(
+            exists
+            ? window.HL_INSTITUTIONS_API.update(item.id, item)
+            : window.HL_INSTITUTIONS_API.create(item),
+            exists,
+            'institution'
+          );
           setSectionData(prev => {
             const list = prev['financial-institutions'] || [];
             const idx = list.findIndex(x => x.id === saved.id);
@@ -1279,10 +1319,11 @@
           }
           setModal(null);
         } catch (err) {
-          alert('Could not save institution: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show((exists ? 'Could not update institution: ' : 'Could not save institution: ') + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
+      window.HL_OP_NOTIFY.show('Saving ' + sectionLabel('item') + '...', { type: 'pending' });
       setSectionData(prev => {
         const list = prev[view];
         const idx = list.findIndex(x => x.id === item.id);
@@ -1291,66 +1332,68 @@
         return { ...prev, [view]: next };
       });
       setModal(null);
+      window.HL_OP_NOTIFY.show(sectionLabel('Item') + ' saved.', { type: 'success' });
     }
 
     async function deleteItem(item) {
       if (view === 'categories' && window.HL_CATEGORIES_API) {
         try {
-          await window.HL_CATEGORIES_API.remove(item.id);
+          await notifyDelete(window.HL_CATEGORIES_API.remove(item.id), 'category');
           setSectionData(prev => ({ ...prev, categories: prev.categories.filter(x => x.id !== item.id) }));
           setModal(null);
           setConfirmDel(null);
         } catch (err) {
-          alert('Could not delete category: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show('Could not delete category: ' + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       if (view === 'members' && window.HL_MEMBERS_API) {
         try {
-          await window.HL_MEMBERS_API.remove(item.id);
+          await notifyDelete(window.HL_MEMBERS_API.remove(item.id), 'member');
           setSectionData(prev => ({ ...prev, members: prev.members.filter(x => x.id !== item.id) }));
           setModal(null);
           setConfirmDel(null);
         } catch (err) {
-          alert('Could not delete member: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show('Could not delete member: ' + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       if (view === 'currencies' && window.HL_CURRENCIES_API) {
         try {
-          await window.HL_CURRENCIES_API.remove(item.id);
+          await notifyDelete(window.HL_CURRENCIES_API.remove(item.id), 'currency');
           setSectionData(prev => ({ ...prev, currencies: prev.currencies.filter(x => x.id !== item.id) }));
           setModal(null);
           setConfirmDel(null);
         } catch (err) {
-          alert('Could not delete currency: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show('Could not delete currency: ' + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       if (view === 'statement-mappings' && window.HL_STATEMENT_MAPPINGS_API) {
         try {
-          await window.HL_STATEMENT_MAPPINGS_API.remove(item.id);
+          await notifyDelete(window.HL_STATEMENT_MAPPINGS_API.remove(item.id), 'mapping');
           setSectionData(prev => ({ ...prev, 'statement-mappings': prev['statement-mappings'].filter(x => x.id !== item.id) }));
           setModal(null);
           setConfirmDel(null);
         } catch (err) {
-          alert('Could not delete mapping: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show('Could not delete mapping: ' + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
       if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
         try {
-          await window.HL_INSTITUTIONS_API.remove(item.id);
+          await notifyDelete(window.HL_INSTITUTIONS_API.remove(item.id), 'institution');
           setSectionData(prev => ({ ...prev, 'financial-institutions': prev['financial-institutions'].filter(x => x.id !== item.id) }));
           const map = window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.FINANCIAL_INSTITUTIONS;
           if (map && item.key) delete map[item.key];
           setModal(null);
           setConfirmDel(null);
         } catch (err) {
-          alert('Could not delete institution: ' + (err.message || err));
+          window.HL_OP_NOTIFY.show('Could not delete institution: ' + (err.message || err), { type: 'error', timeout: 4200 });
         }
         return;
       }
+      window.HL_OP_NOTIFY.show('Deleting ' + sectionLabel('item') + '...', { type: 'pending' });
       setSectionData(prev => {
         const next = prev[view].filter(x => x.id !== item.id);
         persistClientSection(view, next);
@@ -1358,6 +1401,7 @@
       });
       setModal(null);
       setConfirmDel(null);
+      window.HL_OP_NOTIFY.show(sectionLabel('Item') + ' deleted.', { type: 'success' });
     }
 
     // Mass delete — loops the per-row API (backend-backed sections) or updates the
@@ -1371,18 +1415,24 @@
         : view === 'statement-mappings' ? window.HL_STATEMENT_MAPPINGS_API
         : view === 'financial-institutions' ? window.HL_INSTITUTIONS_API : null;
       if (api) {
-        const results = await Promise.allSettled(ids.map(id => api.remove(id)));
+        const results = await notifyDelete(
+          Promise.allSettled(ids.map(id => api.remove(id))),
+          sectionLabel('items').toLowerCase(),
+          true
+        );
         const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));
         setSectionData(prev => ({ ...prev, [view]: prev[view].filter(x => !okIds.has(x.id)) }));
         const failed = ids.length - okIds.size;
-        if (failed) alert(failed + (failed === 1 ? ' item' : ' items') + ' could not be deleted.');
+        if (failed) window.HL_OP_NOTIFY.show(failed + (failed === 1 ? ' item' : ' items') + ' could not be deleted.', { type: 'error', timeout: 4200 });
       } else {
         const idSet = new Set(ids);
+        window.HL_OP_NOTIFY.show('Deleting selected ' + sectionLabel('items').toLowerCase() + '...', { type: 'pending' });
         setSectionData(prev => {
           const next = prev[view].filter(x => !idSet.has(x.id));
           persistClientSection(view, next);
           return { ...prev, [view]: next };
         });
+        window.HL_OP_NOTIFY.show('Selected ' + sectionLabel('items').toLowerCase() + ' deleted.', { type: 'success' });
       }
     }
 
@@ -1411,9 +1461,12 @@
                 });
                 if (window.HL_CURRENCIES_API && changed.length) {
                   try {
-                    await Promise.all(changed.map(c => window.HL_CURRENCIES_API.update(c.id, c)));
+                    await window.HL_OP_NOTIFY.promise(
+                      Promise.all(changed.map(c => window.HL_CURRENCIES_API.update(c.id, c))),
+                      { pending: 'Applying TCMB rates...', success: 'TCMB rates applied.', error: false }
+                    );
                   } catch (err) {
-                    alert('Could not apply TCMB rates: ' + (err.message || err));
+                    window.HL_OP_NOTIFY.show('Could not apply TCMB rates: ' + (err.message || err), { type: 'error', timeout: 4200 });
                     return;
                   }
                 }
@@ -1429,12 +1482,15 @@
               onSave={async (updated) => {
                 if (window.HL_CURRENCIES_API) {
                   try {
-                    const saved = await window.HL_CURRENCIES_API.update(updated.id, updated);
+                    const saved = await window.HL_OP_NOTIFY.promise(
+                      window.HL_CURRENCIES_API.update(updated.id, updated),
+                      { pending: 'Saving rate history...', success: 'Rate history saved.', error: false }
+                    );
                     setSectionData(prev => ({ ...prev, currencies: prev.currencies.map(c => c.id === saved.id ? saved : c) }));
                     setHistCurrency(saved);
                     return;
                   } catch (err) {
-                    alert('Could not save rate history: ' + (err.message || err));
+                    window.HL_OP_NOTIFY.show('Could not save rate history: ' + (err.message || err), { type: 'error', timeout: 4200 });
                     return;
                   }
                 }

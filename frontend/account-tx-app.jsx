@@ -536,12 +536,17 @@
     async function confirmBatchDelete() {
       const targets = rows.filter(r => selected.has(r.id) && r._dbId != null);
       try {
-        await Promise.all(targets.map(r => window.HL_ACCT_TX_API.remove(r._dbId)));
+        await window.HL_OP_NOTIFY.promise(
+          Promise.all(targets.map(r => window.HL_ACCT_TX_API.remove(r._dbId))),
+          { pending: 'Deleting selected account activity...', success: 'Selected account activity deleted.', error: false }
+        );
         setSelected(new Set());
         setBatchDel(false);
         await reload();
       } catch (e) {
-        setLoadErr(e.message || 'Failed to delete selected records');
+        const msg = e.message || 'Failed to delete selected records';
+        setLoadErr(msg);
+        window.HL_OP_NOTIFY.show(msg, { type: 'error', timeout: 4200 });
       }
     }
 

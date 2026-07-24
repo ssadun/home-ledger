@@ -282,13 +282,20 @@
     }
 
     async function saveTx(tx) {
+      const editing = !!tx.id;
       try {
         if (tx.id) {
-          const saved = await window.HL_SPENDING_API.update(tx.id, tx);
+          const saved = await window.HL_OP_NOTIFY.promise(
+            window.HL_SPENDING_API.update(tx.id, tx),
+            { pending: 'Updating transaction...', success: 'Transaction updated.', error: false }
+          );
           setRows(rs => rs.map(r => r.id === saved.id ? saved : r));
           setFlashId(saved.id);
         } else {
-          const saved = await window.HL_SPENDING_API.create(tx);
+          const saved = await window.HL_OP_NOTIFY.promise(
+            window.HL_SPENDING_API.create(tx),
+            { pending: 'Saving transaction...', success: 'Transaction saved.', error: false }
+          );
           setRows(rs => [saved, ...rs]);
           setFlashId(saved.id);
           // jump view to the new tx's month
@@ -297,30 +304,36 @@
         setModal(null);
         setTimeout(() => setFlashId(null), 1500);
       } catch (err) {
-        alert('Could not save transaction: ' + (err.message || err));
+        window.HL_OP_NOTIFY.show((editing ? 'Could not update transaction: ' : 'Could not save transaction: ') + (err.message || err), { type: 'error', timeout: 4200 });
       }
     }
     async function confirmDelete() {
       const id = del.id;
       try {
-        await window.HL_SPENDING_API.remove(id);
+        await window.HL_OP_NOTIFY.promise(
+          window.HL_SPENDING_API.remove(id),
+          { pending: 'Deleting transaction...', success: 'Transaction deleted.', error: false }
+        );
         setRows(rs => rs.filter(r => r.id !== id));
         setDel(null);
       } catch (err) {
-        alert('Could not delete transaction: ' + (err.message || err));
+        window.HL_OP_NOTIFY.show('Could not delete transaction: ' + (err.message || err), { type: 'error', timeout: 4200 });
       }
     }
     // Mass delete — loops the per-row API (no bulk endpoint needed); keeps rows that
     // failed so the user sees exactly what remains, and never silently drops errors.
     async function confirmBatchDelete() {
       const ids = [...selected];
-      const results = await Promise.allSettled(ids.map(id => window.HL_SPENDING_API.remove(id)));
+      const results = await window.HL_OP_NOTIFY.promise(
+        Promise.allSettled(ids.map(id => window.HL_SPENDING_API.remove(id))),
+        { pending: 'Deleting selected transactions...', success: 'Selected transactions deleted.', error: false }
+      );
       const okIds = new Set(ids.filter((id, i) => results[i].status === 'fulfilled'));
       setRows(rs => rs.filter(r => !okIds.has(r.id)));
       setSelected(s => new Set([...s].filter(id => !okIds.has(id))));
       setBatchDel(false);
       const failed = ids.length - okIds.size;
-      if (failed) alert(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.');
+      if (failed) window.HL_OP_NOTIFY.show(failed + (failed === 1 ? ' record' : ' records') + ' could not be deleted.', { type: 'error', timeout: 4200 });
     }
 
     const cols = React.useMemo(() => COLS.filter(c => t.showConverted || !c.conv), [t.showConverted]);

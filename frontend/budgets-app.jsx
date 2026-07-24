@@ -219,21 +219,24 @@
 
     async function handleSave({ cat, limit, currency, start, end }) {
       try {
-        const entry = await window.HL_BUDGETS_API.save(cat, { limit, currency, start, end });
+        const entry = await window.HL_OP_NOTIFY.promise(
+          window.HL_BUDGETS_API.save(cat, { limit, currency, start, end }),
+          { pending: 'Saving budget...', success: 'Budget saved.', error: false }
+        );
         setBudgets(prev => ({ ...prev, [cat]: entry }));
         setModal(null);
         flash(cat);
       } catch (err) {
-        alert('Could not save budget: ' + (err.message || err));
+        window.HL_OP_NOTIFY.show('Could not save budget: ' + (err.message || err), { type: 'error', timeout: 4200 });
       }
     }
     async function handleRemove(cat) {
       try {
-        await window.HL_BUDGETS_API.remove(cat);
+        await window.HL_OP_NOTIFY.promise(window.HL_BUDGETS_API.remove(cat), { pending: 'Deleting budget...', success: 'Budget deleted.', error: false });
         setBudgets(prev => { const n = { ...prev }; delete n[cat]; return n; });
         setModal(null);
       } catch (err) {
-        alert('Could not delete budget: ' + (err.message || err));
+        window.HL_OP_NOTIFY.show('Could not delete budget: ' + (err.message || err), { type: 'error', timeout: 4200 });
       }
     }
 

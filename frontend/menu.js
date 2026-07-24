@@ -138,3 +138,74 @@ document.addEventListener('click', function (e) {
 window.toggleSidebar = toggleSidebar;
 window.closeSidebar = closeSidebar;
 window.updateSidebarToggleLabel = updateSidebarToggleLabel;
+
+// Small cross-page operation toast for create/update/delete work. It is plain DOM
+// so every page can use it before/without adding another React component.
+(function () {
+  var timer = null;
+  var host = null;
+
+  function ensureHost() {
+    if (host && document.body.contains(host)) return host;
+    host = document.createElement('div');
+    host.className = 'hl-op-toast';
+    host.setAttribute('role', 'status');
+    host.setAttribute('aria-live', 'polite');
+    document.body.appendChild(host);
+    return host;
+  }
+
+  function iconFor(type) {
+    var name = type === 'success' ? 'CheckCircle2' : type === 'error' ? 'AlertCircle' : 'LoaderCircle';
+    if (window.lucide && window.lucide[name]) {
+      var svg = window.lucide.createElement(window.lucide[name]);
+      svg.setAttribute('width', '16');
+      svg.setAttribute('height', '16');
+      return svg;
+    }
+    var span = document.createElement('span');
+    span.textContent = type === 'success' ? 'OK' : type === 'error' ? '!' : '...';
+    return span;
+  }
+
+  function show(message, opts) {
+    opts = opts || {};
+    var type = opts.type || 'pending';
+    var el = ensureHost();
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    el.className = 'hl-op-toast ' + type + ' show';
+    el.innerHTML = '';
+    el.appendChild(iconFor(type));
+    var text = document.createElement('span');
+    text.textContent = message;
+    el.appendChild(text);
+    var timeout = opts.timeout;
+    if (timeout === undefined) timeout = type === 'pending' ? 0 : 2400;
+    if (timeout) timer = setTimeout(function () { el.classList.remove('show'); }, timeout);
+    return function () { el.classList.remove('show'); };
+  }
+
+  function promise(op, messages) {
+    messages = messages || {};
+    if (messages.pending) show(messages.pending, { type: 'pending' });
+    return Promise.resolve(op)
+      .then(function (value) {
+        if (messages.success) show(messages.success, { type: 'success' });
+        return value;
+      })
+      .catch(function (err) {
+        if (messages.error !== false) {
+          var msg = typeof messages.error === 'function'
+            ? messages.error(err)
+            : (messages.error || ((err && err.message) || 'Operation failed'));
+          show(msg, { type: 'error', timeout: 4200 });
+        }
+        throw err;
+      });
+  }
+
+  window.HL_OP_NOTIFY = { show: show, promise: promise };
+})();
