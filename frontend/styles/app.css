@@ -121,16 +121,14 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .head-actions{display:flex;gap:8px;flex-shrink:0}
 
 /* ── Profile button (top right of every page) ──
-   Rendered once by nav.jsx into a portal host. On pages WITH a `.head-actions`
-   bar the host is mounted inside it (class `hl-inflow`) so the avatar flows in
-   next to the buttons and aligns with them via flexbox. On pages without one it
-   stays a body-level element pinned to the top-right — there the padding-right
-   below reserves the space it floats over. Sized 34px to match `.cfg-back`, the
+   Rendered once by nav.jsx into a portal host. The host is mounted inside the
+   page header (`.head-actions` when present, otherwise `.page-head-top`) so the
+   avatar is anchored to every page's header. The fixed rule is only the fallback
+   for a page without the shared header. Sized 34px to match `.cfg-back`, the
    app's standard square header control. */
 #topbar-profile-host{position:fixed;top:16px;right:16px;z-index:150}
-#topbar-profile-host.hl-inflow{position:static;top:auto;right:auto;z-index:auto;display:inline-flex;align-items:center}
+#topbar-profile-host.hl-inflow{position:static;top:auto;right:auto;z-index:auto;display:inline-flex;align-items:center;flex-shrink:0}
 .page-head-top{padding-right:50px}
-/* In-flow: the avatar takes real space in .head-actions, so drop the reserve. */
 .page-head-top:has(#topbar-profile-host.hl-inflow){padding-right:0}
 .topbar-profile{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--silver);border-radius:50%;background:var(--bg3);color:var(--slate);cursor:pointer;overflow:hidden;transition:all .15s;text-decoration:none}
 :root[data-theme="dark"] .topbar-profile{border-color:var(--muted)}
@@ -502,6 +500,7 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .sp-head-actions .ha-overflow,.sub-head-actions .ha-overflow,.rec-head-actions .ha-overflow,
   .acct-head-actions .ha-overflow,.bgt-head-actions .ha-overflow,.dash-head-actions .ha-overflow,
   .cp-head-actions .ha-overflow,.st-head-actions .ha-overflow{display:none}
+  .page-head-top:has(.st-head-actions):has(#topbar-profile-host.hl-inflow){flex-wrap:wrap}
   /* App logo (lucide "pyramid") in place of the removed page-header-icon — mobile only.
      Anchored on every page title so it stays consistent throughout the app. Painted via
      mask + background-color so it follows --accent in both themes. */
@@ -514,9 +513,7 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
     mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 16.88a1 1 0 0 1-.32-1.43l9-13.02a1 1 0 0 1 1.64 0l9 13.01a1 1 0 0 1-.32 1.44l-8.51 4.86a2 2 0 0 1-1.98 0Z'/%3E%3Cpath d='M12 2v20'/%3E%3C/svg%3E") center/contain no-repeat;
   }
   /* Title on row 1; the action bar wraps to its own full-width row 2, with the
-     in-flow avatar (its last child) riding along. No -50px reclaim: in-flow
-     pages drop the header's padding-right reserve entirely (see the :has rule
-     by #topbar-profile-host), so there is nothing to claw back. */
+     in-flow avatar riding along when it is mounted there. */
   .page-head-top{flex-wrap:wrap;gap:10px}
   .head-actions{flex:1 0 100%;margin-right:0}
 

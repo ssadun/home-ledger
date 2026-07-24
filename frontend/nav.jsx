@@ -140,11 +140,9 @@
   // the Profile page (profile-app.jsx) and the Login page's own toggle, so don't
   // reintroduce a third switch here.
 
-  // Mount point for the top-right profile button. Preferred parent is the page's
-  // action bar (`.head-actions`), so the avatar sits IN-FLOW next to the header
-  // buttons and aligns with them via flexbox (no guessed `top`). Pages that have
-  // no action bar (Dashboard, Account Activity, Notifications, Budgets, Backup,
-  // Profile) fall back to a body-level element kept fixed at the top-right.
+  // Mount point for the top-right profile button. Prefer the page header so the
+  // avatar is anchored to every page's own topbar; fall back to body only if a
+  // page renders the shared nav before its header exists.
   // Created on demand so no page has to add the element to its own HTML.
   function mountProfileHost() {
     let el = document.getElementById('topbar-profile-host');
@@ -152,14 +150,13 @@
       el = document.createElement('div');
       el.id = 'topbar-profile-host';
     }
-    const bar = document.querySelector('.head-actions');
-    if (bar) {
-      el.classList.add('hl-inflow');
-      if (el.parentNode !== bar) bar.appendChild(el);
-    } else {
-      el.classList.remove('hl-inflow');
-      if (el.parentNode !== document.body) document.body.appendChild(el);
-    }
+    const headerTop = document.querySelector('.page-head-top');
+    const bar = headerTop && headerTop.querySelector('.head-actions');
+    const header = headerTop || document.querySelector('.page-head');
+    const parent = bar || header || document.body;
+    const inflow = parent !== document.body;
+    el.classList.toggle('hl-inflow', inflow);
+    if (el.parentNode !== parent) parent.appendChild(el);
     return el;
   }
 
@@ -167,11 +164,10 @@
   // the sidebar's bottom section). Shows the user's picture when they have one,
   // falling back to a generic person icon.
   //
-  // Rendered through a PORTAL into a body-level host rather than by each page's
-  // header. Every page builds its own `.page-head`, so putting the button there
-  // would mean the same markup pasted into 20 `*-app.jsx` files; the portal keeps
-  // one implementation and lets `<Sidebar>` — which every page already renders —
-  // carry it along. `.page-head-top` reserves the space it floats over (app.css).
+  // Rendered through a PORTAL into a shared host under each page's header. Every
+  // page builds its own `.page-head`, so pasting the button into each `*-app.jsx`
+  // would duplicate the same markup; the portal keeps one implementation and
+  // lets `<Sidebar>` — which every page already renders — carry it along.
   //
   // Reads the CACHED session blob (HL_AUTH.getUser(), written at login and
   // refreshed by profile-data.js's syncSession) rather than calling /api/auth/me.
@@ -184,8 +180,7 @@
   // profile-data.js, which only Profile.html loads, and duplicating them into
   // nav.jsx would put the same logic in two places for a tiny glyph.
   function TopbarProfile({ active }) {
-    // Resolved AFTER commit: the page renders its `.head-actions` after
-    // <Sidebar>, so the bar isn't in the DOM yet during this component's render.
+    // Resolved after commit so the page header exists before rendering into it.
     const [host, setHost] = React.useState(null);
     const [user, setUser] = React.useState(
       () => (window.HL_AUTH && window.HL_AUTH.getUser()) || null
