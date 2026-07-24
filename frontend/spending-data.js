@@ -39,8 +39,19 @@
     };
   }
 
-  async function list() {
-    const res = await api()('/api/transactions/?limit=200', { method: 'GET' });
+  async function list(opts) {
+    opts = opts || {};
+    const params = new URLSearchParams();
+    const limit = opts.limit != null ? opts.limit : 200;
+    params.set('limit', String(limit));
+    if (opts.offset != null) params.set('offset', String(opts.offset));
+    if (opts.year != null) params.set('year', String(opts.year));
+    if (opts.month != null) params.set('month', String(opts.month));
+    if (opts.type) params.set('type', opts.type);
+    if (opts.categoryKey) params.set('category_key', opts.categoryKey);
+    if (opts.payer) params.set('payer', opts.payer);
+    if (opts.qDesc) params.set('q_desc', opts.qDesc);
+    const res = await api()('/api/transactions/?' + params.toString(), { method: 'GET' });
     if (!res.ok) throw new Error('Failed to load transactions (' + res.status + ')');
     const data = await res.json();
     return data.map(fromApi);

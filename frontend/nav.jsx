@@ -56,7 +56,7 @@
   const NAV = [
     { id: 'dashboard',     icon: 'layout-dashboard', label: 'Dashboard',     color: 'var(--white)',  href: 'Dashboard.html' },
     { id: 'transactions',  icon: 'arrow-left-right', label: 'Transactions',  color: 'var(--green)',       parent: 'tx' },
-    { id: 'accounts',      icon: 'wallet',           label: 'Accounts',      color: 'var(--lavender)',       parent: 'acct' },
+    { id: 'accounts',      icon: 'wallet',           label: 'Assets',        color: 'var(--lavender)',       parent: 'acct' },
     { id: 'budgets',       icon: 'target',           label: 'Budgets',       color: 'var(--yellow)', href: 'Budgets.html' },
     { id: 'configuration', icon: 'settings-2',       label: 'Configuration', color: 'var(--sky)',    parent: 'cfg' },
   ];

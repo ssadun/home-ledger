@@ -15,6 +15,8 @@
 //       categories-data.js, currencies-data.js) and AFTER data.js.
 //   2. gate the app mount:  HL_HYDRATE.all().finally(() => render());
 (function () {
+  const state = { errors: {}, loaded: {} };
+
   // ── In-place fillers (preserve the reference other modules captured) ──────
   function fillArray(arr, rows) {
     if (!Array.isArray(arr)) return;
@@ -25,6 +27,24 @@
     if (!obj || !next) return;
     Object.keys(obj).forEach(k => delete obj[k]);
     Object.keys(next).forEach(k => { obj[k] = next[k]; });
+  }
+
+  function markLoaded(name) {
+    state.loaded[name] = true;
+    delete state.errors[name];
+  }
+
+  function markError(name, err) {
+    state.errors[name] = (err && err.message) || String(err || 'Failed to load');
+  }
+
+  function clearReportData() {
+    if (window.LEDGER && Array.isArray(window.LEDGER.TX)) fillArray(window.LEDGER.TX, []);
+    if (window.BUDGETS_DATA && window.BUDGETS_DATA.BUDGETS) fillObject(window.BUDGETS_DATA.BUDGETS, {});
+    if (window.ACCOUNTS_DATA && Array.isArray(window.ACCOUNTS_DATA.ACCOUNTS)) fillArray(window.ACCOUNTS_DATA.ACCOUNTS, []);
+    if (window.INVESTMENTS_DATA && Array.isArray(window.INVESTMENTS_DATA.HOLDINGS)) fillArray(window.INVESTMENTS_DATA.HOLDINGS, []);
+    if (window.RECURRING_DATA && Array.isArray(window.RECURRING_DATA.RECURRING)) fillArray(window.RECURRING_DATA.RECURRING, []);
+    if (window.CREDIT_PAYMENTS_DATA && Array.isArray(window.CREDIT_PAYMENTS_DATA.RECORDS)) fillArray(window.CREDIT_PAYMENTS_DATA.RECORDS, []);
   }
 
   // ── Per-source hydrators (each a no-op when its client/placeholder is absent) ──
@@ -55,7 +75,16 @@
 
   async function hydrateTx() {
     if (!(window.HL_SPENDING_API && window.LEDGER && Array.isArray(window.LEDGER.TX))) return;
-    fillArray(window.LEDGER.TX, await window.HL_SPENDING_API.list());
+    const pageSize = 200;
+    let offset = 0;
+    const rows = [];
+    while (true) {
+      const page = await window.HL_SPENDING_API.list({ limit: pageSize, offset });
+      rows.push.apply(rows, page);
+      if (page.length < pageSize) break;
+      offset += pageSize;
+    }
+    fillArray(window.LEDGER.TX, rows);
   }
 
   async function hydrateBudgets() {
@@ -66,6 +95,11 @@
   async function hydrateAccounts() {
     if (!(window.HL_ACCOUNTS_API && window.ACCOUNTS_DATA)) return;
     fillArray(window.ACCOUNTS_DATA.ACCOUNTS, await window.HL_ACCOUNTS_API.list());
+  }
+
+  async function hydrateInvestments() {
+    if (!(window.HL_INVESTMENTS_API && window.INVESTMENTS_DATA && Array.isArray(window.INVESTMENTS_DATA.HOLDINGS))) return;
+    fillArray(window.INVESTMENTS_DATA.HOLDINGS, await window.HL_INVESTMENTS_API.list());
   }
 
   async function hydrateRecurring() {
@@ -94,17 +128,25 @@
   }
 
   // Run every available hydrator. CATS + FX go first because recurring rows
-  // derive their TRY/USD amounts from LEDGER.FX at map time. Individual failures
-  // are logged but never block the others or the mount — the page still renders
-  // with whatever loaded (plus the static fallbacks for anything that didn't).
+  // derive their TRY/USD amounts from LEDGER.FX at map time. Report-owned live
+  // data is cleared before any API call, so failed calls render as missing data
+  // instead of leaking the sample rows from data.js.
   async function all() {
-    const guard = (name, fn) => fn().catch(e =>
-      console.warn('[hydrate] ' + name + ' failed:', (e && e.message) || e));
+    clearReportData();
+    state.errors = {};
+    state.loaded = {};
+    const guard = (name, fn) => fn()
+      .then(() => markLoaded(name))
+      .catch(e => {
+        markError(name, e);
+        console.warn('[hydrate] ' + name + ' failed:', (e && e.message) || e);
+      });
     await Promise.all([guard('categories', hydrateCats), guard('currencies', hydrateFx), guard('payers', hydratePayers)]);
     await Promise.all([
       guard('transactions', hydrateTx),
       guard('budgets', hydrateBudgets),
       guard('accounts', hydrateAccounts),
+      guard('investments', hydrateInvestments),
       guard('recurring', hydrateRecurring),
     ]);
     // After accounts so credit-payment rows can resolve their card label.
@@ -112,7 +154,7 @@
   }
 
   window.HL_HYDRATE = {
-    all, hydrateCats, hydrateFx, hydratePayers, hydrateTx, hydrateBudgets, hydrateAccounts, hydrateRecurring,
-    hydrateCreditPayments,
+    all, hydrateCats, hydrateFx, hydratePayers, hydrateTx, hydrateBudgets, hydrateAccounts, hydrateInvestments, hydrateRecurring,
+    hydrateCreditPayments, clearReportData, state,
   };
 })();

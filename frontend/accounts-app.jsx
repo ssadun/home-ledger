@@ -24,7 +24,7 @@
   ];
 
   // ── Filter bar ──
-  function AccountsFilter({ owner, setOwner, typeFilter, setTypeFilter, search, setSearch, layout, setLayout, extra, popActions }) {
+  function AccountsFilter({ owner, setOwner, typeFilter, setTypeFilter, balanceFilter, setBalanceFilter, search, setSearch, layout, setLayout, extra, popActions }) {
     const [filtersOpen, setFiltersOpen] = React.useState(false);
     const filtersRef = React.useRef(null);
 
@@ -42,8 +42,10 @@
     const active = [
       owner !== 'all' && { key: 'owner', label: 'Owner', val: owner, clear: () => setOwner('all') },
       typeFilter !== 'all' && { key: 'type', label: 'Type', val: ACCOUNT_TYPES[typeFilter] ? ACCOUNT_TYPES[typeFilter].label : typeFilter, clear: () => setTypeFilter('all') },
+      balanceFilter === 'assets' && { key: 'balance', label: 'Balance', val: 'Assets', clear: () => setBalanceFilter('all') },
+      balanceFilter === 'liabilities' && { key: 'balance', label: 'Balance', val: 'Liabilities', clear: () => setBalanceFilter('all') },
     ].filter(Boolean);
-    const clearAll = () => { setOwner('all'); setTypeFilter('all'); };
+    const clearAll = () => { setOwner('all'); setTypeFilter('all'); setBalanceFilter('all'); };
 
     return (
       <div className="filter-wrap">
@@ -150,6 +152,10 @@
     );
   }
 
+  function accountTryValue(a) {
+    return a.balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
+  }
+
   const TYPE_ORDER = ['bank', 'overdraft', 'debit', 'credit', 'wallet', 'invest', 'pension', 'cash'];
 
   // Which account groups are collapsed, keyed by account type and persisted so the
@@ -174,12 +180,19 @@
   }
 
   function App() {
+    const URLP = React.useMemo(() => {
+      try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); }
+    }, []);
     const [layout, setLayout] = window.HL_NAV.usePersistentView('list');
     const [accounts, setAccounts] = React.useState(INITIAL_ACCOUNTS);
     const [loadError, setLoadError] = React.useState(null);
     const [saveError, setSaveError] = React.useState(null);   // rejected save, shown inside the form modal
     const [owner, setOwner] = React.useState('all');
     const [typeFilter, setTypeFilter] = React.useState('all');
+    const [balanceFilter, setBalanceFilter] = React.useState(() => {
+      const b = URLP.get('balance');
+      return b === 'assets' || b === 'liabilities' ? b : 'all';
+    });
     const [search, setSearch] = React.useState('');
     const [detail, setDetail] = React.useState(null);       // account obj
     const [formModal, setFormModal] = React.useState(null);  // {mode:'add'|'edit', account}
@@ -218,11 +231,13 @@
       return accounts.filter(a => {
         if (owner !== 'all' && a.owner !== owner) return false;
         if (typeFilter !== 'all' && a.type !== typeFilter) return false;
+        if (balanceFilter === 'assets' && accountTryValue(a) < 0) return false;
+        if (balanceFilter === 'liabilities' && accountTryValue(a) >= 0) return false;
         if (search.trim() && !a.name.toLowerCase().includes(search.trim().toLowerCase()) &&
             !a.institution.toLowerCase().includes(search.trim().toLowerCase())) return false;
         return true;
       });
-    }, [accounts, owner, typeFilter, search]);
+    }, [accounts, owner, typeFilter, balanceFilter, search]);
 
     const grouped = React.useMemo(() => {
       const map = {};
@@ -232,7 +247,7 @@
       });
       return TYPE_ORDER.filter(k => map[k]).map(k => {
         const accts = map[k];
-        const total = accts.reduce((s, a) => s + a.balance * (FX[a.cur] ? FX[a.cur].toTRY : 1), 0);
+        const total = accts.reduce((s, a) => s + accountTryValue(a), 0);
         return { type: k, accounts: accts, total };
       });
     }, [filtered]);
@@ -319,7 +334,8 @@
               </div>
             </div>
             <AccountsFilter owner={owner} setOwner={setOwner} typeFilter={typeFilter}
-              setTypeFilter={setTypeFilter} search={search} setSearch={setSearch}
+              setTypeFilter={setTypeFilter} balanceFilter={balanceFilter} setBalanceFilter={setBalanceFilter}
+              search={search} setSearch={setSearch}
               layout={layout} setLayout={setLayout}
               popActions={<button id="acct-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>}
               extra={<ExportData entity="accounts" entityLabel="Accounts"

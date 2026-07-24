@@ -6,6 +6,9 @@
   const { grp, MONTHS } = window.LEDGER_FMT;
   const { BUDGETS } = window.BUDGETS_DATA;
   const { ACCOUNTS, FX } = window.ACCOUNTS_DATA;
+  const INVESTMENTS = window.INVESTMENTS_DATA || { HOLDINGS: [], ASSET_TYPES: {} };
+  const HOLDINGS = INVESTMENTS.HOLDINGS || [];
+  const ASSET_TYPES = INVESTMENTS.ASSET_TYPES || {};
   const { buildYearData, categoryYTDForecast } = window.DASHBOARD;
   const {
     spendByCat, incomeByCat, monthlyTotals, spendByPayer,
@@ -48,13 +51,234 @@
 
   const TABS = [
     { key: 'calendar',   label: 'Calendar',           icon: 'calendar' },
+    { key: 'networth',   label: 'Net Worth Trend',    icon: 'line-chart' },
     { key: 'kpis',       label: 'KPIs',               icon: 'gauge' },
-    { key: 'annual',     label: 'Annual Summary',   icon: 'calendar-range' },
+    { key: 'investments',label: 'Investments',       icon: 'chart-no-axes-combined' },
+    { key: 'annual',     label: 'Spendig vs Budget',icon: 'calendar-range' },
     { key: 'overview',   label: 'Monthly Overview',  icon: 'layout-grid' },
     { key: 'categories', label: 'Categories',        icon: 'tag' },
     { key: 'budget',     label: 'Budget Analysis',   icon: 'target' },
     { key: 'trends',     label: 'Trends',            icon: 'trending-up' },
   ];
+
+  function invTryValue(h) {
+    return h && h.tryValue != null ? Number(h.tryValue) || 0 : 0;
+  }
+
+  function invMeta(type) {
+    return ASSET_TYPES[type] || { label: type || 'Other', icon: 'circle', color: 'var(--accent)' };
+  }
+
+  function groupInvestments(rows, keyOf, metaOf) {
+    const map = {};
+    rows.forEach(h => {
+      const key = keyOf(h) || 'Unassigned';
+      if (!map[key]) {
+        const meta = metaOf ? metaOf(h, key) : {};
+        map[key] = {
+          key,
+          label: meta.label || key,
+          value: 0,
+          color: meta.color,
+          icon: meta.icon,
+          count: 0,
+        };
+      }
+      map[key].value += invTryValue(h);
+      map[key].count += 1;
+    });
+    return Object.values(map).sort((a, b) => b.value - a.value);
+  }
+
+  function InvestmentHoldingsTable({ data, title, icon }) {
+    if (!data || data.length === 0) return null;
+    return (
+      <div className="dash-widget">
+        <div className="dash-widget-head">
+          <Icon name={icon || 'list'} size={15} />
+          <span className="dash-widget-title">{title}</span>
+        </div>
+        <div className="dash-inv-table">
+          {data.map((h, i) => {
+            const meta = invMeta(h.assetType);
+            return (
+              <div className="dash-inv-row" key={h.id || i}>
+                <span className="dash-inv-rank">{i + 1}</span>
+                <span className="dash-inv-ico" style={{ color: meta.color, background: 'color-mix(in srgb, ' + meta.color + ' 13%, transparent)', borderColor: 'color-mix(in srgb, ' + meta.color + ' 40%, transparent)' }}>
+                  <Icon name={meta.icon || 'circle'} size={12} />
+                </span>
+                <div className="dash-inv-main">
+                  <span className="dash-inv-name" title={h.name}>{h.name || 'Unnamed holding'}</span>
+                  <span className="dash-inv-sub">{h.platform || 'Unassigned'} · {meta.label} · {h.cur}</span>
+                </div>
+                <div className="dash-inv-metrics">
+                  <span className="dash-inv-amt">₺{grp(invTryValue(h), 0)}</span>
+                  <span className="dash-inv-native">{h.cur} {grp(h.costBasis != null ? h.costBasis : h.qty, 2)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  function netWorthLabel(value, digits) {
+    const v = Number(value) || 0;
+    return (v < 0 ? '−₺' : '₺') + grp(Math.abs(v), digits == null ? 0 : digits);
+  }
+
+  function buildNetWorthTrend(txList, endYear, endMonth, count, currentNetWorth) {
+    let y = endYear, m = endMonth - (count - 1);
+    while (m < 0) { m += 12; y--; }
+    const months = [];
+    for (let i = 0; i < count; i++) {
+      months.push({ year: y, month: m, key: y + '-' + String(m + 1).padStart(2, '0'), label: MONTHS[m] });
+      m++;
+      if (m > 11) { m = 0; y++; }
+    }
+    const flowByKey = {};
+    months.forEach(row => { flowByKey[row.key] = 0; });
+    txList.forEach(tx => {
+      const key = String(tx.date || '').slice(0, 7);
+      if (!(key in flowByKey)) return;
+      const amount = Number(tx.tryV) || 0;
+      if (tx.type === 'income') flowByKey[key] += amount;
+      else if (tx.type === 'expense') flowByKey[key] -= amount;
+    });
+    let worth = currentNetWorth;
+    for (let i = months.length - 1; i >= 0; i--) {
+      const flow = flowByKey[months[i].key] || 0;
+      months[i].netWorth = worth;
+      months[i].netFlow = flow;
+      worth -= flow;
+    }
+    return months;
+  }
+
+  function NetWorthTrendChart({ data, title, icon }) {
+    if (!data || data.length === 0) return null;
+    const values = data.map(d => Number(d.netWorth) || 0);
+    let minVal = Math.min(...values, 0);
+    let maxVal = Math.max(...values, 0);
+    if (minVal === maxVal) { minVal -= 1; maxVal += 1; }
+    const pad = (maxVal - minVal) * 0.12;
+    minVal -= pad;
+    maxVal += pad;
+    const w = 580, h = 220, px = 54, py = 24;
+    const innerW = w - px * 2, innerH = h - py * 2;
+    const xOf = i => px + (i / Math.max(data.length - 1, 1)) * innerW;
+    const yOf = v => py + innerH - ((v - minVal) / (maxVal - minVal)) * innerH;
+    const line = data.map((d, i) => (i === 0 ? 'M' : 'L') + xOf(i).toFixed(1) + ',' + yOf(d.netWorth).toFixed(1)).join(' ');
+    const zeroY = yOf(0);
+    const ySteps = [0, 0.25, 0.5, 0.75, 1].map(f => minVal + (maxVal - minVal) * f);
+
+    return (
+      <div className="dash-widget dash-widget-full">
+        <div className="dash-widget-head">
+          <Icon name={icon || 'line-chart'} size={15} />
+          <span className="dash-widget-title">{title}</span>
+          <div className="dash-widget-legend">
+            <span className="dash-wl-item"><span className="dash-wl-dot" style={{ background: 'var(--accent)' }} />Net Worth</span>
+            <span className="dash-wl-item"><span className="dash-wl-line dash-wl-line-orange" />Zero</span>
+          </div>
+        </div>
+        <div className="dash-cum-wrap">
+          <svg viewBox={'0 0 ' + w + ' ' + h} className="dash-cum-svg" preserveAspectRatio="none">
+            {ySteps.map((v, i) => {
+              const y = yOf(v);
+              return (
+                <React.Fragment key={i}>
+                  <line x1={px} y1={y} x2={w - px} y2={y} stroke="var(--border)" strokeWidth="1" />
+                  <text x={px - 6} y={y + 3} textAnchor="end" fontSize="9" fill="var(--muted)" fontFamily="var(--font-sans)">{netWorthLabel(v)}</text>
+                </React.Fragment>
+              );
+            })}
+            {zeroY >= py && zeroY <= py + innerH && (
+              <line x1={px} y1={zeroY} x2={w - px} y2={zeroY} stroke="var(--orange)" strokeWidth="1.4" strokeDasharray="6 4" opacity="0.55" />
+            )}
+            {data.map((d, i) => (
+              <text key={d.key} x={xOf(i)} y={h - 4} textAnchor="middle" fontSize="9" fill="var(--muted)" fontFamily="var(--font-sans)">{d.label}</text>
+            ))}
+            <path d={line} fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
+            {data.map((d, i) => (
+              <circle key={d.key} cx={xOf(i)} cy={yOf(d.netWorth)} r={i === data.length - 1 ? 4 : 3}
+                fill="var(--accent)" stroke="var(--bg3)" strokeWidth="2">
+                <title>{d.label + ' ' + d.year + ': ' + netWorthLabel(d.netWorth)}</title>
+              </circle>
+            ))}
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  function buildNetWorthAllocation(accounts, holdings) {
+    const buckets = {
+      cash: { key: 'cash', label: 'Cash', value: 0, color: 'var(--green)' },
+      stocks: { key: 'stocks', label: 'Stocks', value: 0, color: 'var(--accent)' },
+      crypto: { key: 'crypto', label: 'Crypto', value: 0, color: 'var(--orange)' },
+      realEstate: { key: 'realEstate', label: 'Real Estate', value: 0, color: 'var(--lavender)' },
+      other: { key: 'other', label: 'Other', value: 0, color: 'var(--slate)' },
+    };
+    const platformHoldings = {};
+
+    (holdings || []).forEach(h => {
+      const type = String(h.assetType || '').toLowerCase();
+      const value = invTryValue(h);
+      const platform = String(h.platform || '').trim().toLowerCase();
+      if (platform) platformHoldings[platform] = (platformHoldings[platform] || 0) + value;
+      if (type === 'stock' || type === 'fund') buckets.stocks.value += value;
+      else if (type === 'crypto') buckets.crypto.value += value;
+      else if (type === 'deposit' || type === 'usd' || type === 'cash') buckets.cash.value += value;
+      else if (type === 'real-estate' || type === 'real_estate' || type === 'realestate') buckets.realEstate.value += value;
+      else buckets.other.value += value;
+    });
+
+    (accounts || []).forEach(a => {
+      const rate = FX[a.cur] ? FX[a.cur].toTRY : 1;
+      const value = (Number(a.balance) || 0) * rate;
+      if (value <= 0) return;
+      const type = String(a.type || '').toLowerCase();
+      const name = String(a.name || '').toLowerCase();
+      const platform = String(a.name || '').trim().toLowerCase();
+      if (name.includes('real estate') || name.includes('realestate') || type === 'real-estate' || type === 'real_estate') {
+        buckets.realEstate.value += value;
+      } else if (type === 'invest' || type === 'pension') {
+        if (!platformHoldings[platform]) buckets.other.value += value;
+      } else {
+        buckets.cash.value += value;
+      }
+    });
+
+    const total = Object.values(buckets).reduce((s, b) => s + b.value, 0);
+    return Object.values(buckets).map(b => Object.assign({}, b, {
+      pct: total > 0 ? (b.value / total) * 100 : 0,
+    }));
+  }
+
+  function NetWorthAllocationPanel({ data }) {
+    const rows = data || [];
+    return (
+      <div className="dash-widget">
+        <div className="dash-widget-head">
+          <Icon name="pie-chart" size={15} />
+          <span className="dash-widget-title">Asset Allocation</span>
+        </div>
+        <div className="dash-alloc-list">
+          {rows.map(row => (
+            <div className="dash-alloc-row" key={row.key}>
+              <span className="dash-alloc-name">{row.label}</span>
+              <div className="dash-alloc-track">
+                <div className="dash-alloc-fill" style={{ width: Math.round(row.pct) + '%', background: row.color }} />
+              </div>
+              <span className="dash-alloc-pct">{Math.round(row.pct)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   function App() {
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
@@ -162,8 +386,18 @@
       const tryV = a.balance * rate;
       if (tryV >= 0) totalAssets += tryV; else totalLiabilities += Math.abs(tryV);
     });
+    const assetAccountCount = ACCOUNTS.filter(a => a.balance * (FX[a.cur]?.toTRY || 1) >= 0).length;
+    const liabilityAccountCount = ACCOUNTS.filter(a => a.balance * (FX[a.cur]?.toTRY || 1) < 0).length;
     const netWorth = totalAssets - totalLiabilities;
-
+    const netWorthTrend = React.useMemo(() =>
+      buildNetWorthTrend(TX, CURRENT_YEAR, CURRENT_MONTH, 12, netWorth), [dataVersion, netWorth]);
+    const netWorthStart = netWorthTrend.length ? netWorthTrend[0].netWorth : netWorth;
+    const netWorthChange = netWorth - netWorthStart;
+    const avgMonthlyFlow = netWorthTrend.length
+      ? netWorthTrend.reduce((s, d) => s + d.netFlow, 0) / netWorthTrend.length
+      : 0;
+    const netWorthAllocation = React.useMemo(() =>
+      buildNetWorthAllocation(ACCOUNTS, HOLDINGS), [dataVersion]);
     // ── Monthly (reports) derived data ────────────────────────────────────
     const catSpend    = React.useMemo(() => spendByCat(TX, year, month),            [year, month, dataVersion]);
     const catIncome   = React.useMemo(() => incomeByCat(TX, year, month),           [year, month, dataVersion]);
@@ -196,9 +430,32 @@
       Object.entries(catIncome).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
         ({ key: k, label: (CATS[k] || {}).label || k, value: v })), [catIncome]);
 
+    const investmentRows = React.useMemo(() => HOLDINGS.slice(), [dataVersion]);
+    const totalInvestedTry = investmentRows.reduce((s, h) => s + invTryValue(h), 0);
+    const investPlatforms = React.useMemo(() => groupInvestments(
+      investmentRows,
+      h => (h.platform || '').trim() || 'Unassigned',
+      (h, key) => {
+        const acc = ACCOUNTS.find(a => String(a.name || '').trim().toLowerCase() === String(key).trim().toLowerCase());
+        return { label: key, color: acc && window.ACCOUNTS_DATA.ACCOUNT_TYPES[acc.type] ? window.ACCOUNTS_DATA.ACCOUNT_TYPES[acc.type].color : 'var(--emerald)', icon: acc && window.ACCOUNTS_DATA.ACCOUNT_TYPES[acc.type] ? window.ACCOUNTS_DATA.ACCOUNT_TYPES[acc.type].icon : 'briefcase' };
+      }
+    ), [dataVersion]);
+    const investAssetTypes = React.useMemo(() => groupInvestments(
+      investmentRows,
+      h => h.assetType || 'other',
+      h => invMeta(h.assetType)
+    ), [dataVersion]);
+    const topHoldings = React.useMemo(() =>
+      investmentRows.slice().sort((a, b) => invTryValue(b) - invTryValue(a)).slice(0, 10), [dataVersion]);
+    const investAccounts = ACCOUNTS.filter(a => a.type === 'invest' || a.type === 'pension');
+    const largestHolding = topHoldings[0];
+
     const totalBudgeted = bva.reduce((s, d) => s + d.limit, 0);
     const layoutCls = t.layout === '1-col' ? 'rpt-single' : '';
     const isAnnual  = tab === 'annual';
+    const usesMonthlyPeriod = !isAnnual && tab !== 'calendar' && tab !== 'networth' && tab !== 'investments';
+    const loadErrors = (window.HL_HYDRATE && window.HL_HYDRATE.state && window.HL_HYDRATE.state.errors) || {};
+    const missingSources = Object.keys(loadErrors).filter(k => ['transactions','budgets','accounts','investments','recurring','credit-payments'].includes(k));
 
     return (
       <div className="app">
@@ -227,7 +484,7 @@
                 <Icon name={(TABS.find(tb => tb.key === tab) || TABS[0]).icon} size={14} />
                 {(TABS.find(tb => tb.key === tab) || TABS[0]).label}
               </span>
-              {!isAnnual && tab !== 'calendar' && (
+              {usesMonthlyPeriod && (
                 <div className="filter-field ff-period">
                   <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
                   <div className="month-step">
@@ -274,6 +531,12 @@
 
           {/* ── Scrollable body: tab content ── */}
           <div className="rpt-body">
+            {missingSources.length > 0 && (
+              <div className="rpt-source-alert" role="status">
+                <Icon name="alert-triangle" size={14} />
+                <span>Some report data could not be loaded: {missingSources.map(s => s.replace('-', ' ')).join(', ')}.</span>
+              </div>
+            )}
 
             {/* KPIs view */}
             {tab === 'kpis' && (
@@ -372,6 +635,43 @@
             {/* Calendar */}
             {tab === 'calendar' && <CalendarWidget />}
 
+            {/* Net Worth Trend */}
+            {tab === 'networth' && (
+              <React.Fragment>
+                <div className="dash-kpi-group">
+                  <div className="dash-kpi-source"><Icon name="database" size={11} /><span>Source: <strong>Accounts</strong> · <strong>Transactions</strong></span></div>
+                  <div className="dash-kpi-row">
+                    <KpiCard label="Net Worth" icon="wallet"
+                      cls={netWorth >= 0 ? 'kpi-total' : 'kpi-warn'}
+                      value={netWorthLabel(netWorth)}
+                      sub="Current account balances"
+                      detail={'₺' + grp(totalAssets, 0) + ' assets'} />
+                    <KpiCard label="12-Month Change" icon="activity"
+                      cls={netWorthChange >= 0 ? 'kpi-ok' : 'kpi-warn'}
+                      value={netWorthLabel(netWorthChange)}
+                      sub={netWorthChange >= 0 ? 'Increase' : 'Decrease'}
+                      detail={netWorthLabel(avgMonthlyFlow) + ' / month avg'} />
+                    <KpiCard label="Assets" icon="landmark" cls="kpi-budget"
+                      value={'₺' + grp(totalAssets, 0)}
+                      sub="Positive balances"
+                      detail={<a className="dash-kpi-link" href="Accounts.html?balance=assets">{assetAccountCount + ' accounts'}</a>} />
+                    <KpiCard label="Liabilities" icon="credit-card" cls="kpi-expense"
+                      value={'₺' + grp(totalLiabilities, 0)}
+                      sub="Negative balances"
+                      detail={<a className="dash-kpi-link" href="Accounts.html?balance=liabilities">{liabilityAccountCount + ' accounts'}</a>} />
+                  </div>
+                </div>
+                <div className="rpt-grid rpt-single">
+                  <div className="rpt-col-full">
+                    <NetWorthTrendChart data={netWorthTrend} title="Net Worth Trend" icon="line-chart" />
+                  </div>
+                  <div className="rpt-col-full">
+                    <NetWorthAllocationPanel data={netWorthAllocation} />
+                  </div>
+                </div>
+              </React.Fragment>
+            )}
+
             {/* Annual Summary — full-year charts */}
             {tab === 'annual' && (
               <div className={'rpt-grid ' + layoutCls}>
@@ -435,6 +735,55 @@
                     title="Budget vs Actual Spending" icon="target" />
                 </div>
               </div>
+            )}
+
+            {/* Investments */}
+            {tab === 'investments' && (
+              <React.Fragment>
+                <div className="dash-kpi-group">
+                  <div className="dash-kpi-source"><Icon name="database" size={11} /><span>Source: <strong>Investments</strong> · <strong>Accounts</strong></span></div>
+                  <div className="dash-kpi-row">
+                    <KpiCard label="Portfolio Value" icon="trending-up" cls="kpi-total"
+                      value={'₺' + grp(totalInvestedTry, 0)}
+                      sub={investmentRows.length + ' holdings'}
+                      detail={investAccounts.length + ' investment accounts'} />
+                    <KpiCard label="Platforms" icon="briefcase" cls="kpi-budget"
+                      value={String(investPlatforms.length)}
+                      sub="Linked by account name"
+                      detail={investPlatforms[0] ? investPlatforms[0].label : 'No platform data'} />
+                    <KpiCard label="Asset Types" icon="layers" cls="kpi-income"
+                      value={String(investAssetTypes.length)}
+                      sub="Allocation groups"
+                      detail={investAssetTypes[0] ? investAssetTypes[0].label : 'No allocation data'} />
+                    <KpiCard label="Largest Holding" icon="trophy" cls="kpi-ok"
+                      value={largestHolding ? '₺' + grp(invTryValue(largestHolding), 0) : '₺0'}
+                      sub={largestHolding ? largestHolding.name : 'No holdings'}
+                      detail={largestHolding ? (largestHolding.platform || 'Unassigned') : 'Add or import investments'} />
+                  </div>
+                </div>
+                {investmentRows.length === 0 ? (
+                  <div className="dash-empty-state">
+                    <Icon name="trending-up" size={28} />
+                    <span>No investment holdings yet</span>
+                  </div>
+                ) : (
+                  <div className={'rpt-grid ' + layoutCls}>
+                    <div className="rpt-col-left">
+                      <DonutChart data={investAssetTypes} title="Asset Allocation" icon="pie-chart"
+                        centerLabel="Portfolio" centerValue={'₺' + grp(totalInvestedTry, 0)} />
+                      <CategoryBarChart data={investAssetTypes} title="Value By Asset Type" icon="bar-chart-3" />
+                    </div>
+                    <div className="rpt-col-right">
+                      <DonutChart data={investPlatforms} title="Platform Allocation" icon="briefcase"
+                        centerLabel="Platforms" centerValue={String(investPlatforms.length)} />
+                      <CategoryBarChart data={investPlatforms} title="Value By Platform" icon="landmark" />
+                    </div>
+                    <div className="rpt-col-full">
+                      <InvestmentHoldingsTable data={topHoldings} title="Top Holdings" icon="list" />
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
             )}
 
             {/* Trends */}

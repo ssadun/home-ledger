@@ -27,12 +27,12 @@
           {data.map((d, i) => {
             const pct = maxVal > 0 ? (d.value / maxVal) * 100 : 0;
             const cat = CATS[d.key] || {};
-            const color = cat.color || pickColor(i);
+            const color = d.color || cat.color || pickColor(i);
             return (
               <div className="rpt-hbar-row" key={d.key}>
                 <span className="rpt-hbar-label">
                   <span className="rpt-hbar-ico" style={{ color: color, background: 'color-mix(in srgb, ' + color + ' 13%, transparent)', borderColor: 'color-mix(in srgb, ' + color + ' 40%, transparent)' }}>
-                    <Icon name={cat.icon || 'circle'} size={11} />
+                    <Icon name={d.icon || cat.icon || 'circle'} size={11} />
                   </span>
                   {d.label}
                 </span>

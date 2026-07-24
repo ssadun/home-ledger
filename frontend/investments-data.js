@@ -103,6 +103,6 @@
     return true;
   }
 
-  window.INVESTMENTS_DATA = { ASSET_TYPES, costBasisOf };
+  window.INVESTMENTS_DATA = { HOLDINGS: [], ASSET_TYPES, costBasisOf };
   window.HL_INVESTMENTS_API = { list, listForAccount, create, update, remove };
 })();

@@ -26,6 +26,10 @@
 .dash-kpi-source{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:var(--radius) var(--radius) 0 0}
 .dash-kpi-source svg{width:11px;height:11px;flex-shrink:0;opacity:.6}
 .dash-kpi-source strong{color:var(--slate);font-weight:700}
+.rpt-source-alert{width:100%;max-width:934px;display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid color-mix(in srgb,var(--orange) 42%,var(--border));border-radius:var(--radius);background:color-mix(in srgb,var(--orange) 9%,var(--bg));color:var(--text);font-size:12px;font-weight:600}
+.rpt-source-alert svg{flex-shrink:0;color:var(--orange)}
+.dash-empty-state{width:100%;max-width:934px;min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1px solid var(--border);border-radius:var(--radius2);background:var(--bg3);color:var(--muted);font-size:13px;font-weight:700}
+.dash-empty-state svg{color:var(--slate)}
 .dash-kpi-group .dash-kpi-row{margin-bottom:0;border-radius:0 0 var(--radius2) var(--radius2)}
 .dash-kpi-group .summary-row{border-radius:0 0 var(--radius2) var(--radius2);overflow:hidden}
 
@@ -37,6 +41,8 @@
 .dash-kpi-value{font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
 .dash-kpi-sub{font-size:11px;color:var(--muted);font-weight:500}
 .dash-kpi-detail{font-size:11px;font-weight:600;margin-top:2px}
+.dash-kpi-link{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.dash-kpi-link:hover{color:var(--white)}
 
 /* KPI color variants */
 .kpi-expense .dash-kpi-value{color:var(--red)}
@@ -117,6 +123,28 @@
 .dash-ct-fill.warn{background:var(--orange)}
 .dash-ct-fill.over{background:var(--red)}
 
+/* ── Investment dashboard table ── */
+.dash-inv-table{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.dash-inv-row{display:grid;grid-template-columns:28px 28px minmax(0,1fr) minmax(120px,max-content);gap:10px;align-items:center;padding:10px 12px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.dash-inv-row:last-child{border-bottom:none}
+.dash-inv-row:hover{background:var(--bg4)}
+.dash-inv-rank{font-size:11px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums;text-align:center}
+.dash-inv-ico{width:26px;height:26px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;justify-content:center;border:1px solid}
+.dash-inv-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.dash-inv-name{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-inv-sub{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-inv-metrics{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0}
+.dash-inv-amt{font-size:12.5px;font-weight:800;color:var(--white);font-variant-numeric:tabular-nums}
+.dash-inv-native{font-size:11px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ── Net worth allocation ── */
+.dash-alloc-list{display:flex;flex-direction:column;gap:11px}
+.dash-alloc-row{display:grid;grid-template-columns:118px minmax(0,1fr) 42px;gap:10px;align-items:center}
+.dash-alloc-name{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-alloc-track{height:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.dash-alloc-fill{height:100%;border-radius:4px;transition:width .45s ease}
+.dash-alloc-pct{font-size:12.5px;font-weight:800;color:var(--white);font-variant-numeric:tabular-nums;text-align:right}
+
 /* ── Summary row — match KPI card sizing on dashboard ── */
 .rpt-body .summary-row{margin:0 auto;width:100%;max-width:934px;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;border-radius:var(--radius2);overflow:hidden}
 .rpt-body .summary-card{padding:14px 18px;gap:4px}
@@ -158,6 +186,10 @@
   .dash-ct-num{text-align:left;font-size:12px}
   .dash-ct-num::before{content:attr(data-label);display:block;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
   .dash-ct-status{align-self:end}
+  .dash-inv-row{grid-template-columns:24px 26px minmax(0,1fr);gap:8px}
+  .dash-inv-metrics{grid-column:3;align-items:flex-start;flex-direction:row;gap:8px;min-width:0}
+  .dash-inv-native{overflow:hidden;text-overflow:ellipsis}
+  .dash-alloc-row{grid-template-columns:92px minmax(0,1fr) 38px;gap:8px}
 }
 
 /* ============================================================================
