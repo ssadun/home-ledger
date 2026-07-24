@@ -1,48 +1,62 @@
 # Home Ledger
 
-A self-hosted **personal finance tracker** built for a multi-currency (TRY / USD / EUR)
-household. It tracks income and expenses with automatic TCMB exchange-rate conversion,
-imports statements from Turkish banks, and manages investments, budgets, accounts/cards,
-recurring bills, and subscriptions. Designed to run on a Synology NAS behind a reverse
-proxy via Docker.
+A self-hosted personal finance tracker for a multi-currency household. Home Ledger
+tracks income and expenses in TRY, USD, and EUR; converts transactions with TCMB
+rates; imports Turkish bank and card statements; manages accounts, cards,
+budgets, recurring bills, subscriptions, investments, and BES retirement plans;
+and sends optional browser push reminders.
 
-> ⚠️ Personal project — the live database (`data/home-ledger.db`) and uploaded receipts
-> are **git-ignored** and never committed.
+Designed to run on a Synology NAS behind a reverse proxy with Docker.
+
+> Personal project: the live SQLite database (`data/home-ledger.db`) and uploaded
+> files in `uploads/` are git-ignored and must not be committed.
 
 ---
 
 ## Features
 
-- **Multi-currency** — every transaction stores its original amount plus computed `amount_try`
-  and `amount_usd`, using the closest TCMB rate on or before the transaction date.
-- **Automatic exchange rates** — fetched from the TCMB XML feed, lazily cached per day, with a
-  weekend/holiday fallback to the previous trading day.
-- **Bank statement import** — Garanti BBVA and ON Burgan (XLS / XLSX / CSV / PDF), plus a generic
-  heuristic parser. Two-step flow: preview → review → confirm, with duplicate skipping.
-- **Receipt OCR** — Tesseract (Turkish + English) extracts amount, date, and merchant from receipt
-  images.
-- **Budgets, recurring bills & subscriptions** — per-category limits and fixed/recurring charges.
-- **Accounts & cards** — one unified account model (bank / credit / debit / cash / wallet / …).
-- **Members** — multi-user household; each member is a full account that can log in by username or
-  email.
-- **JWT auth** — bcrypt-hashed passwords, bearer-token protected API.
+- Multi-currency transactions with stored original amount, TRY equivalent, USD
+  equivalent, and exchange rate at save time.
+- TCMB exchange-rate fetching with lazy per-day caching and previous trading-day
+  fallback for weekends and holidays.
+- Bank and credit-card statement import with preview, review, duplicate skipping,
+  account matching, statement archives, and original file download.
+- Supported import domains include Garanti BBVA, ON Burgan, credit-card
+  statements, BES pension statements, and generic XLS/XLSX/CSV/PDF parsing.
+- Receipt OCR with Tesseract (`tur+eng`) for amount, date, and merchant extraction.
+- Unified account model for bank, overdraft, credit, debit, prepaid, wallet, cash,
+  investment, and pension accounts.
+- Credit payments, account activity, statements, recurring bills, subscriptions,
+  budgets, categories, currencies, financial institutions, and statement value
+  mapping screens.
+- Household members with username or email login, role/active controls, and
+  payer/payment visibility preferences.
+- Profile page for self-service name, email, username, password, avatar, theme,
+  and stored language preference.
+- Web Push reminders for recurring bills and card payments, including per-item
+  snooze actions.
+- No frontend build step: React UMD + Babel-standalone pages served directly by
+  nginx or the local dev server.
 
 ---
 
-## Tech stack
+## Tech Stack
 
 | Layer | Stack |
 |---|---|
-| Backend | Python · FastAPI · SQLAlchemy · SQLite · python-jose / passlib (JWT + bcrypt) |
-| Parsing / OCR | pandas · openpyxl · xlrd · pdfplumber · pytesseract · Pillow |
-| Frontend | Vanilla JS + React (UMD) + Babel-standalone (no build step), served by nginx |
-| Infra | Docker · docker-compose |
+| Backend | Python, FastAPI, SQLAlchemy, SQLite, Pydantic |
+| Auth | JWT via `python-jose`, bcrypt via `passlib` |
+| Scheduling / push | APScheduler, Web Push / VAPID via `pywebpush` |
+| Parsing / OCR | pandas, openpyxl, xlrd, pdfplumber, pytesseract, Pillow |
+| Frontend | Vanilla JS, React UMD, Babel-standalone, static HTML/CSS |
+| Infra | Docker, docker-compose, nginx |
+| Tests | pytest backend fixtures, Playwright dependency for browser checks |
 
 ---
 
-## Getting started
+## Run
 
-### Run with Docker (recommended)
+### Docker
 
 ```bash
 docker-compose up --build
@@ -52,22 +66,38 @@ docker-compose up --build
 |---|---|
 | Frontend | <http://localhost:3236> |
 | Backend API | <http://localhost:8100> |
-| Interactive API docs (Swagger) | <http://localhost:8100/docs> |
+| Swagger UI | <http://localhost:8100/docs> |
 
-The backend and frontend are **baked into their images** (only `./data` and `./uploads` are
-mounted), so after changing source you must rebuild:
+The frontend container live-mounts `./frontend` into nginx, so normal frontend
+file edits show up after a browser refresh. Rebuild `home-ledger-web` only after
+changing frontend container files such as `nginx.conf` or the frontend
+`Dockerfile`.
 
-```bash
-docker-compose up -d --build backend     # backend changes
-docker-compose up -d --build frontend    # frontend changes
-```
+Backend source changes still require rebuilding or running the backend directly.
 
-### Run the backend directly
+### Backend Directly
 
 ```bash
 cd backend
 pip install -r ../requirements.txt
 uvicorn app.main:app --reload --port 8000
+```
+
+### Frontend Dev Server
+
+Use the Python dev server when you want live frontend files, no browser caching,
+and `/api/*` proxied to the backend at `http://localhost:8100`.
+
+```bash
+python3 dev-server.py
+```
+
+Default URL: <http://localhost:8088>
+
+Optional environment variables:
+
+```bash
+PORT=8090 BACKEND=http://localhost:8100 python3 dev-server.py
 ```
 
 ---
@@ -76,112 +106,186 @@ uvicorn app.main:app --reload --port 8000
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:////app/data/home-ledger.db` | |
-| `SECRET_KEY` | `change_this_in_production` | **Change in production** |
+| `DATABASE_URL` | `sqlite:////app/data/home-ledger.db` | SQLite database URL |
+| `SECRET_KEY` | `change_this_in_production_please` | Change in production |
+| `ALGORITHM` | `HS256` | JWT signing algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | 24-hour JWT lifetime |
+| `VAPID_PUBLIC_KEY` | empty / env-provided | Public Web Push key |
+| `VAPID_PRIVATE_KEY` | empty / env-provided | Private Web Push key; never commit it |
+| `VAPID_CLAIMS_EMAIL` | `sadunsevingen@gmail.com` | Contact email in VAPID claims |
 
-### Database
+Generate a VAPID keypair once for push notifications and set it through the NAS
+deployment environment or a local gitignored `.env` file.
 
-SQLite at `./data/home-ledger.db` (host) → `/app/data/home-ledger.db` (container).
-There is **no Alembic migration flow** — `Base.metadata.create_all()` runs at startup. To add
-columns, update `models.py` and either recreate the DB or run a manual `ALTER TABLE`.
+```bash
+openssl ecparam -name prime256v1 -genkey -noout -out vapid_priv.pem
+openssl ec -in vapid_priv.pem -text -noout
+```
+
+---
+
+## Database
+
+SQLite lives at `./data/home-ledger.db` on the host and is mounted to
+`/app/data/home-ledger.db` in the backend container.
+
+There is no active Alembic migration workflow. `Base.metadata.create_all()` runs
+at startup and creates missing tables, but new columns on existing tables require
+manual `ALTER TABLE` statements or a database rebuild.
+
+Current ORM-backed tables:
+
+| Table | Purpose |
+|---|---|
+| `users` | Login users and household members |
+| `transactions` | Income and expense rows |
+| `categories` | Shared category definitions |
+| `accounts` | Accounts, cards, wallets, cash, investments, pensions |
+| `investments` | Holdings |
+| `budgets` | Budget limits |
+| `recurring_expenses` | Bills and subscriptions |
+| `exchange_rates` | TCMB day-keyed rates |
+| `currency_rates` | Currency configuration and history |
+| `credit_payments` | Credit-card statement/payment records |
+| `statements` | Bank-account statement archive records |
+| `statement_mappings` | Bank tag to category mappings |
+| `push_subscriptions` | Browser push subscriptions |
+| `reminder_snoozes` | Per-item reminder snoozes |
+| `financial_institutions` | Banks/providers and logos |
 
 ---
 
 ## Architecture
 
-```
+```text
 backend/app/
-  main.py        FastAPI app, CORS, router registration, table creation + seeding on startup
-  config.py      Pydantic settings (.env / env vars)
-  database.py    SQLAlchemy engine + get_db() dependency
+  main.py        FastAPI app, CORS, router registration, startup seeding, scheduler
+  config.py      Pydantic settings
+  database.py    SQLAlchemy engine and session dependency
   models.py      ORM models
-  schemas.py     Pydantic request/response models
-  routers/       HTTP layer — one file per resource, all prefixed /api/<resource>
-  services/      Business logic (auth, tcmb, bank_import, ocr)
+  schemas.py     Request/response schemas
+  routers/       HTTP layer, one module per /api group
+  services/      Business logic: auth, TCMB, import, OCR, notifications, recurrence
 
 frontend/
-  *.html         One file per page; lists its own <script> includes
-  nav.jsx        Single source of truth for the sidebar
-  <module>-data.js   Per-module API client (window.HL_<MODULE>_API)
-  styles/*.css   Per-page stylesheets
-  sw.js          Service worker (precache + stale-while-revalidate)
+  *.html                 One page per screen
+  nav.jsx                Single source of truth for sidebar navigation and app version
+  *-app.jsx              Page controllers
+  *-data.js              Per-module API clients and mappers
+  styles/*.css           Global and page-level styles
+  sw.js                  Service worker for Web Push only; no fetch caching
+  theme.js               Root light/dark theme state
 ```
 
-**Patterns**
+Patterns:
 
-- **Routers** own HTTP validation and the auth dependency; **services** own business logic.
-- The frontend has **no build step** — each page includes plain `<script>` + Babel-standalone.
-  `window.HL_AUTH.apiFetch(path, opts)` wraps fetch with the bearer token and 401 → login redirect.
-- Each module has a `<module>-data.js` client exposing `list/create/update/remove` plus
-  `fromApi` / `toApi` mappers.
+- Routers handle HTTP validation and authentication dependencies.
+- Services hold business logic that should stay independent of FastAPI request
+  handling.
+- Frontend pages include their scripts directly and use
+  `window.HL_AUTH.apiFetch(path, opts)` for authenticated API calls and 401
+  redirects.
+- The sidebar, top-right profile entry, persistent grid/list view selection, and
+  displayed version are centralized in `frontend/nav.jsx`.
+
+Current displayed app version: `v1.0.5`.
 
 ---
 
-## API overview
+## API Overview
 
-All routes except `/api/auth/register` and `/api/auth/login` require a bearer token.
+All routes require a bearer token except `/api/auth/register`, `/api/auth/login`,
+public avatar lookup by token, `/api/push/vapid-public-key`, and
+`/api/push/snooze`.
 
-| Group | Base path | Endpoints |
+| Group | Base path | Highlights |
 |---|---|---|
-| Auth | `/api/auth` | `register`, `login`, `me` |
-| Transactions | `/api/transactions` | CRUD, filters (year/month/type/category/payer), `ocr/upload` |
-| Exchange rates | `/api/rates` | `today`, `refresh`, `history` |
-| Investments | `/api/investments` | CRUD |
-| Bank import | `/api/import` | `preview`, `confirm` |
-| Categories | `/api/categories` | CRUD (+ seeded defaults) |
-| Budgets | `/api/budgets` | CRUD (upsert per category) |
-| Recurring | `/api/recurring` | CRUD (`?kind=bill\|subscription`) |
-| Accounts | `/api/accounts` | CRUD (unified account model) |
-| Members | `/api/members` | CRUD over the users table |
+| Auth | `/api/auth` | Register, login, profile, password, avatar |
+| Transactions | `/api/transactions` | CRUD, filters, receipt OCR upload |
+| Rates | `/api/rates` | Today, refresh, history |
+| Currencies | `/api/currencies` | Currency config CRUD |
+| Investments | `/api/investments` | Holdings CRUD |
+| Import | `/api/import` | Preview, confirm, investments, pension confirm |
+| Categories | `/api/categories` | Category CRUD and seeded defaults |
+| Budgets | `/api/budgets` | Budget CRUD |
+| Recurring | `/api/recurring` | Bills/subscriptions CRUD via `kind` |
+| Accounts | `/api/accounts` | Account CRUD, related preview, cascade delete, orphan cleanup |
+| Credit payments | `/api/credit-payments` | Card statement records, upload preview/confirm/download |
+| Statements | `/api/statements` | Bank statement records, upload/download |
+| Statement mappings | `/api/statement-mappings` | Statement tag to category mapping CRUD |
+| Institutions | `/api/institutions` | Bank/provider metadata and logos |
+| Members | `/api/members` | Admin-managed household users |
+| Push | `/api/push` | Subscribe, preferences, tests, snooze, manual due-date check |
 
-See <http://localhost:8100/docs> for the full, live schema.
+Use <http://localhost:8100/docs> for the full live schema.
 
 ---
 
-## Supported bank import formats
+## Frontend Screens
 
-| Bank | Formats | Column detection |
+Top-level navigation:
+
+- Dashboard
+- Transactions: Spending, Card Payments, Subscriptions, Recurring
+- Accounts: Accounts, Account Activity, Statements
+- Budgets
+- Configuration: Members, Categories, Currencies, Credit Cards, Debit Cards,
+  Account Types, Financial Institutions, Statement Value Mapping, Notifications,
+  Backup & Export
+- Profile, available from the top-right profile button
+
+---
+
+## Import Support
+
+| Source | Formats | Notes |
 |---|---|---|
-| Garanti BBVA | XLS / XLSX / CSV | Tarih · Açıklama · Borç · Alacak · Bakiye |
-| ON Burgan | XLS / XLSX / CSV | Same structure, different column names |
-| Generic | XLS / XLSX / CSV | Heuristic column detection |
-| Any bank | PDF | pdfplumber (text PDFs) · PyMuPDF + Tesseract (scanned PDFs) |
+| Garanti BBVA bank statements | XLS, XLSX, CSV, PDF | Recognizes Turkish columns and tags |
+| ON Burgan bank statements | XLS, XLSX, CSV | Handles ON-specific column naming |
+| Credit-card statements | PDF and supported spreadsheet formats | Creates `credit_payments` and links spendings by card/window |
+| BES pension statements | PDF | Updates pension account JSON and fund holdings |
+| Generic statements | XLS, XLSX, CSV, text PDF | Heuristic date/description/amount detection |
+| Scanned PDFs/images | PDF/image input where supported | OCR fallback through Tesseract where dependencies are available |
+
+Statement value mappings are editable from Configuration -> Statement Value
+Mapping, so bank-provided labels can be routed to category keys without changing
+the importer code.
 
 ---
 
-## Module wiring status
+## Tests
 
-Every frontend module is being wired from static mock data to the backend database, one module at
-a time. Current state:
+Backend parser fixtures live in `backend/tests/`. They parse real sample
+statements from `import/` and lock in row counts, totals, account identity, and
+classification behavior.
 
-| Module | Status |
-|---|---|
-| Spending | ✅ |
-| Categories | ✅ |
-| Budgets | ✅ |
-| Recurring | ✅ |
-| Subscriptions | ✅ |
-| Accounts / Cards | ✅ |
-| Members | ✅ |
-| Currencies | ⬜ |
-| Import / Export | ⬜ |
-| Dashboard + Reports | ⬜ (read-only aggregators — done last) |
+Run them in a throwaway container based on the backend image:
+
+```bash
+docker run --rm --network nas \
+  -v /volume1/docker/resolv.conf:/etc/resolv.conf:ro \
+  -v "$PWD":/src -w /src home-ledger-backend:latest \
+  sh -c "pip install -q -r requirements-dev.txt && python -m pytest backend/tests"
+```
+
+The fixtures are golden. If parser behavior intentionally changes, update the
+expected fixture values in the same change.
 
 ---
 
 ## Releasing
 
-Commit and push with plain `git`. The version shown at the bottom of the sidebar is `v1.0.<build>`,
-read from `APP_BUILD` in `frontend/nav.jsx` — bump that line by hand when you want the displayed
-version to move:
+Commit and push with plain git. The sidebar version is read from `APP_BUILD` in
+`frontend/nav.jsx`.
 
-```jsonc
-const APP_BUILD = 4; // build:auto
+```js
+const APP_BUILD = 5; // build:auto
 ```
 
-There is no cache to bust: `frontend/sw.js` deliberately does no caching (an earlier caching version
-caused a stale-asset bug), so clients always fetch fresh assets.
+Bump that value manually when the displayed version should change.
+
+The service worker deliberately has no `fetch` listener, so it does not cache app
+assets. It only handles Web Push notifications and notification clicks.
 
 ---
 
