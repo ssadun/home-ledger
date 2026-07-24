@@ -77,17 +77,26 @@
         React.Children.forEach(child.props.children, (o) => {
           if (!o || !o.props) return;
           const v = o.props.value !== undefined ? String(o.props.value) : ssLabel(o.props.children);
-          items.push({ value: v, label: ssLabel(o.props.children), disabled: !!o.props.disabled });
+          items.push({ value: v, label: ssLabel(o.props.children), icon: o.props['data-icon'], disabled: !!o.props.disabled });
         });
       } else if (child.type === 'option') {
         const v = child.props.value !== undefined ? String(child.props.value) : ssLabel(child.props.children);
-        items.push({ value: v, label: ssLabel(child.props.children), disabled: !!child.props.disabled });
+        items.push({ value: v, label: ssLabel(child.props.children), icon: child.props['data-icon'], disabled: !!child.props.disabled });
       }
     });
 
     const cur = value == null ? '' : String(value);
     const selected = items.find(it => it.value !== undefined && it.value === cur);
     const displayLabel = selected ? selected.label : (placeholder || '');
+    function renderLabel(it, fallback, cls) {
+      if (!it || !it.icon) return fallback;
+      return (
+        <span className={cls || 'ss-label-with-icon'}>
+          <Icon name={it.icon} size={13} />
+          <span>{it.label}</span>
+        </span>
+      );
+    }
 
     React.useEffect(() => {
       if (!open) return;
@@ -154,7 +163,7 @@
         className={'ss-wrap ' + (className || '') + (open ? ' open' : '') + (disabled ? ' disabled' : '')}>
         <button type="button" id={id} ref={btnRef} disabled={disabled} title={title}
           className="ss-trigger" onClick={toggle}>
-          <span className={'ss-value' + (selected ? '' : ' ss-placeholder')}>{displayLabel}</span>
+          <span className={'ss-value' + (selected ? '' : ' ss-placeholder')}>{renderLabel(selected, displayLabel)}</span>
           <Icon name="chevron-down" size={14} className="ss-chev" />
         </button>
         {open && menu && ReactDOM.createPortal(
@@ -169,7 +178,7 @@
                   id={id ? id + '-option-' + it.value : undefined}
                   className={'ss-option' + (it.value === cur ? ' selected' : '') + (it.disabled ? ' disabled' : '')}
                   onClick={() => pick(it)}>
-                  <span className="ss-option-label">{it.label}</span>
+                  <span className="ss-option-label">{renderLabel(it, it.label)}</span>
                   {it.value === cur && <Icon name="check" size={12} className="ss-check" />}
                 </div>
             )}

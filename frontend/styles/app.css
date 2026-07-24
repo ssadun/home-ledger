@@ -284,6 +284,9 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .ss-trigger:disabled{cursor:not-allowed}
 .ss-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ss-value.ss-placeholder{color:var(--muted)}
+.ss-label-with-icon{display:flex;align-items:center;gap:7px;min-width:0}
+.ss-label-with-icon svg{width:13px;height:13px;flex-shrink:0}
+.ss-label-with-icon span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ss-chev{color:var(--muted);flex-shrink:0;transition:transform .15s}
 .ss-wrap.open .ss-chev{transform:rotate(180deg)}
 .ss-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow-y:auto;box-shadow:var(--shadow-menu);max-height:260px;padding:4px 0}

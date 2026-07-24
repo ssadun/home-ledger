@@ -264,7 +264,7 @@
                 <div className="select-wrap">
                   <StyledSelect id="dash-view-select" className="sel" value={tab} onChange={(e) => setTab(e.target.value)}>
                     {TABS.map(tb => (
-                      <option key={tb.key} value={tb.key}>{tb.label}</option>
+                      <option key={tb.key} value={tb.key} data-icon={tb.icon}>{tb.label}</option>
                     ))}
                   </StyledSelect>
                 </div>

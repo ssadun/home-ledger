@@ -176,7 +176,8 @@
 
 /* ── Filter bar overrides ── */
 .rpt-filter-bar{align-items: flex-end}
-.rpt-view-name{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--muted);margin-right:auto;padding-bottom: 5px;padding-left:4px}
+.rpt-filter-bar > .ff-tabs{order:-1;margin-right:auto}
+.rpt-view-name{display:none}
 .rpt-view-name svg{width:14px;height:14px;color:var(--muted)}
 
 /* ── Horizontal bar chart (CategoryBarChart) ── */
@@ -254,7 +255,6 @@
   .rpt-grid{grid-template-columns:minmax(0,522px)}
   .rpt-col-left,.rpt-col-right{grid-column:1}
   .rpt-col-full{grid-column:1}
-  .rpt-view-name{font-size:12px}
 
   .rpt-hbar-row{flex-wrap:wrap}
   .rpt-hbar-label{min-width:unset;flex-basis:100%}
@@ -284,8 +284,6 @@
   .rpt-filter-bar > .ff-period  { flex: 0 0 auto; }
   .rpt-filter-bar .filter-field { flex-direction: row; align-items: center; gap: 6px; }
   .rpt-filter-bar .filter-label { display: none; }
-  .rpt-view-name                { min-width: 0; overflow: hidden; text-overflow: ellipsis;
-                                  white-space: nowrap; margin-right: auto; }
   .rpt-filter-bar .select-wrap  { flex: 0 1 auto; min-width: 0; }
   .rpt-filter-bar .sel          { min-width: 0; }
   .rpt-filter-bar .month-step   { width: auto; height: 32px; justify-content: flex-start; gap: 2px; }
