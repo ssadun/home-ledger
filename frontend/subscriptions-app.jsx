@@ -514,7 +514,7 @@
             <div className="table-card">
               {selected.size > 0 && (
                 <div className="bulk-bar" id="sub-bulk-bar">
-                  <button id="sub-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selected.size} selected</button>
+                  <span className="bulk-count bulk-check">{selected.size} selected</span>
                   <div className="bulk-actions">
                     <button id="sub-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                     <button id="sub-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>

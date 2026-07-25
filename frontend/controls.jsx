@@ -49,13 +49,13 @@
                 <Icon name={PM_TYPE_ICONS[selectedGroup.type]} size={14} /></span>
               <span className="pm-name">{pmAccountLabel(selected)}</span>
             </span>
-          ) : <span className="pm-placeholder">— Select —</span>}
+          ) : <span className="pm-placeholder">- Select -</span>}
           <Icon name="chevron-down" size={14} />
         </button>
         {open && (
           <div className="pm-dropdown">
             <div id={(id || 'pm') + '-option-none'} className="pm-option" onClick={() => { onChange(''); setOpen(false); }}>
-              <span className="pm-placeholder">— Select —</span>
+              <span className="pm-placeholder">- Select -</span>
             </div>
             {groups.map(g => {
               const accts = accounts.filter(a => a.type === g.type);
@@ -387,7 +387,7 @@
           </div>
 
           <div className="modal-body">
-            {scan && <div className="scan-banner"><Icon name="sparkles" size={14} />Details extracted from your receipt — double-check before saving.</div>}
+            {scan && <div className="scan-banner"><Icon name="sparkles" size={14} />Details extracted from your receipt - double-check before saving.</div>}
 
             {/* Source Recurring — read-only link field (only when editing a linked TX) */}
             {editing && (() => {

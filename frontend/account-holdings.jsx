@@ -33,7 +33,7 @@
       : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  function CurrencyInput({ id, value, currency, onChange, placeholder = '—' }) {
+  function CurrencyInput({ id, value, currency, onChange, placeholder = '-' }) {
     const [focused, setFocused] = React.useState(false);
     const [raw, setRaw] = React.useState(value || '');
     React.useEffect(() => { if (!focused) setRaw(value || ''); }, [value, focused]);
@@ -156,7 +156,7 @@
               <div className="form-field">
                 <span className="field-label">Price Source <span className="field-opt">(optional)</span></span>
                 <StyledSelect id="hold-modal-price-source-select" className="field-input" value={f.priceSource} onChange={e => set('priceSource', e.target.value)}>
-                  <option value="">— Not Set —</option>
+                  <option value="">- Not Set -</option>
                   <option value="manual">Manual</option>
                   <option value="market_price">Market Price</option>
                   <option value="integration">Integration</option>
@@ -268,7 +268,7 @@
     function pensionShare(h) {
       const pct = allocation[h.name];
       if (pct != null) return grp(pct) + '%';
-      if (!totalTry) return '—';
+      if (!totalTry) return '-';
       return grp(h.tryValue / totalTry * 100) + '%';
     }
 

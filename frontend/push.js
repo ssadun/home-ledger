@@ -17,7 +17,7 @@
 
   async function getPublicKey() {
     const res = await fetch('/api/push/vapid-public-key');
-    if (!res.ok) throw new Error('Notification service is unavailable — please try again later');
+    if (!res.ok) throw new Error('Notification service is unavailable - please try again later');
     const data = await res.json().catch(() => ({}));
     if (!data.public_key) throw new Error('Notification service is not configured');
     return data.public_key;

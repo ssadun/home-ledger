@@ -309,7 +309,7 @@
             {loadError && <div className="st-error" id="st-load-error"><Icon name="alert-triangle" size={13} />{loadError}</div>}
             {selectedIds.length > 0 && (
               <div className="bulk-bar" id="st-bulk-bar">
-                <button id="st-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selectedIds.length} selected</button>
+                <span className="bulk-count bulk-check">{selectedIds.length} selected</span>
                 <div className="bulk-actions">
                   <button id="st-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                   <button id="st-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>

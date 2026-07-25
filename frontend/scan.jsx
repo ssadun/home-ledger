@@ -52,7 +52,7 @@
 `You are a precise receipt parser. From the raw OCR text below, extract ONE transaction.
 Return ONLY a JSON object (no markdown, no prose) with EXACTLY these keys:
 - "date": ISO "YYYY-MM-DD". If the year is missing assume 2026. If no date is found use "".
-- "amount": number — the FINAL total paid, digits only, no currency symbol or thousands separators.
+- "amount": number - the FINAL total paid, digits only, no currency symbol or thousands separators.
 - "cur": one of "TRY","USD","EUR". Infer: ₺/TL/lira→TRY, $→USD, €→EUR. Default "TRY".
 - "desc": short merchant or purchase description in Title Case, max 40 chars.
 - "cat": the single best-fit key from this list: ${CAT_KEYS.join(', ')}.

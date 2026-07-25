@@ -595,7 +595,7 @@
               <div className={"form-field" + (invalid.institution ? ' field-invalid' : '')}>
                 <span className="field-label">Institution{!isCash && <span className="field-required-mark">*</span>}</span>
                 <StyledSelect id="acct-form-institution-input" className="field-input" value={f.institution || ''} onChange={(e) => set('institution', e.target.value)}>
-                  <option value="">— Select Institution —</option>
+                  <option value="">- Select Institution -</option>
                   {Object.keys(FINANCIAL_INSTITUTIONS || {}).map((k) => {
                     const fi = FINANCIAL_INSTITUTIONS[k];
                     const nm = instName(fi);
@@ -608,7 +608,7 @@
                       and the user cannot tell which one they are picking. */}
                   {f.institution && f.institution !== '–' &&
                     !Object.values(FINANCIAL_INSTITUTIONS || {}).some((fi) => instName(fi) === f.institution.trim()) &&
-                    <option value={f.institution}>{f.institution + ' — Not In List'}</option>}
+                    <option value={f.institution}>{f.institution + ' - Not In List'}</option>}
                 </StyledSelect>
               </div>
             </div>
@@ -770,7 +770,7 @@
                   // inherit the statement cutoff (Calculated Dates derive from it).
                   setF((p) => ({ ...p, linked: id, statementCutoff: parent && parent.statementCutoff != null ? parent.statementCutoff : p.statementCutoff }));
                 }}>
-                  <option value="">None — main card</option>
+                  <option value="">None - main card</option>
                   {parentCardOptions.map((a) =>
                   <option key={a.id} value={a.id}>{joinMeta(a.name, maskCardNumber(a.number))}</option>
                   )}
@@ -807,7 +807,7 @@
                   <span className="field-label">Statement Cutoff Week</span>
                   <StyledSelect id="acct-form-cutoff-select" className="field-input" value={f.statementCutoff} disabled={!!f.linked}
                     onChange={(e) => set('statementCutoff', e.target.value ? Number(e.target.value) : '')}>
-                    <option value="">— Select Week —</option>
+                    <option value="">- Select Week -</option>
                     <option value="1">1st Week (Days 1–7)</option>
                     <option value="2">2nd Week (Days 8–14)</option>
                     <option value="3">3rd Week (Days 15–21)</option>

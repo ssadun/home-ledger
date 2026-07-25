@@ -27,8 +27,8 @@
 
   // ── Rate source (TCMB = Central Bank of Turkey official bulletin, vs. a manual / market rate) ──
   const SOURCE_OPTIONS = [
-    { value: 'TCMB',   label: 'TCMB — Central Bank Of Turkey' },
-    { value: 'Market', label: 'Market — Manual / Market Rate' },
+    { value: 'TCMB',   label: 'TCMB - Central Bank Of Turkey' },
+    { value: 'Market', label: 'Market - Manual / Market Rate' },
   ];
   // Latest official TCMB Döviz Satış (sell) bulletin we can "retrieve". 1 unit → TRY.
   const TCMB_BULLETIN = '2026/108 (15.06.2026)';
@@ -44,7 +44,7 @@
 
   // Source pill — gold landmark for TCMB, sky trend glyph for a market/manual rate.
   function SourceBadge({ source }) {
-    if (!source) return <span style={{ color: 'var(--muted)' }}>—</span>;
+    if (!source) return <span style={{ color: 'var(--muted)' }}>-</span>;
     const tcmb = source === 'TCMB';
     return (
       <span className={'cfg-src-badge ' + (tcmb ? 'src-tcmb' : 'src-market')}>
@@ -132,7 +132,7 @@
           <div className="modal-head">
             <span className="modal-title">
               <Icon name="clock" size={15} color="var(--gold)" />
-              Exchange Rate History — {currency.code}
+              Exchange Rate History - {currency.code}
             </span>
             <button id="currency-history-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
@@ -208,9 +208,9 @@
                       <tr key={h.date} className={'cfg-row' + (i === 0 ? ' cfg-hist-current' : '')}>
                         <td data-label="Date">{h.date}</td>
                         <td data-label="Rate → TRY"><b>{h.toTRY}</b></td>
-                        <td data-label="Rate → USD">{h.toUSD ?? '—'}</td>
+                        <td data-label="Rate → USD">{h.toUSD ?? '-'}</td>
                         <td data-label="Source"><SourceBadge source={h.source} /></td>
-                        <td data-label="Note" style={{ color: 'var(--muted)' }}>{h.note || '—'}</td>
+                        <td data-label="Note" style={{ color: 'var(--muted)' }}>{h.note || '-'}</td>
                         <td>
                           {i === 0 && <span className="cfg-badge cfg-badge-income" style={{ fontSize: '10px' }}>Current</span>}
                         </td>
@@ -295,7 +295,7 @@
                     <td data-label="Current → TRY" className="num">₺{String(r.curTRY)}</td>
                     <td data-label="TCMB → TRY" className="num">{r.available ? '₺' + String(r.newTRY) : <span style={{ color: 'var(--muted)' }}>Not on bulletin</span>}</td>
                     <td data-label="Change" className="num">
-                      {!r.available ? <span style={{ color: 'var(--muted)' }}>—</span>
+                      {!r.available ? <span style={{ color: 'var(--muted)' }}>-</span>
                         : Math.abs(r.delta) < 0.00005 ? <span className="cfg-tcmb-delta flat">No change</span>
                         : <span className={'cfg-tcmb-delta ' + (r.delta > 0 ? 'up' : 'down')}>{r.delta > 0 ? '↑ +' : '↓ '}{String(Math.abs(r.delta))}</span>}
                     </td>
@@ -408,7 +408,7 @@
         { key: 'name',     label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Alex' },
         { key: 'username', label: 'Username',  type: 'text', required: true, placeholder: 'e.g. alex', hint: 'Login identifier, no spaces' },
         { key: 'password', label: 'Password',  type: 'password', requiredOnCreate: true, placeholder: 'Enter password', editHint: 'Leave blank to keep the current password' },
-        { key: 'role',     label: 'Role',       type: 'select', required: true, options: [{ value: 'admin', label: 'Admin — Full access including Configuration' }, { value: 'user', label: 'User — Standard access, no Configuration' }] },
+        { key: 'role',     label: 'Role',       type: 'select', required: true, options: [{ value: 'admin', label: 'Admin - Full access including Configuration' }, { value: 'user', label: 'User - Standard access, no Configuration' }] },
         { key: 'active',   label: 'Status',     type: 'checkbox', default: true, checkboxLabel: 'Active - Can Log In', hint: 'Inactive members are kept on file but cannot sign in' },
         { key: 'showAsPayer', label: 'Payer Visibility', type: 'checkbox', default: true, checkboxLabel: 'Show as Payer / Paying For option', hint: 'Uncheck to hide this member from the Payer and Paying For dropdowns, independent of login access' },
       ],
@@ -439,7 +439,7 @@
       ),
       desc: 'Currencies and FX rates vs TRY',
       columns: [
-        { key: 'asOf',  label: 'Date', render: v => v ? <span style={{whiteSpace:'nowrap'}}>{v}</span> : <span style={{color:'var(--muted)'}}>—</span> },
+        { key: 'asOf',  label: 'Date', render: v => v ? <span style={{whiteSpace:'nowrap'}}>{v}</span> : <span style={{color:'var(--muted)'}}>-</span> },
         { key: 'source', label: 'Source', render: v => <SourceBadge source={v} /> },
         { key: 'toTRY', label: 'Rate → TRY', render: v => v === 1 ? <span style={{color:'var(--muted)'}}>Base</span> : <span>₺{String(v)}</span> },
         { key: 'toUSD', label: 'Rate → USD', render: v => v === 1 ? <span style={{color:'var(--muted)'}}>Base</span> : <span>${Number(v).toFixed(4)}</span> },
@@ -447,7 +447,7 @@
       ],
       fields: [
         { key: 'code',  label: 'Currency Code', type: 'text',   required: true, placeholder: 'e.g. GBP', hint: '3-letter ISO code' },
-        { key: 'asOf',  label: 'Date',          type: 'date',   lockToday: true, hint: 'Defaults to today — change if backdating a rate' },
+        { key: 'asOf',  label: 'Date',          type: 'date',   lockToday: true, hint: 'Defaults to today - change if backdating a rate' },
         { key: 'toTRY', label: 'Rate → TRY',    type: 'number', placeholder: 'e.g. 50.40', hint: '1 unit of this currency = ? TRY' },
         { key: 'toUSD', label: 'Rate → USD',    type: 'number', placeholder: 'e.g. 1.28',  hint: '1 unit of this currency = ? USD' },
         { key: 'source',label: 'Source',         type: 'select', options: SOURCE_OPTIONS, hint: 'Where this rate came from' },
@@ -501,7 +501,7 @@
         { key: 'logo',  label: 'Logo', render: v => v ? <span className="cfg-logo-cell"><img src={v} alt="" /></span> : <span className="cfg-logo-cell cfg-logo-empty"><Icon name="building-2" size={14} /></span> },
         { key: 'name',  label: 'Name' },
         { key: 'shortName', label: 'Short Name' },
-        { key: 'swift', label: 'SWIFT / BIC', render: v => v ? <span className="cfg-mono">{v}</span> : <span style={{ color: 'var(--muted)' }}>—</span> },
+        { key: 'swift', label: 'SWIFT / BIC', render: v => v ? <span className="cfg-mono">{v}</span> : <span style={{ color: 'var(--muted)' }}>-</span> },
       ],
       fields: [
         { key: 'name',  label: 'Name',       type: 'text', required: true, placeholder: 'e.g. Garanti BBVA' },
@@ -524,7 +524,7 @@
       ],
       fields: [
         { key: 'lang',   label: 'Language', type: 'select', required: true, options: LANG_OPTIONS, hint: 'Language of the statement this tag comes from' },
-        { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi', hint: 'The tag exactly as printed on the statement — spacing and diacritics are ignored when matching' },
+        { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi', hint: 'The tag exactly as printed on the statement - spacing and diacritics are ignored when matching' },
         { key: 'category_key', label: 'Category', type: 'select', required: true, options: CATEGORY_OPTIONS, hint: 'Matching statement lines are booked to this category' },
       ],
     },
@@ -618,7 +618,7 @@
           <div className="modal-head">
             <span className="modal-title">
               <Icon name={section.icon} size={15} color={section.color} />
-              {editing ? 'Edit' : 'Add'} — {section.label}
+              {editing ? 'Edit' : 'Add'} - {section.label}
             </span>
             <button id="cfg-item-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
@@ -646,7 +646,7 @@
                   {fd.type === 'select' ? (
                     <StyledSelect className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
                       onChange={e => set(fd.key, e.target.value)}>
-                      <option value="">— Select —</option>
+                      <option value="">- Select -</option>
                       {fd.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </StyledSelect>
                   ) : fd.type === 'color' ? (
@@ -901,7 +901,7 @@
       if (!fld) return null;
       return {
         key: c.key, label: c.label,
-        options: fld.options.map(o => ({ value: o.value, label: (String(o.label).split('—')[0] || o.value).trim() })),
+        options: fld.options.map(o => ({ value: o.value, label: (String(o.label).split('-')[0] || o.value).trim() })),
       };
     }).filter(Boolean), [section]);
     // Columns worth searching (skip masked / non-text render columns).
@@ -1080,7 +1080,7 @@
         <div className="table-card">
           {selectedItems.length > 0 && (
             <div className="bulk-bar" id="cfg-bulk-bar">
-              <button id="cfg-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selectedItems.length} selected</button>
+              <span className="bulk-count bulk-check">{selectedItems.length} selected</span>
               <div className="bulk-actions">
                 <button id="cfg-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                 <button id="cfg-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>
@@ -1120,7 +1120,7 @@
                     <td colSpan={rz.orderedColumns.length + 1}>
                       <div className="cfg-empty">
                         <Icon name="inbox" size={32} color="var(--muted)" />
-                        <span>No items yet — click Add to create one.</span>
+                        <span>No items yet - click Add to create one.</span>
                       </div>
                     </td>
                   </tr>
@@ -1133,7 +1133,7 @@
                     </td>
                     {rz.orderedColumns.map(c => (
                       <td key={c.key} data-label={c.label} className={c.num ? 'num' : ''}>
-                        {c.render ? c.render(item[c.key], item) : (item[c.key] ?? '—')}
+                        {c.render ? c.render(item[c.key], item) : (item[c.key] ?? '-')}
                       </td>
                     ))}
                   </tr>

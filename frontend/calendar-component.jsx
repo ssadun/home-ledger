@@ -124,7 +124,7 @@
         const pm = resolvePM(rec.paymentMethod);
         if (pmFilter && (!pm || pm.key !== pmFilter)) return;
         add(rec.nextDue, {
-          source: 'recurring', id: rec.id, desc: rec.name + ' — Due',
+          source: 'recurring', id: rec.id, desc: rec.name + ' - Due',
           amount: rec.tryAmount, cur: rec.cur, rawAmt: rec.amount,
           catLabel: c.label || rec.cat, catIcon: 'repeat', catColor: 'var(--lavender)',
           payer: rec.payer,
@@ -145,7 +145,7 @@
         if (pmFilter && (!pm || pm.key !== pmFilter)) return;
         add(rec.paymentDate, {
           // Merged into "Upcoming Due" (recurring); keeps the credit-card icon + Credit Payments link.
-          source: 'recurring', id: rec.id, desc: (rec.name || 'Card Payment') + ' — Due',
+          source: 'recurring', id: rec.id, desc: (rec.name || 'Card Payment') + ' - Due',
           amount: rec.total, cur: rec.cur, rawAmt: rec.total,
           catLabel: rec.cardLabel || 'Credit Card', catIcon: 'credit-card', catColor: creditColor(),
           // Payment Method chip shows the account name (resolved), not the composite card label.

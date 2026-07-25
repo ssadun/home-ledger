@@ -391,28 +391,29 @@ body.col-resizing * { cursor: col-resize !important; }
 .row-select-box:indeterminate::after {
   content: ''; position: absolute; left: 3px; top: 6px; width: 7px; height: 2px; background: #fff;
 }
+:root[data-theme="light"] .row-select-box:not(:checked):not(:indeterminate) {
+  background: var(--bg3);
+  border-color: var(--border2);
+}
 :root[data-theme="light"] .row-select-box:checked,
 :root[data-theme="light"] .row-select-box:indeterminate {
-  background: color-mix(in srgb, var(--accent) 50%, var(--bg3));
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border2));
+  background: var(--bg3);
+  border-color: var(--border2);
 }
 :root[data-theme="light"] .row-select-box:checked::after {
-  border-color: var(--slate);
+  border-color: var(--muted);
 }
 :root[data-theme="light"] .row-select-box:indeterminate::after {
-  background: var(--slate);
+  background: var(--muted);
 }
 .ledger-table tbody tr.tx-row.row-selected td       { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .ledger-table tbody tr.tx-row.row-selected:hover td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
 .bulk-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 8px 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); border-bottom: 1px solid var(--border);
+  padding: 8px 12px 8px 17px; background: color-mix(in srgb, var(--accent) 8%, transparent); border-bottom: 1px solid var(--border);
 }
 .bulk-count   { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); }
-/* Leading count doubles as a select-all / clear-all checkbox — reset the button chrome. */
-button.bulk-count { border: none; background: none; font-family: inherit; cursor: pointer; padding: 3px 6px; margin: -3px -6px; border-radius: 6px; transition: all .15s; }
-button.bulk-count:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .bulk-actions { display: inline-flex; align-items: center; gap: 8px; }
 
 @media (max-width: 660px) {

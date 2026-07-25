@@ -325,7 +325,7 @@
             {loadError && <div className="cp-error" id="cp-load-error"><Icon name="alert-triangle" size={13} />{loadError}</div>}
             {selectedIds.length > 0 && (
               <div className="bulk-bar" id="cp-bulk-bar">
-                <button id="cp-bulk-selectall-btn" type="button" className="bulk-count bulk-check" onClick={toggleSelectAll} title={allSelected ? 'Clear all' : 'Select all'} aria-label={allSelected ? 'Clear all' : 'Select all'} aria-pressed={allSelected}><Icon name={allSelected ? 'check-square' : 'minus-square'} size={14} />{selectedIds.length} selected</button>
+                <span className="bulk-count bulk-check">{selectedIds.length} selected</span>
                 <div className="bulk-actions">
                   <button id="cp-bulk-clear-btn" className="list-btn blue" onClick={() => setSelected(new Set())}><Icon name="x" size={12} />Clear</button>
                   <button id="cp-bulk-delete-btn" className="list-btn red" onClick={() => setBatchDel(true)}><Icon name="trash-2" size={12} />Delete Selected</button>

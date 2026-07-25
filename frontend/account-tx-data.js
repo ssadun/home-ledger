@@ -68,7 +68,7 @@
       _dbId: tx.id,
       date: tx.date,
       accountId: acc ? acc.id : null,
-      accountName: acc ? acc.name : (tx.payment_method || '—'),
+      accountName: acc ? acc.name : (tx.payment_method || '-'),
       accountType: acc ? acc.type : null,
       txType: guessTxType(tx),
       direction: tx.type === 'income' ? 'incoming' : 'outgoing',

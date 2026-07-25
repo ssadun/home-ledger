@@ -13,7 +13,7 @@
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
   const grp = (v, d = 2) => Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   // ISO → Turkish display date ("2026-08-16" → "16.08.2026").
-  const fmtDateTr = (iso) => { if (!iso) return '—'; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; };
+  const fmtDateTr = (iso) => { if (!iso) return '-'; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; };
   const FMT = { csv: { label: 'CSV', icon: 'file-spreadsheet', color: 'var(--green)' },
                 excel: { label: 'Excel', icon: 'sheet', color: 'var(--emerald)' },
                 pdf: { label: 'PDF', icon: 'file-text', color: 'var(--red)' } };
@@ -308,7 +308,7 @@
             <span className="imp-detect-ok"><Icon name="check-circle-2" size={13} />Parsed</span>
           </div>
           <div className="imp-detect-grid">
-            <div className="imp-stat"><span className="imp-stat-k">Account No. (from file)</span><span className="imp-stat-v mono">{doc.accountNumber || '—'}</span></div>
+            <div className="imp-stat"><span className="imp-stat-k">Account No. (from file)</span><span className="imp-stat-v mono">{doc.accountNumber || '-'}</span></div>
             <div className="imp-stat"><span className="imp-stat-k">Date Range</span><span className="imp-stat-v">{dates[0]} → {dates[dates.length - 1]}</span></div>
             <div className="imp-stat"><span className="imp-stat-k">Money In</span><span className="imp-stat-v pos">+{SYM[cur]}{grp(totals.in)}</span></div>
             <div className="imp-stat"><span className="imp-stat-k">Money Out</span><span className="imp-stat-v neg">−{SYM[cur]}{grp(totals.out)}</span></div>
@@ -320,14 +320,14 @@
             <span className="field-label">Detected Account{detected.length > 1 ? 's' : ''} ({detected.length})</span>
             {unresolved
               ? <div className="imp-nomatch-banner"><Icon name="alert-triangle" size={14} />{unresolved} of {detected.length} not matched to an account. Create each from the statement (or pick an existing one) before continuing.</div>
-              : <div className="imp-match-banner"><Icon name="badge-check" size={14} />All detected accounts are mapped — each row will be assigned to its own account.</div>}
+              : <div className="imp-match-banner"><Icon name="badge-check" size={14} />All detected accounts are mapped - each row will be assigned to its own account.</div>}
             <div className="imp-src-list">
               {detected.map(rec => (
                 <SourceRow key={rec.source} rec={rec} accounts={accounts}
                   value={resolveSource(rec.source)} onPick={onPick} onCreate={onCreate} />
               ))}
             </div>
-            <span className="imp-hint"><Icon name="info" size={11} />Bank accounts are keyed by IBAN, cards by card number — pick a matching account or create it pre-filled from the statement.</span>
+            <span className="imp-hint"><Icon name="info" size={11} />Bank accounts are keyed by IBAN, cards by card number - pick a matching account or create it pre-filled from the statement.</span>
           </div>
         ) : (
           <div className="imp-field">
@@ -344,7 +344,7 @@
                 {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)} ({a.owner})</option>)}
               </StyledSelect>
             </div>
-            <span className="imp-hint"><Icon name="info" size={11} />This becomes the default account for every row — you can still change individual rows in the next step.</span>
+            <span className="imp-hint"><Icon name="info" size={11} />This becomes the default account for every row - you can still change individual rows in the next step.</span>
           </div>
         )}
       </div>
@@ -374,7 +374,7 @@
         <div className="imp-field">
           <span className="field-label">Detected Account{detected.length > 1 ? 's' : ''}</span>
           {unresolved === 0
-            ? <div className="imp-match-banner"><Icon name="badge-check" size={14} />Account is set up — nothing further to import from this file.</div>
+            ? <div className="imp-match-banner"><Icon name="badge-check" size={14} />Account is set up - nothing further to import from this file.</div>
             : null}
           <div className="imp-src-list">
             {detected.map(rec => (
@@ -584,7 +584,7 @@
         {result.accounts && result.accounts.length > 0 && (
           <div className="imp-done-cp" id="imp-done-invest-account">
             <Icon name="trending-up" size={13} />
-            Created investment account{result.accounts.length !== 1 ? 's' : ''}: {result.accounts.join(', ')} — open it on the Accounts page to see these holdings.
+            Created investment account{result.accounts.length !== 1 ? 's' : ''}: {result.accounts.join(', ')} - open it on the Accounts page to see these holdings.
           </div>
         )}
       </div>
@@ -606,7 +606,7 @@
         <div className="imp-pen-id" id="imp-pen-identity">
           <Icon name="piggy-bank" size={14} />
           <span className="imp-pen-plan">{pension.plan || 'Retirement Plan'}</span>
-          <span className="imp-pen-contract mono">Contract {pension.contract_no || '—'}</span>
+          <span className="imp-pen-contract mono">Contract {pension.contract_no || '-'}</span>
         </div>
 
         <div className="imp-inv-summary">
@@ -681,7 +681,7 @@
         </div>
         <div className="imp-done-cp" id="imp-done-pension-account">
           <Icon name="piggy-bank" size={13} />
-          {result.account_created ? 'Created' : 'Updated'} retirement plan account — {result.funds_created} fund{result.funds_created !== 1 ? 's' : ''} added
+          {result.account_created ? 'Created' : 'Updated'} retirement plan account - {result.funds_created} fund{result.funds_created !== 1 ? 's' : ''} added
           {result.funds_updated ? ', ' + result.funds_updated + ' updated' : ''}
           {result.funds_removed ? ', ' + result.funds_removed + ' removed' : ''}. Open it on the Accounts page.
         </div>
@@ -764,7 +764,7 @@
     // Persist a brand-new account created from a statement identity, then map its
     // source to it so the row auto-resolves.
     async function saveNewAccount(formResult) {
-      if (!window.HL_ACCOUNTS_API) { setError('Accounts API unavailable — cannot create the account.'); return; }
+      if (!window.HL_ACCOUNTS_API) { setError('Accounts API unavailable - cannot create the account.'); return; }
       setError(null);
       try {
         const created = await window.HL_ACCOUNTS_API.create(formResult);
@@ -852,8 +852,8 @@
               setDoc({ fileName: pickedFile.name, format: formatOf(pickedFile.name),
                 institution: res.bank_detected || 'Bank',
                 note: res.has_movements
-                  ? 'This statement lists movements, but no transaction parser exists for its layout yet — only the account was read.'
-                  : 'This statement covers a period with no movements — only the account was read.',
+                  ? 'This statement lists movements, but no transaction parser exists for its layout yet - only the account was read.'
+                  : 'This statement covers a period with no movements - only the account was read.',
                 statementAccounts: idOnly });
               setStep('identity');
               setBusy(false);

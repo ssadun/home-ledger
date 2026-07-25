@@ -15,8 +15,8 @@
   // Accounts page does not load components.jsx/LEDGER_FMT.
   function grp(v, dec = 2) { return Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
-  const fmtDate = (iso) => { if (!iso) return '—'; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; };
-  const money = (v, cur) => (v == null ? '—' : (v < 0 ? '−' : '') + SYM[cur || 'TRY'] + grp(v));
+  const fmtDate = (iso) => { if (!iso) return '-'; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; };
+  const money = (v, cur) => (v == null ? '-' : (v < 0 ? '−' : '') + SYM[cur || 'TRY'] + grp(v));
 
   // ── BES figures ───────────────────────────────────────────────────────────
   function PensionSummary({ account }) {
@@ -134,7 +134,7 @@
             {gap != null && Math.abs(gap) >= 0.01 && (
               <span className="acct-pension-gap" id="acct-pension-gap">
                 <Icon name="info" size={11} />
-                Statement says {SYM.TRY}{grp(paid)} paid in — {SYM.TRY}{grp(Math.abs(gap))} {gap > 0 ? 'not yet matched to a card charge' : 'more charged than the statement shows'}.
+                Statement says {SYM.TRY}{grp(paid)} paid in - {SYM.TRY}{grp(Math.abs(gap))} {gap > 0 ? 'not yet matched to a card charge' : 'more charged than the statement shows'}.
               </span>
             )}
           </React.Fragment>

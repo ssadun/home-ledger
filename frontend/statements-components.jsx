@@ -149,7 +149,7 @@
             <div className={"form-field full" + (invalid.accountId ? ' field-invalid' : '')}>
               <span className="field-label">Account<span className="field-required-mark">*</span></span>
               <StyledSelect id="st-modal-account-select" className="field-input" value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>
-                <option value="">— Select Account —</option>
+                <option value="">- Select Account -</option>
                 {accounts.map(a => (
                   <option key={a._dbId} value={a._dbId}>
                     {a.name}{a.number && a.number !== '–' ? ' ' + a.number : ''}{a.owner && a.owner !== 'Shared' ? ' (' + a.owner + ')' : ''}
@@ -294,7 +294,7 @@
                 <input id="st-file-input" ref={fileRef} type="file" hidden accept=".csv,.xls,.xlsx,.pdf"
                   onChange={(e) => onFile(e.target.files[0])} />
               </div>
-              <span className="st-note"><Icon name="info" size={12} />Uploading here only archives the file — use Import Statement to read movements from it.</span>
+              <span className="st-note"><Icon name="info" size={12} />Uploading here only archives the file - use Import Statement to read movements from it.</span>
 
               {busy && <div className="st-note"><Icon name="loader" size={13} />Working…</div>}
               {err && <div className="st-error"><Icon name="alert-triangle" size={13} />{err}</div>}

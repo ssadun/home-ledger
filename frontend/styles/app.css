@@ -221,7 +221,7 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-modal);width:520px;max-width:96vw;box-shadow:var(--shadow-modal);animation:modalIn .15s ease both;display:flex;flex-direction:column;overflow:hidden;max-height:92vh}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--bg3)}
 .modal-head-l{display:flex;flex-direction:column;gap:2px}
-.modal-title{font-size:15px;font-weight:700;color:var(--white);display:flex;align-items:center;gap:9px}
+.modal-title{font-size:15px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:9px}
 .modal-title svg{width:16px;height:16px}
 .modal-sub{font-size:11px;color:var(--muted);padding-left:25px}
 .m-close{background:none;border:none;color:var(--muted);cursor:pointer;display:flex;padding:5px;border-radius:var(--radius-sm);transition:var(--transition)}
@@ -598,15 +598,43 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 .form-field.field-invalid .date-input-wrap > input.field-input{border-color:var(--red) !important;box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 15%, transparent)}
 
 .acct-check-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
-.acct-check-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
+.acct-check-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;appearance:none;-webkit-appearance:none;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
 .acct-check-label input[type="checkbox"]:checked{background:var(--accent);border-color:var(--accent)}
 .acct-check-label input[type="checkbox"]:checked::after{content:'✓';color:var(--white);font-size:12px;font-weight:700;line-height:1}
-:root[data-theme="light"] input[type="checkbox"]{accent-color:color-mix(in srgb, var(--accent) 50%, var(--bg3))}
-:root[data-theme="light"] .acct-check-label input[type="checkbox"]:checked{
-  background:color-mix(in srgb, var(--accent) 50%, var(--bg3));
-  border-color:color-mix(in srgb, var(--accent) 55%, var(--border2));
+:root[data-theme="light"] input[type="checkbox"]{
+  accent-color:color-mix(in srgb, var(--accent) 50%, var(--bg3));
 }
-:root[data-theme="light"] .acct-check-label input[type="checkbox"]:checked::after{color:var(--slate)}
+:root[data-theme="light"] input[type="checkbox"]:not(.row-select-box){
+  appearance:none;
+  -webkit-appearance:none;
+  width:16px;
+  height:16px;
+  cursor:pointer;
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:var(--radius-sm);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  flex-shrink:0;
+}
+:root[data-theme="light"] input[type="checkbox"]:not(.row-select-box):checked{
+  background:var(--bg3);
+  border-color:var(--border2);
+}
+:root[data-theme="light"] input[type="checkbox"]:not(.row-select-box):checked::after{
+  content:'✓';
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1;
+}
+:root[data-theme="light"] .acct-check-label input[type="checkbox"]:checked{
+  background:var(--bg3);
+  border-color:var(--border2);
+}
+:root[data-theme="light"] .acct-check-label input[type="checkbox"]:checked::after{color:var(--muted)}
 .acct-check-label svg{color:var(--gold)}
 /* Low-emphasis variant — label text and icon both drop to --muted */
 .acct-check-label.muted,.acct-check-label.muted svg{color:var(--muted)}

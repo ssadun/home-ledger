@@ -253,7 +253,7 @@
                         {/* Stated plainly rather than hidden: the column and the
                             control are real, the translation is not built yet. */}
                         <span className="pf-row-desc">
-                          Saved to your account. The interface is English only for now —
+                          Saved to your account. The interface is English only for now -
                           translation is not built yet.
                         </span>
                       </div>

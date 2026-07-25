@@ -100,7 +100,7 @@
                   <span className="notif-panel-title">Push Notifications</span>
                   <p className="notif-unsupported">
                     This browser or connection doesn't support push notifications. Push requires a
-                    secure (HTTPS) connection and a modern browser — try opening the app over HTTPS.
+                    secure (HTTPS) connection and a modern browser - try opening the app over HTTPS.
                   </p>
                 </section>
               ) : (

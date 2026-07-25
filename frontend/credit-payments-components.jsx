@@ -145,7 +145,7 @@
             <div className={"form-field full" + (invalid.accountId ? ' field-invalid' : '')}>
               <span className="field-label">Credit Card<span className="field-required-mark">*</span></span>
               <StyledSelect id="cp-modal-card-select" className="field-input" value={f.accountId} onChange={(e) => set('accountId', e.target.value)}>
-                <option value="">— Select Card —</option>
+                <option value="">- Select Card -</option>
                 {cards.map(c => (
                   <option key={c._dbId} value={c._dbId}>
                     {c.name}{c.number && c.number !== '–' ? ' ' + c.number : ''}{c.owner && c.owner !== 'Shared' ? ' (' + c.owner + ')' : ''}
