@@ -6,6 +6,18 @@
   const { grp, SYM, fmtDate, dowOf } = window.LEDGER_FMT;
   const { DateInput, CurrencyInput } = window;
   const { PayerBadge, PayingForCell, CategoryCell, PaymentMethodCell } = window;
+  const PaymentMethodSelect = window.PaymentMethodSelect;
+
+  function paymentMethodAccounts() {
+    return (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : [])
+      .filter(a => ['credit','debit','cash'].includes(a.type) || (a.type === 'bank' && a.showInPaymentMethod));
+  }
+  const PAYMENT_METHOD_GROUPS = [
+    { label: 'Credit Cards',  type: 'credit' },
+    { label: 'Debit Cards',   type: 'debit' },
+    { label: 'Cash',          type: 'cash' },
+    { label: 'Bank Accounts', type: 'bank' },
+  ];
 
   // ── Status badge ──────────────────────────────────────────────────────
   const STATUS_MAP = {
@@ -193,72 +205,6 @@
             <button id="rec-history-close-foot-btn" className="amb cancel" onClick={onClose}><Icon name="x" size={14} />Close</button>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // ── Payment method select (reuse from controls.jsx via window) ────────
-  const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote', bank: 'landmark' };
-  const PM_TYPE_COLORS = { credit: 'var(--accent)', debit: 'var(--green)', cash: 'var(--orange)', bank: 'var(--lavender)' };
-
-  function RecPaymentMethodSelect({ value, onChange }) {
-    const accounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type) || (a.type === 'bank' && a.showInPaymentMethod));
-    const groups = [
-      { label: 'Credit Cards',  type: 'credit' },
-      { label: 'Debit Cards',   type: 'debit' },
-      { label: 'Cash',          type: 'cash' },
-      { label: 'Bank Accounts', type: 'bank' },
-    ];
-    const [open, setOpen] = React.useState(false);
-    const ref = React.useRef();
-    React.useEffect(() => {
-      if (!open) return;
-      function handle(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
-      document.addEventListener('mousedown', handle);
-      return () => document.removeEventListener('mousedown', handle);
-    }, [open]);
-    const selected = value ? accounts.find(a => String(a.id) === String(value)) : null;
-    const selectedGroup = selected ? groups.find(g => g.type === selected.type) : null;
-    return (
-      <div className="pm-select" ref={ref}>
-        <button type="button" id="rec-payment-method-trigger-btn" className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
-          {selected && selectedGroup ? (
-            <span className="pm-trigger-inner">
-              <span className="pm-icon" style={{ color: PM_TYPE_COLORS[selectedGroup.type] }}>
-                <Icon name={PM_TYPE_ICONS[selectedGroup.type]} size={14} /></span>
-              <span className="pm-name">{selected.name}{selected.number && (selected.type === 'credit' || selected.type === 'debit') ? ' ' + selected.number : ''}{selected.owner && selected.owner !== 'Shared' ? ' (' + selected.owner + ')' : ''}</span>
-            </span>
-          ) : <span className="pm-placeholder">— Select —</span>}
-          <Icon name="chevron-down" size={14} />
-        </button>
-        {open && (
-          <div className="pm-dropdown">
-            <div id="rec-payment-method-option-none" className="pm-option" onClick={() => { onChange(''); setOpen(false); }}>
-              <span className="pm-placeholder">— Select —</span>
-            </div>
-            {groups.map(g => {
-              const accts = accounts.filter(a => a.type === g.type);
-              if (!accts.length) return null;
-              return (
-                <div key={g.type} className="pm-group">
-                  <div className="pm-group-label">
-                    <Icon name={PM_TYPE_ICONS[g.type]} size={12} color={PM_TYPE_COLORS[g.type]} />
-                    {g.label}
-                  </div>
-                  {accts.map(a => (
-                    <div key={a.id} id={'rec-payment-method-option-' + a.id} className={'pm-option' + (String(value) === String(a.id) ? ' selected' : '')}
-                      onClick={() => { onChange(String(a.id)); setOpen(false); }}>
-                      <span className="pm-icon" style={{ color: PM_TYPE_COLORS[g.type] }}>
-                        <Icon name={PM_TYPE_ICONS[g.type]} size={13} /></span>
-                      <span className="pm-name">{a.name}{a.number && (a.type === 'credit' || a.type === 'debit') ? ' ' + a.number : ''}{a.owner && a.owner !== 'Shared' ? ' (' + a.owner + ')' : ''}</span>
-                      {String(value) === String(a.id) && <Icon name="check" size={12} color="var(--accent)" />}
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     );
   }
@@ -523,7 +469,8 @@
               <div className="form-grid">
                 <div className={"form-field full" + (invalid.paymentMethod ? ' field-invalid' : '')}>
                   <span className="field-label">Payment Method<span className="field-required-mark">*</span></span>
-                  <RecPaymentMethodSelect value={f.paymentMethod} onChange={v => set('paymentMethod', v)} />
+                  <PaymentMethodSelect id="rec-payment-method" triggerId="rec-payment-method-trigger-btn" value={f.paymentMethod} onChange={v => set('paymentMethod', v)}
+                    groups={PAYMENT_METHOD_GROUPS} accounts={paymentMethodAccounts()} />
                 </div>
               </div>
 

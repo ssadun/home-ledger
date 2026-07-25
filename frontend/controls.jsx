@@ -29,7 +29,7 @@
   // this page must load first — do NOT paste a local copy back in here.
   const DateInput = window.DateInput;
 
-  function PaymentMethodSelect({ value, onChange, groups, accounts, id }) {
+  function PaymentMethodSelect({ value, onChange, groups, accounts, id, triggerId }) {
     const [open, setOpen] = React.useState(false);
     const ref = React.useRef();
     React.useEffect(() => {
@@ -42,7 +42,7 @@
     const selectedGroup = selected ? groups.find(g => g.type === selected.type) : null;
     return (
       <div className="pm-select" ref={ref}>
-        <button type="button" id={id} className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
+        <button type="button" id={triggerId || id} className={'pm-trigger field-input' + (open ? ' open' : '')} onClick={() => setOpen(o => !o)}>
           {selected && selectedGroup ? (
             <span className="pm-trigger-inner">
               <span className="pm-icon" style={{ color: PM_TYPE_COLORS[selectedGroup.type] }}>
@@ -505,5 +505,5 @@
     );
   }
 
-  Object.assign(window, { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, DateInput, CurrencyInput });
+  Object.assign(window, { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, DateInput, CurrencyInput, PaymentMethodSelect });
 })();

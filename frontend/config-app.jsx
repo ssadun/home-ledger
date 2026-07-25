@@ -847,6 +847,42 @@
     );
   }
 
+  function CfgPagination({ page, pages, total, start, end, perPage, setPage, setPerPage }) {
+    const nums = [];
+    if (pages <= 7) { for (let i = 1; i <= pages; i++) nums.push(i); }
+    else {
+      nums.push(1);
+      let lo = Math.max(2, page - 1), hi = Math.min(pages - 1, page + 1);
+      if (lo > 2) nums.push('…');
+      for (let i = lo; i <= hi; i++) nums.push(i);
+      if (hi < pages - 1) nums.push('…');
+      nums.push(pages);
+    }
+    return (
+      <div className="pagination cfg-pagination">
+        <span className="page-info">
+          <span className="page-count">Showing <b>{total ? start + 1 : 0}–{end}</b> of <b>{total}</b></span>
+          <span className="sep">|</span>
+          <span className="pager-rows">
+            <span className="pager-rows-label">Rows</span>
+            <div className="select-wrap">
+              <StyledSelect id="cfg-pagination-rows-select" className="sel" style={{ minWidth: 96, padding: '4px 10px' }} value={perPage} onChange={(e) => setPerPage(+e.target.value)}>
+                <option>10</option><option>20</option><option>30</option><option>40</option><option>50</option><option>100</option>
+              </StyledSelect>
+            </div>
+          </span>
+        </span>
+        <div className="page-controls">
+          <button id="cfg-pagination-prev-btn" className="page-btn" disabled={page === 1} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={14} /><span className="page-btn-label">Prev</span></button>
+          {nums.map((n, i) => n === '…'
+            ? <span className="page-ellipsis" key={'e' + i}>…</span>
+            : <button key={n} id={'cfg-pagination-page-' + n + '-btn'} className={'page-btn' + (n === page ? ' active' : '')} onClick={() => setPage(n)}>{n}</button>)}
+          <button id="cfg-pagination-next-btn" className="page-btn" disabled={page === pages || pages === 0} onClick={() => setPage(page + 1)}><span className="page-btn-label">Next</span><Icon name="chevron-right" size={14} /></button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Detail section table — sortable, resizable, drag-reorderable; rows open the editor ──
   function CfgSectionTable({ section, items, onEdit, onAdd, onTcmb, onBatchDelete }) {
     const { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton, ExportData } = window;
@@ -878,6 +914,12 @@
       [section]);
     const [search, setSearch] = React.useState('');
     const [facets, setFacets] = React.useState({});
+    const [page, setPage] = React.useState(1);
+    const [perPage, setPerPage] = React.useState(() => {
+      const v = +localStorage.getItem('hl-rows-per-page');
+      return [10, 20, 30, 40, 50, 100].includes(v) ? v : 10;
+    });
+    React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     const setFacet = (k, v) => setFacets(p => { const n = { ...p }; if (!v || v === 'all') delete n[k]; else n[k] = v; return n; });
     const filteredItems = React.useMemo(() => {
       const q = search.trim().toLowerCase();
@@ -909,15 +951,20 @@
       });
       return arr;
     }, [filteredItems, sort]);
+    const total = sortedItems.length;
+    const pages = Math.max(1, Math.ceil(total / perPage));
+    const curPage = Math.min(page, pages);
+    const start = (curPage - 1) * perPage;
+    const end = Math.min(start + perPage, total);
+    const pageRows = React.useMemo(() => sortedItems.slice(start, end), [sortedItems, start, end]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [search, facets, perPage]);
 
     // ── Mass-delete: checkbox selection over the visible (filtered) rows ──
     const [selected, setSelected] = React.useState(() => new Set());
     const [batchDel, setBatchDel] = React.useState(false);
     const toggleSelect = (id) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-    // Clear the selection when the visible set changes via search/facets.
-    React.useEffect(() => { setSelected(new Set()); }, [search, facets]);
     const selectedItems = React.useMemo(() => items.filter(it => selected.has(it.id)), [items, selected]);
-    const visibleIds = sortedItems.map(it => it.id);
+    const visibleIds = pageRows.map(it => it.id);
     const allSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
     const someSelected = !allSelected && visibleIds.some(id => selected.has(id));
     const toggleSelectAll = () => setSelected(s => {
@@ -1051,7 +1098,7 @@
                   <th className="th-select" title="Select all">
                     <input id="cfg-select-all" type="checkbox" className="row-select-box" checked={allSelected}
                       ref={el => { if (el) el.indeterminate = someSelected; }}
-                      onChange={toggleSelectAll} aria-label="Select all rows" />
+                      onChange={toggleSelectAll} aria-label="Select all rows on this page" />
                   </th>
                   {rz.orderedColumns.map(c => (
                     <th key={c.key} className={(c.num ? 'num ' : '') + (sort.col === c.key ? 'sorted' : '')}
@@ -1068,7 +1115,7 @@
                 </tr>
               </thead>
               <tbody>
-                {sortedItems.length === 0 ? (
+                {total === 0 ? (
                   <tr className="empty-row">
                     <td colSpan={rz.orderedColumns.length + 1}>
                       <div className="cfg-empty">
@@ -1077,7 +1124,7 @@
                       </div>
                     </td>
                   </tr>
-                ) : sortedItems.map(item => (
+                ) : pageRows.map(item => (
                   <tr key={item.id} className={'cfg-row' + (selected.has(item.id) ? ' row-selected' : '')} onClick={() => onEdit(item)}
                     title={'Edit ' + (item.label || item.name || item.code || 'item')}>
                     <td className="td-select" onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }}>
@@ -1094,6 +1141,8 @@
               </tbody>
             </table>
           </div>
+          <CfgPagination page={curPage} pages={pages} total={total} start={start} end={end}
+            perPage={perPage} setPage={setPage} setPerPage={setPerPage} />
         </div>
 
         {batchDel && (
@@ -1228,7 +1277,7 @@
           setSectionData(prev => {
             const list = prev.categories || [];
             const idx = list.findIndex(x => x.id === saved.id);
-            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [saved, ...list];
             return { ...prev, categories: next };
           });
           setModal(null);
@@ -1251,7 +1300,7 @@
           setSectionData(prev => {
             const list = prev.members || [];
             const idx = list.findIndex(x => x.id === saved.id);
-            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [saved, ...list];
             return { ...prev, members: next };
           });
           setModal(null);
@@ -1274,7 +1323,7 @@
           setSectionData(prev => {
             const list = prev.currencies || [];
             const idx = list.findIndex(x => x.id === saved.id);
-            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [saved, ...list];
             return { ...prev, currencies: next };
           });
           setModal(null);
@@ -1297,7 +1346,7 @@
           setSectionData(prev => {
             const list = prev['statement-mappings'] || [];
             const idx = list.findIndex(x => x.id === saved.id);
-            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [saved, ...list];
             return { ...prev, 'statement-mappings': next };
           });
           setModal(null);
@@ -1321,7 +1370,7 @@
           setSectionData(prev => {
             const list = prev['financial-institutions'] || [];
             const idx = list.findIndex(x => x.id === saved.id);
-            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [...list, saved];
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [saved, ...list];
             return { ...prev, 'financial-institutions': next };
           });
           // Keep the shared Accounts map in step so pickers/logos update without a reload.

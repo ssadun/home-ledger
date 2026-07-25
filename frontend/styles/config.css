@@ -21,10 +21,10 @@
    (mobile renders each row as a card — see the media query below). */
 .cfg-table tbody tr.cfg-row{cursor:pointer}
 @media (min-width:661px){
-  .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:rgba(42,47,74,.22)}
+  .cfg-table.zebra tbody tr.cfg-row:nth-child(even){background:color-mix(in srgb, var(--border) 40%, transparent)}
   .cfg-table tbody tr.cfg-row:hover{background:var(--bg4)}
-  .cfg-table tbody tr.cfg-row.row-selected td{background:rgba(79,142,247,.10)}
-  .cfg-table tbody tr.cfg-row.row-selected:hover td{background:rgba(79,142,247,.14)}
+  .cfg-table tbody tr.cfg-row.row-selected td{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+  .cfg-table tbody tr.cfg-row.row-selected:hover td{background:color-mix(in srgb, var(--accent) 14%, transparent)}
 }
 .cfg-actions-col{text-align:right;width:200px}
 
@@ -147,7 +147,6 @@
 /* ── Responsive — two views only: computer (>660px) & mobile (500–660px) ── */
 @media (max-width:660px){
   /* cfg tables → Spending-style compact stacked cards */
-  .cfg-table-wrap{padding:10px}
   .cfg-table tbody tr.cfg-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-rows:auto auto;
            gap:2px 10px;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:10px;
            padding:9px 13px;margin:0 0 6px}
@@ -283,6 +282,9 @@
            background:color-mix(in srgb, var(--accent) 10%, var(--bg2))}
   .cfg-table.selectable tbody tr.cfg-row.row-selected:hover{background:color-mix(in srgb, var(--accent) 14%, var(--bg2))}
   .cfg-table.selectable tbody tr.cfg-row.row-selected td{background:none !important}
+
+  .cfg-table tbody tr.cfg-row:last-child{border-bottom:1px solid var(--border)}
+  .cfg-table tr.empty-row td{display:flex;justify-content:center;padding:60px 20px}
 
   /* currency history: "current" row marked by gold border instead of cell tint */
   .cfg-hist-current{border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)}
