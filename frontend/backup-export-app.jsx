@@ -16,7 +16,12 @@
   const BUDGETS_DATA = window.BUDGETS_DATA || {};
   const CATS = L.CATS || {};
 
-  const TWEAK_DEFAULTS = { accent: '#4f8ef7', includeManifest: true, tableLayout: 'list' };
+  const TWEAK_DEFAULTS = { accent: 'var(--theme-accent)', includeManifest: true, tableLayout: 'list' };
+  const BASE_ACCENT = 'var(--theme-accent)';
+  function accentStyle(accent) {
+    const v = String(accent || '').trim();
+    return v && v !== BASE_ACCENT && v !== 'var(--accent)' ? { '--accent': v } : undefined;
+  }
 
   // Project rule: every date field renders through the shared DateInput (never a
   // raw <input type="date">), so calendar styling and .date-input-wrap markup stay
@@ -55,7 +60,7 @@
   // dateKey set → period-aware (filtered by Year / Date Range). null → always full.
   const DATASETS = [
     {
-      id: 'spending', label: 'Spending Transactions', icon: 'shopping-bag', color: '#22c55e',
+      id: 'spending', label: 'Spending Transactions', icon: 'shopping-bag', color: 'var(--green)',
       group: 'Transactions', desc: 'Day-to-day income & expense ledger entries', dateKey: 'date',
       getRows: () => L.TX || [],
       columns: [
@@ -73,7 +78,7 @@
       ],
     },
     {
-      id: 'account-activity', label: 'Account Activity', icon: 'landmark', color: '#4f8ef7',
+      id: 'account-activity', label: 'Account Activity', icon: 'landmark', color: 'var(--accent)',
       group: 'Transactions', desc: 'Bank- & card-sourced statement records', dateKey: 'date',
       getRows: () => ACCT_TX_DATA.ACCT_TX || [],
       columns: [
@@ -88,7 +93,7 @@
       ],
     },
     {
-      id: 'recurring', label: 'Recurring & Subscriptions', icon: 'repeat', color: '#d946ef',
+      id: 'recurring', label: 'Recurring & Subscriptions', icon: 'repeat', color: 'var(--fuchsia)',
       group: 'Transactions', desc: 'Scheduled bills, services and renewals', dateKey: null,
       getRows: () => RECURRING_DATA.RECURRING || [],
       columns: [
@@ -107,7 +112,7 @@
       ],
     },
     {
-      id: 'accounts', label: 'Accounts', icon: 'wallet', color: '#8b5cf6',
+      id: 'accounts', label: 'Accounts', icon: 'wallet', color: 'var(--lavender)',
       group: 'Accounts & Budgets', desc: 'Banks, cards, wallets, cash & investments', dateKey: null,
       getRows: () => ACCOUNTS,
       columns: [
@@ -123,7 +128,7 @@
       ],
     },
     {
-      id: 'budgets', label: 'Budgets', icon: 'target', color: '#eab308',
+      id: 'budgets', label: 'Budgets', icon: 'target', color: 'var(--yellow)',
       group: 'Accounts & Budgets', desc: 'Monthly spending limits per category', dateKey: null,
       getRows: budgetRows,
       columns: [
@@ -134,7 +139,7 @@
       ],
     },
     {
-      id: 'members', label: 'Members', icon: 'users', color: '#22c55e',
+      id: 'members', label: 'Members', icon: 'users', color: 'var(--green)',
       group: 'Configuration', desc: 'Users and their access roles', dateKey: null,
       getRows: membersRows,
       columns: [
@@ -145,7 +150,7 @@
       ],
     },
     {
-      id: 'categories', label: 'Transaction Categories', icon: 'tag', color: '#8b5cf6',
+      id: 'categories', label: 'Transaction Categories', icon: 'tag', color: 'var(--lavender)',
       group: 'Configuration', desc: 'Income & expense classification', dateKey: null,
       getRows: categoriesRows,
       columns: [
@@ -157,7 +162,7 @@
       ],
     },
     {
-      id: 'currencies', label: 'Currencies', icon: 'circle-dollar-sign', color: '#fbbf24',
+      id: 'currencies', label: 'Currencies', icon: 'circle-dollar-sign', color: 'var(--gold)',
       group: 'Configuration', desc: 'Currencies and FX rates vs TRY', dateKey: null,
       getRows: currenciesRows,
       columns: [
@@ -167,19 +172,19 @@
       ],
     },
     {
-      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: (A.ACCOUNT_TYPES && A.ACCOUNT_TYPES.credit && A.ACCOUNT_TYPES.credit.color) || '#f97316',
+      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: (A.ACCOUNT_TYPES && A.ACCOUNT_TYPES.credit && A.ACCOUNT_TYPES.credit.color) || 'var(--orange)',
       group: 'Configuration', desc: 'Card networks for credit cards', dateKey: null,
       getRows: () => typeRows(A.CC_TYPES),
       columns: [{ key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }],
     },
     {
-      id: 'debit-types', label: 'Debit Card Types', icon: 'wallet-cards', color: '#38bdf8',
+      id: 'debit-types', label: 'Debit Card Types', icon: 'wallet-cards', color: 'var(--sky)',
       group: 'Configuration', desc: 'Card networks for debit cards', dateKey: null,
       getRows: () => typeRows(A.DEBIT_TYPES),
       columns: [{ key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }],
     },
     {
-      id: 'account-types', label: 'Account Types', icon: 'landmark', color: '#4f8ef7',
+      id: 'account-types', label: 'Account Types', icon: 'landmark', color: 'var(--accent)',
       group: 'Configuration', desc: 'Financial account types', dateKey: null,
       getRows: () => typeRows(A.ACCOUNT_TYPES),
       columns: [{ key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }, { key: 'color', label: 'Color' }],
@@ -357,7 +362,7 @@
     const totalRows = selectedDatasets.reduce((n, ds) => n + filteredRows(ds, period).length, 0);
 
     return (
-      <div className="app" style={{ '--accent': t.accent }}>
+      <div className="app" style={accentStyle(t.accent)}>
         <Sidebar active="backup-export" />
         <div className="main">
           <header className="page-head">
@@ -472,7 +477,7 @@
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />
           <TweakColor label="Accent" value={t.accent}
-            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+            options={['var(--theme-accent)', 'var(--lavender)', 'var(--green)', 'var(--orange)', 'var(--pink)']}
             onChange={v => setTweak('accent', v)} />
           <TweakSection label="JSON Backup" />
           <TweakToggle label="Include Manifest" value={t.includeManifest}

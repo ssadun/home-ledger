@@ -62,7 +62,8 @@
   --steel:#94a3b8;
   --silver:#A7A9AD;
   /* Accents */
-  --accent:#4f8ef7;
+  --theme-accent:#4f8ef7;
+  --accent:var(--theme-accent);
   --blue-dark:#477ed9;
   --lavender:#8b5cf6;
   /* Status / semantic */
@@ -125,7 +126,8 @@
   --steel:#55607a;
   --silver:#A7A9AD;
   /* Accents */
-  --accent:#3b6fd4;
+  --theme-accent:#3b6fd4;
+  --accent:var(--theme-accent);
   --blue-dark:#2f5cb0;
   --lavender:#7040d0;
   /* Status / semantic */

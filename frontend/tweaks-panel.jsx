@@ -463,14 +463,27 @@ function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) 
 }
 
 // Relative-luminance contrast pick — checkmarks drawn over a swatch need to
-// read on both #111 and #fafafa without per-option configuration. Hex input
-// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
-function __twkIsLight(hex) {
-  const h = String(hex).replace('#', '');
+// read on both #111 and #fafafa without per-option configuration.
+function __twkColorRgb(color) {
+  const raw = String(color || '').trim();
+  const varMatch = raw.match(/^var\((--[a-z0-9-]+)\)$/i);
+  if (varMatch && typeof window !== 'undefined') {
+    return __twkColorRgb(getComputedStyle(document.documentElement).getPropertyValue(varMatch[1]));
+  }
+  const rgbMatch = raw.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (rgbMatch) return [Number(rgbMatch[1]), Number(rgbMatch[2]), Number(rgbMatch[3])];
+  if (raw[0] !== '#') return null;
+  const h = raw.replace('#', '');
   const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
   const n = parseInt(x.slice(0, 6), 16);
-  if (Number.isNaN(n)) return true;
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (Number.isNaN(n)) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function __twkIsLight(color) {
+  const rgb = __twkColorRgb(color);
+  if (!rgb) return true;
+  const [r, g, b] = rgb;
   return r * 299 + g * 587 + b * 114 > 148000;
 }
 

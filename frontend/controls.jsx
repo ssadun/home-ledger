@@ -7,7 +7,7 @@
 
   // ── Payment method icons map ───────────────────────────────────────────
   const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote', bank: 'landmark' };
-  const PM_TYPE_COLORS = { credit: '#4f8ef7', debit: '#22c55e', cash: '#f97316', bank: '#8b5cf6' };
+  const PM_TYPE_COLORS = { credit: 'var(--accent)', debit: 'var(--green)', cash: 'var(--orange)', bank: 'var(--lavender)' };
 
   // Bank accounts read "Institution - Account# (Owner)"; other types keep the
   // plain "Name [number] (Owner)" form.

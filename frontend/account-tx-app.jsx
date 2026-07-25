@@ -11,7 +11,7 @@
   const { useTweaks, TweaksPanel, TweakSection, TweakColor, TweakToggle, TweakRadio } = window;
   const { useResizableColumns, ColResizer } = window;
 
-  const TWEAK_DEFAULTS = { accent: '#4f8ef7', zebra: true, density: 'compact', colorAmounts: true, groupByWeek: true };
+  const TWEAK_DEFAULTS = { accent: 'var(--theme-accent)', zebra: true, density: 'compact', colorAmounts: true, groupByWeek: true };
 
   function weekOfMonth(iso) { return Math.ceil(+iso.split('-')[2] / 7); }
   function weekRangeLabel(wk, month, year) {
@@ -712,7 +712,7 @@
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />
           <TweakColor label="Accent" value={t.accent}
-            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+            options={['var(--theme-accent)', 'var(--lavender)', 'var(--green)', 'var(--orange)', 'var(--pink)']}
             onChange={v => setTweak('accent', v)} />
           <TweakRadio label="Density" value={t.density}
             options={['compact', 'regular', 'comfy']}

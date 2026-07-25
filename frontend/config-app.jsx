@@ -14,7 +14,12 @@
   // this page must load first — do NOT paste a local copy back in here.
   const DateInput = window.DateInput;
 
-  const TWEAK_DEFAULTS = { accent: '#4f8ef7' };
+  const TWEAK_DEFAULTS = { accent: 'var(--theme-accent)' };
+  const BASE_ACCENT = 'var(--theme-accent)';
+  function accentStyle(accent) {
+    const v = String(accent || '').trim();
+    return v && v !== BASE_ACCENT && v !== 'var(--accent)' ? { '--accent': v } : undefined;
+  }
 
   const { Sidebar, NAV_CFG_SUB } = window.HL_NAV;
   const CFG_SECTION = window.CONFIG_SECTION || null;
@@ -50,22 +55,22 @@
 
   // ── Color palette ────────────────────────────────────────────────────────
   const COLOR_OPTIONS = [
-    { var: 'var(--accent)',   hex: '#4f8ef7', label: 'Blue' },
-    { var: 'var(--green)',    hex: '#22c55e', label: 'Green' },
-    { var: 'var(--emerald)',  hex: '#34d399', label: 'Emerald' },
-    { var: 'var(--mint)',     hex: '#4ade80', label: 'Mint' },
-    { var: 'var(--lime)',     hex: '#bef264', label: 'Lime' },
-    { var: 'var(--yellow)',   hex: '#eab308', label: 'Yellow' },
-    { var: 'var(--orange)',   hex: '#f97316', label: 'Orange' },
-    { var: 'var(--coral)',    hex: '#fb7185', label: 'Coral' },
-    { var: 'var(--red)',      hex: '#ef4444', label: 'Red' },
-    { var: 'var(--pink)',     hex: '#ec4899', label: 'Pink' },
-    { var: 'var(--rose)',     hex: '#f472b6', label: 'Rose' },
-    { var: 'var(--fuchsia)',  hex: '#d946ef', label: 'Fuchsia' },
-    { var: 'var(--lavender)', hex: '#8b5cf6', label: 'Lavender' },
-    { var: 'var(--sky)',      hex: '#38bdf8', label: 'Sky' },
-    { var: 'var(--steel)',    hex: '#94a3b8', label: 'Steel' },
-    { var: 'var(--gold)',     hex: '#fbbf24', label: 'Gold' },
+    { var: 'var(--accent)',   label: 'Blue' },
+    { var: 'var(--green)',    label: 'Green' },
+    { var: 'var(--emerald)',  label: 'Emerald' },
+    { var: 'var(--mint)',     label: 'Mint' },
+    { var: 'var(--lime)',     label: 'Lime' },
+    { var: 'var(--yellow)',   label: 'Yellow' },
+    { var: 'var(--orange)',   label: 'Orange' },
+    { var: 'var(--coral)',    label: 'Coral' },
+    { var: 'var(--red)',      label: 'Red' },
+    { var: 'var(--pink)',     label: 'Pink' },
+    { var: 'var(--rose)',     label: 'Rose' },
+    { var: 'var(--fuchsia)',  label: 'Fuchsia' },
+    { var: 'var(--lavender)', label: 'Lavender' },
+    { var: 'var(--sky)',      label: 'Sky' },
+    { var: 'var(--steel)',    label: 'Steel' },
+    { var: 'var(--gold)',     label: 'Gold' },
   ];
 
   // ── Icon palette (Lucide names) for the category icon picker ─────────────
@@ -650,7 +655,7 @@
                         <button key={c.var} type="button"
                           id={'cfg-field-' + fd.key + '-swatch-' + c.label.toLowerCase()}
                           className={'cfg-color-swatch' + (f[fd.key] === c.var ? ' selected' : '')}
-                          style={{ background: c.hex }} title={c.label}
+                          style={{ background: c.var }} title={c.label}
                           onClick={() => set(fd.key, c.var)} />
                       ))}
                     </div>
@@ -1445,7 +1450,7 @@
     }
 
     return (
-      <div className="app" style={{ '--accent': t.accent }}>
+      <div className="app" style={accentStyle(t.accent)}>
         <Sidebar active={CFG_SECTION || 'configuration'} />
         <div className="main">
           {/* ── Detail: dedicated section page ── */}
@@ -1536,7 +1541,7 @@
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />
           <TweakColor label="Accent" value={t.accent}
-            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+            options={['var(--theme-accent)', 'var(--lavender)', 'var(--green)', 'var(--orange)', 'var(--pink)']}
             onChange={v => setTweak('accent', v)} />
         </TweaksPanel>
       </div>

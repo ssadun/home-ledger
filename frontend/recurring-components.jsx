@@ -199,7 +199,7 @@
 
   // ── Payment method select (reuse from controls.jsx via window) ────────
   const PM_TYPE_ICONS  = { credit: 'credit-card', debit: 'wallet-cards', cash: 'banknote', bank: 'landmark' };
-  const PM_TYPE_COLORS = { credit: '#4f8ef7', debit: '#22c55e', cash: '#f97316', bank: '#8b5cf6' };
+  const PM_TYPE_COLORS = { credit: 'var(--accent)', debit: 'var(--green)', cash: 'var(--orange)', bank: 'var(--lavender)' };
 
   function RecPaymentMethodSelect({ value, onChange }) {
     const accounts = (window.ACCOUNTS_DATA ? window.ACCOUNTS_DATA.ACCOUNTS : []).filter(a => ['credit','debit','cash'].includes(a.type) || (a.type === 'bank' && a.showInPaymentMethod));

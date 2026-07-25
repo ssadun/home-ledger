@@ -57,10 +57,12 @@
   // #4f8ef7 while its label went light. So a stock value must be REMOVED, not
   // re-written, letting the theme's own token win again.
   var STOCK_ACCENT = '#4f8ef7';
+  var STOCK_ACCENT_TOKEN = 'var(--theme-accent)';
 
   function accent(value) {
     var el = document.documentElement;
-    if (value && String(value).toLowerCase() !== STOCK_ACCENT) {
+    var v = String(value || '').trim();
+    if (v && v.toLowerCase() !== STOCK_ACCENT && v !== STOCK_ACCENT_TOKEN && v !== 'var(--accent)') {
       el.style.setProperty('--accent', value);
     } else {
       el.style.removeProperty('--accent');

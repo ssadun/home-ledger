@@ -22,7 +22,7 @@
   }
 
   const TWEAK_DEFAULTS = {
-    accent: '#4f8ef7',
+    accent: 'var(--theme-accent)',
     layout: 'table',
     zebra: true,
     showEnded: true,
@@ -642,7 +642,7 @@
             onChange={v => setTweak('layout', v)} />
           <TweakSection label="Appearance" />
           <TweakColor label="Accent" value={t.accent}
-            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#d946ef']}
+            options={['var(--theme-accent)', 'var(--lavender)', 'var(--green)', 'var(--orange)', 'var(--fuchsia)']}
             onChange={v => setTweak('accent', v)} />
           <TweakToggle label="Zebra Striping" value={t.zebra}
             onChange={v => setTweak('zebra', v)} />

@@ -209,7 +209,7 @@
       });
     }
 
-    React.useEffect(() => { window.HL_THEME.accent('#4f8ef7'); }, []);
+    React.useEffect(() => { window.HL_THEME.accent('var(--theme-accent)'); }, []);
 
     // Hydrate accounts from the backend on mount, together with the institution
     // map (names + logos) so cards paint their logos on the first render rather
@@ -377,8 +377,8 @@
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />
-          <TweakColor label="Accent" value={'#4f8ef7'}
-            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+          <TweakColor label="Accent" value={'var(--theme-accent)'}
+            options={['var(--theme-accent)', 'var(--lavender)', 'var(--green)', 'var(--orange)', 'var(--pink)']}
             onChange={(v) => window.HL_THEME.accent(v)} />
         </TweaksPanel>
       </div>

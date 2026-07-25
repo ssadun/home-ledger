@@ -26,7 +26,7 @@
   const ExportData = window.ExportData;
   const ASSET_DOMAIN = window.HL_ASSET_DOMAIN || null;
 
-  const TWEAK_DEFAULTS = { accent: '#4f8ef7', layout: '2-col' };
+  const TWEAK_DEFAULTS = { accent: 'var(--theme-accent)', layout: '2-col' };
   const CURRENT_YEAR = window.LEDGER.CURRENT_YEAR;
   const CURRENT_MONTH = window.LEDGER.CURRENT_MONTH; // 0-indexed: Jan=0, Jun=5, etc.
 
@@ -914,7 +914,7 @@
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />
           <TweakColor label="Accent" value={t.accent}
-            options={['#4f8ef7', '#8b5cf6', '#22c55e', '#f97316', '#ec4899']}
+            options={['var(--theme-accent)', 'var(--lavender)', 'var(--green)', 'var(--orange)', 'var(--pink)']}
             onChange={(v) => setTweak('accent', v)} />
           <TweakRadio label="Layout" value={t.layout}
             options={['2-col', '1-col']}
