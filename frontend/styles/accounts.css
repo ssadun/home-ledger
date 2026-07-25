@@ -162,7 +162,7 @@
   .main,body.sidebar-expanded .main{margin-left:0;height:auto;min-height:100vh;padding-bottom:66px}
 
   .page-head{padding:12px}
-  .page-title{font-size:18px;letter-spacing:1px}
+  .page-title{font-size:18px}
   .page-sub{padding-left:0;font-size:11px;overflow:hidden;text-overflow:ellipsis}
 
   .summary-row,.acct-body{margin-left:12px;margin-right:12px}

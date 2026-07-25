@@ -50,6 +50,44 @@
       updatedAt: row.updated_at || null,
     });
   }
+  function fromHolding(row) {
+    const current = row.current_price != null ? Number(row.current_price) : null;
+    const avg = row.average_cost != null ? Number(row.average_cost) : null;
+    return withConverted({
+      id: row.legacy_investment_id || ('h-' + row.id),
+      holdingId: row.id,
+      assetId: row.asset_id,
+      legacyId: row.legacy_investment_id || null,
+      name: row.name || '',
+      platform: '',
+      assetType: row.asset_class || 'stock',
+      cur: row.currency || 'TRY',
+      qty: Number(row.quantity) || 0,
+      price: avg,
+      currentPrice: current,
+      priceAsOf: row.price_as_of || '',
+      priceSource: row.price_source || '',
+      note: row.note || '',
+      updatedAt: row.updated_at || null,
+    });
+  }
+  function toHolding(item) {
+    return {
+      asset_id: item.assetId,
+      legacy_investment_id: item.legacyId || null,
+      symbol: (item.name || '').split(' - ')[0],
+      name: item.name,
+      asset_class: item.assetType || 'stock',
+      currency: item.cur || 'TRY',
+      quantity: Number(item.qty) || 0,
+      average_cost: (item.price === '' || item.price == null) ? null : Number(item.price),
+      current_price: (item.currentPrice === '' || item.currentPrice == null) ? null : Number(item.currentPrice),
+      price_as_of: item.priceAsOf || null,
+      price_source: item.priceSource || null,
+      note: item.note || null,
+      is_active: true,
+    };
+  }
 
   function toApi(item) {
     return {
@@ -71,7 +109,20 @@
   }
   // Holdings for one invest account, matched by platform == account name.
   async function listForAccount(accountName) {
-    const key = String(accountName || '').trim().toLowerCase();
+    if (window.HL_AUTH && window.HL_AUTH.apiFetch) {
+      const platform = typeof accountName === 'object' ? accountName.name : accountName;
+      const params = typeof accountName === 'object' && accountName._dbId
+        ? '?account_id=' + encodeURIComponent(accountName._dbId)
+        : '?legacy_platform=' + encodeURIComponent(platform || '');
+      try {
+        const res = await api()('/api/holdings/' + params, { method: 'GET' });
+        if (res.ok) {
+          const rows = (await res.json()).map(fromHolding);
+          if (rows.length) return rows;
+        }
+      } catch (e) {}
+    }
+    const key = String((typeof accountName === 'object' ? accountName.name : accountName) || '').trim().toLowerCase();
     return (await list()).filter(h => (h.platform || '').trim().toLowerCase() === key);
   }
   async function create(item) {
@@ -83,6 +134,14 @@
     return fromApi(await res.json());
   }
   async function update(id, item) {
+    if (item.holdingId && !item.legacyId) {
+      const res = await api()('/api/holdings/' + item.holdingId, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toHolding(item)),
+      });
+      if (!res.ok) throw new Error('Failed to update holding (' + res.status + ')');
+      return fromHolding(await res.json());
+    }
     // The backend PATCH schema accepts name/amount/purchase_price/note only;
     // asset_type/currency/platform are fixed at create time (or by the import).
     const res = await api()('/api/investments/' + id, {
@@ -95,9 +154,23 @@
       }),
     });
     if (!res.ok) throw new Error('Failed to update investment (' + res.status + ')');
-    return fromApi(await res.json());
+    const legacy = fromApi(await res.json());
+    if (item.holdingId) {
+      const hres = await api()('/api/holdings/' + item.holdingId, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toHolding({ ...item, legacyId: legacy.id, assetId: item.assetId })),
+      });
+      if (hres.ok) return fromHolding(await hres.json());
+    }
+    return legacy;
   }
   async function remove(id) {
+    if (String(id).startsWith('h-')) {
+      const hid = String(id).slice(2);
+      const res = await api()('/api/holdings/' + hid, { method: 'DELETE' });
+      if (!res.ok && res.status !== 404) throw new Error('Failed to delete holding (' + res.status + ')');
+      return true;
+    }
     const res = await api()('/api/investments/' + id, { method: 'DELETE' });
     if (!res.ok && res.status !== 404) throw new Error('Failed to delete investment (' + res.status + ')');
     return true;

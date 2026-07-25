@@ -24,6 +24,7 @@
   const { RecSummaryStrip } = window;
   const { CalendarWidget } = window;
   const ExportData = window.ExportData;
+  const ASSET_DOMAIN = window.HL_ASSET_DOMAIN || null;
 
   const TWEAK_DEFAULTS = { accent: '#4f8ef7', layout: '2-col' };
   const CURRENT_YEAR = window.LEDGER.CURRENT_YEAR;
@@ -51,6 +52,7 @@
 
   const TABS = [
     { key: 'calendar',   label: 'Calendar',           icon: 'calendar' },
+    { key: 'assets-overview', label: 'Assets Overview', icon: 'scale' },
     { key: 'networth',   label: 'Net Worth Trend',    icon: 'line-chart' },
     { key: 'kpis',       label: 'KPIs',               icon: 'gauge' },
     { key: 'investments',label: 'Investments',       icon: 'chart-no-axes-combined' },
@@ -280,6 +282,74 @@
     );
   }
 
+  function assetDomainMeta(map, key) {
+    return (map && map[key]) || (map && map.other) || { label: key || 'Other', icon: 'circle', color: 'var(--steel)' };
+  }
+
+  function assetDomainMoney(value, cur, digits) {
+    const c = cur || 'TRY';
+    const sym = (window.LEDGER_FMT.SYM && window.LEDGER_FMT.SYM[c]) || c + ' ';
+    return sym + grp(value || 0, digits == null ? 0 : digits);
+  }
+
+  function DashboardAssetMiniRow({ item, kind }) {
+    const isLiab = kind === 'liability';
+    const metaMap = ASSET_DOMAIN ? (isLiab ? ASSET_DOMAIN.LIABILITY_TYPES : ASSET_DOMAIN.ASSET_TYPES) : {};
+    const m = assetDomainMeta(metaMap, item.type);
+    const snap = item.latest;
+    return (
+      <div className="asset-mini-row">
+        <span className="asset-card-icon" style={{ '--asset-color': m.color }}><Icon name={m.icon} size={14} /></span>
+        <span className="asset-mini-main"><b>{item.name}</b><small>{m.label}{item.institution ? ' - ' + item.institution : ''}</small></span>
+        <span className={'asset-mini-val ' + (isLiab ? 'expense' : 'income')}>{snap ? assetDomainMoney(snap.tryValue, 'TRY') : 'No snapshot'}</span>
+      </div>
+    );
+  }
+
+  function DashboardAssetsOverview({ summary, assets, liabilities, loading, error }) {
+    const assetValue = assets.reduce((s, a) => s + (a.latest ? a.latest.tryValue * (a.ownership || 100) / 100 : 0), 0);
+    const liabilityValue = liabilities.reduce((s, l) => s + (l.latest ? l.latest.tryValue : 0), 0);
+    const cards = [
+      { label: 'Assets', icon: 'trending-up', cls: 'income', val: assetDomainMoney(summary?.assets_try ?? assetValue, 'TRY'), sub: (summary?.assets_count ?? assets.length) + ' records' },
+      { label: 'Liabilities', icon: 'trending-down', cls: 'expense', val: assetDomainMoney(summary?.liabilities_try ?? liabilityValue, 'TRY'), sub: (summary?.liabilities_count ?? liabilities.length) + ' records' },
+      { label: 'Net Worth', icon: 'scale', cls: 'net', val: assetDomainMoney(summary?.net_worth_try ?? (assetValue - liabilityValue), 'TRY'), sub: 'Included snapshots' },
+      { label: 'Needs Update', icon: 'alert-triangle', cls: (summary?.missing_asset_valuations || summary?.missing_liability_balances) ? 'expense' : 'count', val: String((summary?.missing_asset_valuations || 0) + (summary?.missing_liability_balances || 0)), sub: 'missing snapshots' },
+    ];
+    const valuedAssets = assets.filter(a => a.latest).sort((a, b) => b.latest.tryValue - a.latest.tryValue).slice(0, 8);
+    const valuedLiabilities = liabilities.filter(l => l.latest).sort((a, b) => b.latest.tryValue - a.latest.tryValue).slice(0, 8);
+    const staleAssets = assets.filter(a => !a.latest).slice(0, 6);
+    return (
+      <main className="asset-body">
+        {error && <div className="rpt-source-alert asset-load-error" role="status"><Icon name="alert-triangle" size={14} /><span>{error}</span></div>}
+        {loading && <div className="dash-empty-state"><Icon name="loader-2" size={24} /><span>Loading assets overview...</span></div>}
+        {!loading && (
+          <React.Fragment>
+            <div className="summary-row">
+              {cards.map(c => <div className="summary-card" key={c.label}><span className="summary-label"><Icon name={c.icon} size={13} />{c.label}</span><span className={'summary-value ' + c.cls}>{c.val}</span><span className="summary-sub">{c.sub}</span></div>)}
+            </div>
+            <div className="asset-overview-grid">
+              <section className="asset-panel">
+                <div className="asset-panel-head"><span><Icon name="wallet" size={14} />Largest Assets</span><a href="Assets.html">Open Assets</a></div>
+                {valuedAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} kind="asset" />)}
+                {!assets.length && <div className="detail-empty asset-empty"><Icon name="wallet" size={24} /><span>No assets yet.</span></div>}
+              </section>
+              <section className="asset-panel">
+                <div className="asset-panel-head"><span><Icon name="receipt" size={14} />Liabilities</span><a href="Liabilities.html">Open Liabilities</a></div>
+                {valuedLiabilities.map(l => <DashboardAssetMiniRow key={l.id} item={l} kind="liability" />)}
+                {!liabilities.length && <div className="detail-empty asset-empty"><Icon name="receipt" size={24} /><span>No liabilities yet.</span></div>}
+              </section>
+              <section className="asset-panel asset-panel-wide">
+                <div className="asset-panel-head"><span><Icon name="alert-triangle" size={14} />Needs Valuation</span><a href="Assets.html">Open Assets</a></div>
+                {staleAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} kind="asset" />)}
+                {!staleAssets.length && <div className="detail-empty asset-empty"><Icon name="check-circle" size={24} /><span>Every included asset has a valuation.</span></div>}
+              </section>
+            </div>
+          </React.Fragment>
+        )}
+      </main>
+    );
+  }
+
   function App() {
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
     const [month, setMonth] = React.useState(CURRENT_MONTH);
@@ -298,6 +368,7 @@
     // Bumped after every tx mutation; threaded into the aggregation memos below
     // (whose period-only dependency arrays would otherwise miss data changes).
     const [dataVersion, setDataVersion] = React.useState(0);
+    const [assetOverview, setAssetOverview] = React.useState({ assets: [], liabilities: [], summary: null, loading: false, loaded: false, error: '' });
 
     React.useEffect(() => {
       window.HL_THEME.accent(t.accent);
@@ -313,6 +384,28 @@
       await window.HL_HYDRATE.hydrateTx();
       setDataVersion(v => v + 1);
     }
+
+    const loadAssetOverview = React.useCallback(async () => {
+      if (!ASSET_DOMAIN) {
+        setAssetOverview(s => ({ ...s, loading: false, loaded: true, error: 'Asset overview data client is not available.' }));
+        return;
+      }
+      setAssetOverview(s => ({ ...s, loading: true, error: '' }));
+      try {
+        const [assets, liabilities, summary] = await Promise.all([
+          ASSET_DOMAIN.listAssets(),
+          ASSET_DOMAIN.listLiabilities(),
+          ASSET_DOMAIN.summary(),
+        ]);
+        setAssetOverview({ assets, liabilities, summary, loading: false, loaded: true, error: '' });
+      } catch (e) {
+        setAssetOverview(s => ({ ...s, loading: false, loaded: true, error: 'Could not load assets overview: ' + ((e && e.message) || e) }));
+      }
+    }, []);
+
+    React.useEffect(() => {
+      if (tab === 'assets-overview' && !assetOverview.loaded && !assetOverview.loading) loadAssetOverview();
+    }, [tab, assetOverview.loaded, assetOverview.loading, loadAssetOverview]);
 
     async function saveTx(tx) {
       const editing = !!tx.id;
@@ -453,7 +546,7 @@
     const totalBudgeted = bva.reduce((s, d) => s + d.limit, 0);
     const layoutCls = t.layout === '1-col' ? 'rpt-single' : '';
     const isAnnual  = tab === 'annual';
-    const usesMonthlyPeriod = !isAnnual && tab !== 'calendar' && tab !== 'networth' && tab !== 'investments';
+    const usesMonthlyPeriod = !isAnnual && tab !== 'calendar' && tab !== 'assets-overview' && tab !== 'networth' && tab !== 'investments';
     const loadErrors = (window.HL_HYDRATE && window.HL_HYDRATE.state && window.HL_HYDRATE.state.errors) || {};
     const missingSources = Object.keys(loadErrors).filter(k => ['transactions','budgets','accounts','investments','recurring','credit-payments'].includes(k));
 
@@ -634,6 +727,17 @@
 
             {/* Calendar */}
             {tab === 'calendar' && <CalendarWidget />}
+
+            {/* Assets Overview */}
+            {tab === 'assets-overview' && (
+              <DashboardAssetsOverview
+                summary={assetOverview.summary}
+                assets={assetOverview.assets}
+                liabilities={assetOverview.liabilities}
+                loading={assetOverview.loading}
+                error={assetOverview.error}
+              />
+            )}
 
             {/* Net Worth Trend */}
             {tab === 'networth' && (

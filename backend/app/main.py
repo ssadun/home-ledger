@@ -4,7 +4,7 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
-from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, push
+from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, push, assets, holdings, liabilities, net_worth
 from app.services.notify import run_due_date_check
 
 # SQLite dosyasının yaşadığı klasörü garantile
@@ -24,6 +24,7 @@ from app.routers.institutions import (
     ensure_short_name_column,
     normalize_institution_names,
 )
+from app.services.assets import backfill_asset_domain
 _seed_db = SessionLocal()
 try:
     seed_default_categories(_seed_db)
@@ -47,6 +48,7 @@ try:
     # Heal institution names padded with whitespace, which break the name-based
     # match from accounts.institution and duplicate the entry in the picker.
     normalize_institution_names(_seed_db)
+    backfill_asset_domain(_seed_db)
 finally:
     _seed_db.close()
 
@@ -80,6 +82,10 @@ app.include_router(statements.router)
 app.include_router(statement_mappings.router)
 app.include_router(institutions.router)
 app.include_router(push.router)
+app.include_router(assets.router)
+app.include_router(holdings.router)
+app.include_router(liabilities.router)
+app.include_router(net_worth.router)
 
 scheduler = BackgroundScheduler()
 

@@ -315,6 +315,168 @@ class InvestmentUpdate(BaseModel):
     note: Optional[str] = None
 
 
+# ── Asset domain ──────────────────────────────────────────────────────────────
+
+class AssetCreate(BaseModel):
+    account_id: Optional[int] = None
+    name: str
+    type: str = "other"
+    subtype: Optional[str] = None
+    currency: Currency = Currency.TRY
+    ownership_percentage: float = 100.0
+    liquidity: Optional[str] = None
+    valuation_mode: str = "manual"
+    institution: Optional[str] = None
+    description: Optional[str] = None
+    include_in_net_worth: bool = True
+    is_active: bool = True
+    acquired_at: Optional[date] = None
+    acquisition_cost: Optional[float] = None
+
+class AssetUpdate(BaseModel):
+    account_id: Optional[int] = None
+    name: Optional[str] = None
+    type: Optional[str] = None
+    subtype: Optional[str] = None
+    currency: Optional[Currency] = None
+    ownership_percentage: Optional[float] = None
+    liquidity: Optional[str] = None
+    valuation_mode: Optional[str] = None
+    institution: Optional[str] = None
+    description: Optional[str] = None
+    include_in_net_worth: Optional[bool] = None
+    is_active: Optional[bool] = None
+    acquired_at: Optional[date] = None
+    acquisition_cost: Optional[float] = None
+
+class AssetOut(AssetCreate):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+class AssetValuationCreate(BaseModel):
+    value: float
+    currency: Currency = Currency.TRY
+    valued_at: date
+    source: str = "manual"
+    exchange_rate_to_try: Optional[float] = None
+    value_try: Optional[float] = None
+    note: Optional[str] = None
+
+class AssetValuationOut(AssetValuationCreate):
+    id: int
+    asset_id: int
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+class AssetWithLatest(AssetOut):
+    latest_valuation: Optional[AssetValuationOut] = None
+
+class InvestmentHoldingCreate(BaseModel):
+    asset_id: int
+    legacy_investment_id: Optional[int] = None
+    symbol: Optional[str] = None
+    name: str
+    asset_class: str = "stock"
+    currency: Currency = Currency.TRY
+    quantity: float
+    average_cost: Optional[float] = None
+    current_price: Optional[float] = None
+    price_as_of: Optional[date] = None
+    price_source: Optional[str] = None
+    note: Optional[str] = None
+    is_active: bool = True
+
+class InvestmentHoldingUpdate(BaseModel):
+    asset_id: Optional[int] = None
+    legacy_investment_id: Optional[int] = None
+    symbol: Optional[str] = None
+    name: Optional[str] = None
+    asset_class: Optional[str] = None
+    currency: Optional[Currency] = None
+    quantity: Optional[float] = None
+    average_cost: Optional[float] = None
+    current_price: Optional[float] = None
+    price_as_of: Optional[date] = None
+    price_source: Optional[str] = None
+    note: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class InvestmentHoldingOut(InvestmentHoldingCreate):
+    id: int
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+class LiabilityCreate(BaseModel):
+    account_id: Optional[int] = None
+    secured_asset_id: Optional[int] = None
+    name: str
+    type: str = "other"
+    currency: Currency = Currency.TRY
+    original_principal: Optional[float] = None
+    interest_rate: Optional[float] = None
+    minimum_payment: Optional[float] = None
+    payment_frequency: Optional[str] = None
+    start_date: Optional[date] = None
+    maturity_date: Optional[date] = None
+    include_in_net_worth: bool = True
+    is_active: bool = True
+    note: Optional[str] = None
+
+class LiabilityUpdate(BaseModel):
+    account_id: Optional[int] = None
+    secured_asset_id: Optional[int] = None
+    name: Optional[str] = None
+    type: Optional[str] = None
+    currency: Optional[Currency] = None
+    original_principal: Optional[float] = None
+    interest_rate: Optional[float] = None
+    minimum_payment: Optional[float] = None
+    payment_frequency: Optional[str] = None
+    start_date: Optional[date] = None
+    maturity_date: Optional[date] = None
+    include_in_net_worth: Optional[bool] = None
+    is_active: Optional[bool] = None
+    note: Optional[str] = None
+
+class LiabilityOut(LiabilityCreate):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = {"from_attributes": True}
+
+class LiabilityBalanceCreate(BaseModel):
+    balance: float
+    currency: Currency = Currency.TRY
+    balanced_at: date
+    source: str = "manual"
+    exchange_rate_to_try: Optional[float] = None
+    balance_try: Optional[float] = None
+    note: Optional[str] = None
+
+class LiabilityBalanceOut(LiabilityBalanceCreate):
+    id: int
+    liability_id: int
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+class LiabilityWithLatest(LiabilityOut):
+    latest_balance: Optional[LiabilityBalanceOut] = None
+
+class NetWorthSummary(BaseModel):
+    assets_try: float
+    liabilities_try: float
+    net_worth_try: float
+    assets_count: int
+    liabilities_count: int
+    missing_asset_valuations: int
+    missing_liability_balances: int
+    by_currency: dict
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 class MonthlySummary(BaseModel):

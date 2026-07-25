@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Investment, User
 from app.schemas import InvestmentCreate, InvestmentOut, InvestmentUpdate
+from app.services.assets import delete_investment_holding, sync_investment_holding
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/investments", tags=["investments"])
@@ -18,6 +19,8 @@ def list_investments(db: Session = Depends(get_db), current_user: User = Depends
 def create_investment(payload: InvestmentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     inv = Investment(**payload.model_dump(), owner_id=current_user.id)
     db.add(inv)
+    db.flush()
+    sync_investment_holding(db, inv)
     db.commit()
     db.refresh(inv)
     return inv
@@ -30,6 +33,7 @@ def update_investment(inv_id: int, payload: InvestmentUpdate, db: Session = Depe
         raise HTTPException(404, "Yatırım bulunamadı")
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(inv, field, value)
+    sync_investment_holding(db, inv)
     db.commit()
     db.refresh(inv)
     return inv
@@ -40,5 +44,6 @@ def delete_investment(inv_id: int, db: Session = Depends(get_db), current_user: 
     inv = db.query(Investment).filter(Investment.id == inv_id, Investment.owner_id == current_user.id).first()
     if not inv:
         raise HTTPException(404, "Yatırım bulunamadı")
+    delete_investment_holding(db, inv)
     db.delete(inv)
     db.commit()

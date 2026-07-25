@@ -7,7 +7,7 @@
 // `active` is the id of the current page. Valid ids:
 //   Top level : dashboard | transactions | accounts | budgets | configuration
 //   Tx sub    : spending | credit-payments | subscriptions | recurring
-//   Accts sub : accounts | account-activity | statements
+//   Accts sub : accounts | assets | liabilities | account-activity | statements
 //   Config sub: members | categories | currencies | cc-types | debit-types | account-types | financial-institutions | statement-mappings | backup-export
 //
 // A NAV entry with a `parent` key renders as a collapsible group whose items come
@@ -74,6 +74,8 @@
   // Accounts.html lights up both the group and its first item.
   const NAV_ACCT_SUB = [
     { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: 'var(--lavender)', href: 'Accounts.html' },
+    { id: 'assets',           icon: 'gem',      label: 'Asset List',       color: 'var(--green)', href: 'Assets.html' },
+    { id: 'liabilities',      icon: 'receipt',  label: 'Liabilities',      color: 'var(--red)', href: 'Liabilities.html' },
     { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: 'var(--accent)', href: 'Account Activity.html' },
     { id: 'statements',       icon: 'files',    label: 'Statements',       color: 'var(--yellow)', href: 'Statements.html' },
   ];

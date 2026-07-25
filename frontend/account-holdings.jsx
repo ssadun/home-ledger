@@ -5,6 +5,7 @@
 (function () {
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
+  const DateInput = window.DateInput;
   const { FX } = window.LEDGER;
   const { ASSET_TYPES, costBasisOf } = window.INVESTMENTS_DATA;
 
@@ -30,6 +31,9 @@
       cur: initial.cur || 'TRY',
       qty: initial.qty != null ? String(initial.qty) : '',
       price: initial.price != null ? String(initial.price) : '',
+      currentPrice: initial.currentPrice != null ? String(initial.currentPrice) : '',
+      priceAsOf: initial.priceAsOf || '',
+      priceSource: initial.priceSource || '',
       note: initial.note || '',
     });
     const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -48,6 +52,9 @@
         cur: f.cur,
         qty: qtyNum,
         price: priceNum,
+        currentPrice: f.currentPrice === '' ? null : (parseFloat(f.currentPrice) || 0),
+        priceAsOf: f.priceAsOf || '',
+        priceSource: f.priceSource || '',
         note: f.note.trim(),
       });
     }
@@ -97,9 +104,33 @@
 
             <div className="form-grid">
               <div className="form-field">
+                <span className="field-label">Current Price <span className="field-opt">(optional)</span></span>
+                <input id="hold-modal-current-price-input" type="number" step="any" className="field-input" placeholder="—" value={f.currentPrice} onChange={e => set('currentPrice', e.target.value)} />
+              </div>
+              <div className="form-field">
+                <span className="field-label">Price Date <span className="field-opt">(optional)</span></span>
+                <DateInput id="hold-modal-price-date-input" className="field-input" value={f.priceAsOf} onChange={e => set('priceAsOf', e.target.value)} />
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <div className="form-field">
                 <span className="field-label">Note <span className="field-opt">(optional)</span></span>
                 <input id="hold-modal-note-input" className="field-input" placeholder="Anything worth remembering" value={f.note} onChange={e => set('note', e.target.value)} />
               </div>
+              <div className="form-field">
+                <span className="field-label">Price Source <span className="field-opt">(optional)</span></span>
+                <StyledSelect id="hold-modal-price-source-select" className="field-input" value={f.priceSource} onChange={e => set('priceSource', e.target.value)}>
+                  <option value="">— Not Set —</option>
+                  <option value="manual">Manual</option>
+                  <option value="market_price">Market Price</option>
+                  <option value="integration">Integration</option>
+                  <option value="import">Import</option>
+                </StyledSelect>
+              </div>
+            </div>
+
+            <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Cost Basis</span>
                 <div className="inv-basis-preview" id="hold-modal-basis-preview">
@@ -142,10 +173,10 @@
     const [flashId, setFlashId] = React.useState(null);
 
     const reload = React.useCallback(() => {
-      window.HL_INVESTMENTS_API.listForAccount(platform)
+      window.HL_INVESTMENTS_API.listForAccount(account)
         .then(setHoldings)
         .catch(e => { setError(e.message || 'Could not load holdings.'); setHoldings([]); });
-    }, [platform]);
+    }, [platform, account._dbId]);
     React.useEffect(() => { reload(); }, [reload]);
 
     async function save(h) {

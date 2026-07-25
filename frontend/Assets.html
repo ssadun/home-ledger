@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="auth.js"></script>
+<script src="theme.js"></script>
+<script src="push.js"></script>
+<script>window.HL_AUTH && window.HL_AUTH.requireAuth(); window.HL_ASSET_PAGE = 'assets';</script>
+<title>Home Ledger - Asset List</title>
+<link rel="icon" href="assets/ledger-logo.svg" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0d0f14" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<script src="assets/pwa.js" defer></script>
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/app.css" />
+<link rel="stylesheet" href="styles/filters.css" />
+<link rel="stylesheet" href="styles/grid.css" />
+<link rel="stylesheet" href="styles/accounts.css" />
+<link rel="stylesheet" href="styles/budgets.css" />
+<link rel="stylesheet" href="styles/asset-domain.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+<link rel="stylesheet" href="styles/datepicker.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+<div id="root"></div>
+<script src="data.js"></script>
+<script src="asset-domain-data.js"></script>
+<script src="menu.js"></script>
+<script type="text/babel" src="Icon.jsx"></script>
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="date-input.jsx"></script>
+<script type="text/babel" src="controls.jsx"></script>
+<script type="text/babel" src="nav.jsx"></script>
+<script type="text/babel" src="asset-domain-app.jsx"></script>
+</body>
+</html>

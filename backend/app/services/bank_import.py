@@ -1858,6 +1858,7 @@ def import_investments(
     kullanmaz (varsayılan False) — orada ekstre tüm portföyü içermeyebilir.
     """
     from app.models import Investment as Inv
+    from app.services.assets import delete_investment_holding, snapshot_asset_from_holdings, sync_investment_holding
 
     created = 0
     updated = 0
@@ -1897,9 +1898,10 @@ def import_investments(
                     existing.purchase_price = price
                 existing.asset_type = asset_type or existing.asset_type
                 existing.currency = currency
+                sync_investment_holding(db, existing)
                 updated += 1
             else:
-                db.add(Inv(
+                inv = Inv(
                     owner_id=owner_id,
                     name=name,
                     platform=platform,
@@ -1908,7 +1910,10 @@ def import_investments(
                     amount=amount,
                     purchase_price=price,
                     note=note,
-                ))
+                )
+                db.add(inv)
+                db.flush()
+                sync_investment_holding(db, inv)
                 created += 1
 
             seen.setdefault(platform, set()).add(name)
@@ -1924,8 +1929,24 @@ def import_investments(
                 .all()
             ):
                 if stale.name not in names:
+                    delete_investment_holding(db, stale)
                     db.delete(stale)
                     removed += 1
+
+    asset_ids = set()
+    from app.models import Asset, InvestmentHolding
+    for platform in seen:
+        asset = (
+            db.query(Asset)
+            .filter(Asset.owner_id == owner_id, Asset.name == platform)
+            .first()
+        )
+        if asset:
+            asset_ids.add(asset.id)
+    for asset_id in asset_ids:
+        asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if asset:
+            snapshot_asset_from_holdings(db, asset)
 
     db.commit()
     return {"created": created, "updated": updated, "removed": removed, "errors": errors}
@@ -1946,6 +1967,7 @@ def import_pension(
     ile yazılır, çünkü fon dağılımı eksiksiz bir anlık görüntüdür.
     """
     from app.models import Account
+    from app.services.assets import ensure_asset_for_account, snapshot_asset_from_account
 
     contract = (pension.get("contract_no") or "").strip()
     if not contract:
@@ -2000,6 +2022,10 @@ def import_pension(
     }
     db.commit()
     db.refresh(acc)
+    asset = ensure_asset_for_account(db, acc)
+    if asset:
+        snapshot_asset_from_account(db, acc)
+    db.commit()
 
     inv_rows = [
         {

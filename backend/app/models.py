@@ -189,6 +189,99 @@ class Investment(Base):
     owner = relationship("User", back_populates="investments")
 
 
+class Asset(Base):
+    __tablename__ = "assets"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    type = Column(String, default="other")
+    subtype = Column(String)
+    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
+    ownership_percentage = Column(Float, default=100.0, nullable=False)
+    liquidity = Column(String)
+    valuation_mode = Column(String, default="manual")
+    institution = Column(String)
+    description = Column(Text)
+    include_in_net_worth = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    acquired_at = Column(Date)
+    acquisition_cost = Column(Float)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
+class AssetValuation(Base):
+    __tablename__ = "asset_valuations"
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False, index=True)
+    value = Column(Float, nullable=False)
+    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
+    valued_at = Column(Date, nullable=False, index=True)
+    source = Column(String, default="manual")
+    exchange_rate_to_try = Column(Float)
+    value_try = Column(Float)
+    note = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class InvestmentHolding(Base):
+    __tablename__ = "investment_holdings"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False, index=True)
+    legacy_investment_id = Column(Integer, ForeignKey("investments.id"), nullable=True, index=True)
+    symbol = Column(String)
+    name = Column(String, nullable=False)
+    asset_class = Column(String, default="stock")
+    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
+    quantity = Column(Float, nullable=False)
+    average_cost = Column(Float)
+    current_price = Column(Float)
+    price_as_of = Column(Date)
+    price_source = Column(String)
+    note = Column(Text)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
+class Liability(Base):
+    __tablename__ = "liabilities"
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True, index=True)
+    secured_asset_id = Column(Integer, ForeignKey("assets.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    type = Column(String, default="other")
+    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
+    original_principal = Column(Float)
+    interest_rate = Column(Float)
+    minimum_payment = Column(Float)
+    payment_frequency = Column(String)
+    start_date = Column(Date)
+    maturity_date = Column(Date)
+    include_in_net_worth = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    note = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
+
+
+class LiabilityBalance(Base):
+    __tablename__ = "liability_balances"
+    id = Column(Integer, primary_key=True, index=True)
+    liability_id = Column(Integer, ForeignKey("liabilities.id"), nullable=False, index=True)
+    balance = Column(Float, nullable=False)
+    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
+    balanced_at = Column(Date, nullable=False, index=True)
+    source = Column(String, default="manual")
+    exchange_rate_to_try = Column(Float)
+    balance_try = Column(Float)
+    note = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Budget(Base):
     __tablename__ = "budgets"
     id = Column(Integer, primary_key=True, index=True)

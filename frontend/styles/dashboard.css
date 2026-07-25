@@ -153,6 +153,29 @@
 .rpt-body .summary-value{font-size:17px;font-weight:700;line-height:1.15;letter-spacing:-.3px}
 .rpt-body .summary-sub{font-size:11px;font-weight:500}
 
+/* ── Assets Overview — align Dashboard tab with Calendar sizing ── */
+.rpt-body > .asset-body{width:100%;padding:0;overflow:visible;display:flex;flex-direction:column;align-items:center;gap:14px}
+.rpt-body > .asset-body .summary-row{margin:0}
+.rpt-body > .asset-body .asset-overview-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;width:100%;max-width:934px;margin:0 auto}
+.rpt-body > .asset-body .asset-panel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.rpt-body > .asset-body .asset-panel:hover{border-color:var(--border2)}
+.rpt-body > .asset-body .asset-panel-head{gap:9px;padding-bottom:14px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--white);letter-spacing:.2px}
+.rpt-body > .asset-body .asset-panel-head span{min-width:0}
+.rpt-body > .asset-body .asset-panel-head a{font-size:11px;font-weight:700;color:var(--accent)}
+.rpt-body > .asset-body .asset-mini-row{padding:10px 0;border-top:none;border-bottom:1px solid var(--border)}
+.rpt-body > .asset-body .asset-mini-row:last-child{border-bottom:none}
+.rpt-body > .asset-body .asset-card-icon{width:28px;height:28px;border-radius:var(--radius-sm)}
+.rpt-body > .asset-body .asset-mini-main b{font-size:12.5px;font-weight:700;color:var(--text)}
+.rpt-body > .asset-body .asset-mini-main small{font-size:11px;font-weight:600;color:var(--muted)}
+.rpt-body > .asset-body .asset-mini-val{font-size:12.5px;font-weight:800}
+.rpt-body > .asset-body .asset-empty{margin-top:0;min-height:170px;justify-content:center}
+.rpt-body > .asset-body .asset-load-error{margin:0;width:100%;max-width:934px}
+
+@media (max-width:920px){
+  .rpt-body > .asset-body .asset-overview-grid{grid-template-columns:minmax(0,600px);justify-content:center}
+  .rpt-body > .asset-body .asset-panel-wide{grid-column:auto}
+}
+
 /* ============================================================================
    RESPONSIVE — two views only: computer (>660px) & mobile (500–660px)
    ============================================================================ */
@@ -190,6 +213,13 @@
   .dash-inv-metrics{grid-column:3;align-items:flex-start;flex-direction:row;gap:8px;min-width:0}
   .dash-inv-native{overflow:hidden;text-overflow:ellipsis}
   .dash-alloc-row{grid-template-columns:92px minmax(0,1fr) 38px;gap:8px}
+  .rpt-body > .asset-body .asset-overview-grid{grid-template-columns:minmax(0,522px);gap:10px}
+  .rpt-body > .asset-body .asset-panel{padding:12px;gap:10px}
+  .rpt-body > .asset-body .asset-panel-head{padding-bottom:10px;font-size:13px}
+  .rpt-body > .asset-body .asset-mini-row{padding:8px 0;gap:8px}
+  .rpt-body > .asset-body .asset-card-icon{width:24px;height:24px}
+  .rpt-body > .asset-body .asset-card-icon svg{width:11px!important;height:11px!important}
+  .rpt-body > .asset-body .asset-mini-val{font-size:11px}
 }
 
 /* ============================================================================
