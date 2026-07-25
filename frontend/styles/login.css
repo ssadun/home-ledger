@@ -100,6 +100,7 @@ body {
 
 /* ── Card ── */
 .login-card {
+  position: relative;
   width: 100%;
   max-width: 400px;
   background: var(--card-glass);
@@ -322,12 +323,10 @@ body {
 .spin { display: inline-flex; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Theme toggle ──
-   Sits above the orbs (z-index 2) so it stays clickable; the orbs are fixed at
-   z-index 0 and the page wrapper at 1. */
+/* ── Theme toggle ── */
 .theme-toggle {
-  position: fixed;
-  top: 20px; right: 20px;
+  position: absolute;
+  top: 16px; right: 16px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -335,17 +334,25 @@ body {
   width: 36px; height: 36px;
   border-radius: 10px;
   cursor: pointer;
-  color: var(--muted);
-  background: var(--card-glass);
-  border: 1px solid var(--border2);
+  color: var(--accent);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 22%, var(--bg3)),
+      color-mix(in srgb, var(--lavender) 18%, var(--bg3)));
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border2));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  transition: color .15s, border-color .15s, background .15s;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 18%, transparent);
+  transition: color .15s, border-color .15s, background .15s, box-shadow .15s;
 }
 .theme-toggle:hover {
-  color: var(--accent);
+  color: var(--white);
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--card-glass));
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 42%, var(--bg3)),
+      color-mix(in srgb, var(--lavender) 32%, var(--bg3)));
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .theme-toggle:focus-visible {
   outline: none;
