@@ -147,6 +147,7 @@
 
       const result = await window.HL_AUTH.login(user, pass);
       if (result.ok) {
+        try { localStorage.setItem('hl-dashboard-view', 'calendar'); } catch (e) {}
         window.location.href = 'Dashboard.html';
       } else {
         resetBtn();

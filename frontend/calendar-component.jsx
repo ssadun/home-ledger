@@ -223,13 +223,15 @@
       return de ? [...new Set(de.map(e => e.source))] : [];
     }
 
+    const acctTotalTone = acctTotal > 0 ? ' income' : (acctTotal < 0 ? ' expense' : '');
+
     return (
       <React.Fragment>
         <div className="cal-layout">
           {/* ── Left column: Total Balance chip + calendar grid card ── */}
           <div className="cal-col">
           {acctCount > 0 && (
-            <span className={'cal-total-chip' + (acctTotal < 0 ? ' negative' : '')}>
+            <span className={'cal-total-chip cal-chip' + acctTotalTone}>
               <Icon name="wallet" size={13} />
               <span className="cal-total-label">Total Balance</span>
               <span className="cal-total-sub">({acctCount} account{acctCount !== 1 ? 's' : ''})</span>
