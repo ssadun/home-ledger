@@ -168,9 +168,25 @@ window.updateSidebarToggleLabel = updateSidebarToggleLabel;
     return span;
   }
 
+  function logMessage(message, type) {
+    if (!message || !(window.HL_AUTH && window.HL_AUTH.apiFetch && window.HL_AUTH.getToken())) return;
+    window.HL_AUTH.apiFetch('/api/ui-logs/', {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        level: type || 'info',
+        message: String(message),
+        page: document.title || '',
+        path: location.pathname + location.search,
+      }),
+    }).catch(function () {});
+  }
+
   function show(message, opts) {
     opts = opts || {};
     var type = opts.type || 'pending';
+    logMessage(message, type);
     var el = ensureHost();
     if (timer) {
       clearTimeout(timer);
@@ -207,5 +223,5 @@ window.updateSidebarToggleLabel = updateSidebarToggleLabel;
       });
   }
 
-  window.HL_OP_NOTIFY = { show: show, promise: promise };
+  window.HL_OP_NOTIFY = { show: show, promise: promise, log: logMessage };
 })();

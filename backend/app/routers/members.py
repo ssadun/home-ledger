@@ -1,3 +1,4 @@
+import secrets
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -74,6 +75,9 @@ def create_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    password = (payload.password or "").strip()
+    if payload.active is not False and not password:
+        raise HTTPException(400, "Password is required")
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(400, "Bu kullanıcı adı zaten kayıtlı")
     email = payload.email or _synth_email(payload.username)
@@ -86,7 +90,7 @@ def create_member(
         role=payload.role,
         is_active=payload.active,
         show_as_payer=payload.show_as_payer,
-        hashed_password=hash_password(payload.password),
+        hashed_password=hash_password(password or secrets.token_urlsafe(32)),
     )
     db.add(user)
     db.commit()

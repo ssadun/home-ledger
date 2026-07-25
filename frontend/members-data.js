@@ -30,21 +30,32 @@
     return body;
   }
 
+  async function apiError(res, fallback) {
+    const data = await res.json().catch(() => null);
+    const detail = data && data.detail;
+    if (Array.isArray(detail)) {
+      const msg = detail.map(d => d.msg || d.message || String(d)).join('; ');
+      return fallback + ': ' + msg;
+    }
+    if (detail) return fallback + ': ' + detail;
+    return fallback + ' (' + res.status + ')';
+  }
+
   async function list() {
     const res = await api()('/api/members/', { method: 'GET' });
-    if (!res.ok) throw new Error('Failed to load members (' + res.status + ')');
+    if (!res.ok) throw new Error(await apiError(res, 'Failed to load members'));
     return (await res.json()).map(fromApi);
   }
 
   async function create(item) {
     const body = toApi(item, { withPassword: true });
-    if (!body.password) throw new Error('Password is required');
+    if (body.active !== false && !body.password) throw new Error('Password is required');
     const res = await api()('/api/members/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error('Failed to create member (' + res.status + ')');
+    if (!res.ok) throw new Error(await apiError(res, 'Failed to create member'));
     return fromApi(await res.json());
   }
 
@@ -54,13 +65,13 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item, { withPassword: true })),
     });
-    if (!res.ok) throw new Error('Failed to update member (' + res.status + ')');
+    if (!res.ok) throw new Error(await apiError(res, 'Failed to update member'));
     return fromApi(await res.json());
   }
 
   async function remove(id) {
     const res = await api()('/api/members/' + id, { method: 'DELETE' });
-    if (!res.ok && res.status !== 404) throw new Error('Failed to delete member (' + res.status + ')');
+    if (!res.ok && res.status !== 404) throw new Error(await apiError(res, 'Failed to delete member'));
     return true;
   }
 

@@ -57,7 +57,7 @@ class PasswordChange(BaseModel):
 class MemberCreate(BaseModel):
     name: str                              # → full_name
     username: str
-    password: str
+    password: Optional[str] = None
     role: str = "user"                     # "admin" | "user"
     active: bool = True                    # → is_active
     show_as_payer: bool = True             # appears as a Payer/Paying For option
@@ -81,6 +81,13 @@ class MemberOut(BaseModel):
     show_as_payer: bool = True             # mapped from show_as_payer
     email: str
     model_config = {"from_attributes": True}
+
+
+class UiLogCreate(BaseModel):
+    level: str = "info"
+    message: str
+    page: Optional[str] = None
+    path: Optional[str] = None
 
 
 # ── Category ──────────────────────────────────────────────────────────────────

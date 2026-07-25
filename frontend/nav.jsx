@@ -58,7 +58,7 @@
     { id: 'transactions',  icon: 'arrow-left-right', label: 'Transactions',  color: 'var(--green)',       parent: 'tx' },
     { id: 'accounts',      icon: 'wallet',           label: 'Assets',        color: 'var(--lavender)',       parent: 'acct' },
     { id: 'budgets',       icon: 'target',           label: 'Budgets',       color: 'var(--yellow)', href: 'Budgets.html' },
-    { id: 'configuration', icon: 'settings-2',       label: 'Configuration', color: 'var(--sky)',    parent: 'cfg' },
+    { id: 'configuration', icon: 'settings-2',       label: 'Configuration', color: 'var(--accent)', parent: 'cfg' },
   ];
 
   // ── Transactions submenu ───────────────────────────────────────────────────

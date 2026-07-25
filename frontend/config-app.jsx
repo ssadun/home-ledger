@@ -570,11 +570,16 @@
       if (invalid[k]) setInvalid(p => ({ ...p, [k]: false }));
       if (err) setErr('');
     };
+    const isRequired = (fd) => {
+      if (fd.required) return true;
+      if (!(fd.requiredOnCreate && !editing)) return false;
+      return !(section.id === 'members' && fd.key === 'password' && f.active === false);
+    };
 
     function submit(e) {
       e.preventDefault();
       const required = section.fields
-        .filter(x => x.required || (x.requiredOnCreate && !editing))
+        .filter(isRequired)
         .map(fd => ({
           key: fd.key,
           label: fd.label,
@@ -591,6 +596,9 @@
       if (!result.ok) {
         setInvalid(result.keys);
         setErr(result.message);
+        if (window.HL_OP_NOTIFY && window.HL_OP_NOTIFY.log) {
+          window.HL_OP_NOTIFY.log(section.label + ': ' + result.message, 'error');
+        }
         return;
       }
       setInvalid({});
@@ -627,7 +635,7 @@
                 ) : (
                 <div key={fd.key} className={'form-field full' + (invalid[fd.key] ? ' field-invalid' : '')}>
                   <span className="field-label">
-                    {fd.label}{(fd.required || (fd.requiredOnCreate && !editing)) && <span className="field-required-mark">*</span>}
+                    {fd.label}{isRequired(fd) && <span className="field-required-mark">*</span>}
                   </span>
                   {(editing && fd.editHint ? fd.editHint : fd.hint) && <span className="field-hint">{editing && fd.editHint ? fd.editHint : fd.hint}</span>}
                   {fd.type === 'select' ? (
