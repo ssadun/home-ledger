@@ -19,11 +19,11 @@ HOST="${HOST:-nas-docker}"
 is_our_server_pid() {
   local pid="$1"
 
-  if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then
+  if [ -z "$pid" ]; then
     return 1
   fi
 
-  if [ ! -f "/proc/$pid/cmdline" ]; then
+  if [ ! -r "/proc/$pid/cmdline" ]; then
     return 1
   fi
 
@@ -83,7 +83,7 @@ get_pid() {
   local pid=""
 
   # Check PID file first
-  if [ -f "$PID_FILE" ]; then
+  if [ -r "$PID_FILE" ]; then
     pid=$(cat "$PID_FILE")
     if is_our_server_pid "$pid"; then
       echo "$pid"
@@ -138,7 +138,7 @@ do_start() {
 
   # Wait briefly and check if it started
   sleep 1
-  if kill -0 "$SERVER_PID" 2>/dev/null; then
+  if is_our_server_pid "$SERVER_PID"; then
     echo "✅ ${SERVICE_NAME} started (PID: $SERVER_PID)"
     echo "   Open: http://${HOST}:${PORT}"
     echo "   Log:  $LOG_FILE"
