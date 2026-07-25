@@ -101,7 +101,7 @@
       ? num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  function CurrencyInput({ value, currency, onChange, id }) {
+  function CurrencyInput({ value, currency, onChange, id, className = 'field-input', placeholder, title }) {
     const [focused, setFocused] = React.useState(false);
     const [raw, setRaw] = React.useState(value || '');
     React.useEffect(() => { if (!focused) setRaw(value || ''); }, [value, focused]);
@@ -114,8 +114,9 @@
       onChange(parsed);
     }
     return (
-      <input id={id} className="field-input" type="text" inputMode="decimal"
-        placeholder={currency === 'TRY' ? '0,00' : '0.00'}
+      <input id={id} className={className} type="text" inputMode="decimal"
+        title={title}
+        placeholder={placeholder || (currency === 'TRY' ? '0,00' : '0.00')}
         value={focused ? raw : fmtCurrencyVal(value, currency)}
         onFocus={handleFocus} onChange={handleChange} onBlur={handleBlur} />
     );

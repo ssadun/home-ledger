@@ -65,6 +65,8 @@
 /* ── Table overrides ── */
 .rec-table td[data-label="Weekend"]{min-width:90px}
 .rec-table td[data-label="Frequency"]{min-width:130px}
+.rec-table.ledger-table td[data-label="Next Due"] .td-date{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}
+.rec-table.ledger-table td[data-label="Next Due"] .td-date .dow{display:inline}
 
 /* ── Segmented controls (3-way) ── */
 .seg.seg-3 button{flex:1}

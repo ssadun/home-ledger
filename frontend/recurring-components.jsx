@@ -4,7 +4,7 @@
   const StyledSelect = window.StyledSelect;
   const { CATS, FX, PAYERS } = window.LEDGER;
   const { grp, SYM, fmtDate, dowOf } = window.LEDGER_FMT;
-  const { DateInput } = window;
+  const { DateInput, CurrencyInput } = window;
   const { PayerBadge, PayingForCell, CategoryCell, PaymentMethodCell } = window;
 
   // ── Status badge ──────────────────────────────────────────────────────
@@ -332,7 +332,7 @@
                 </div>
               </div>
               <div className="rl-right">
-                <span className={'amount-val ' + tx.type}><span className="sign">{tx.type === 'expense' ? '−' : '+'}</span>{grp(tx.amt)}</span>
+                <span className={'amount-val ' + tx.type}><span className="sign">{tx.type === 'expense' ? '−' : '+'}</span><span className="cur-sym">{SYM[tx.cur]}</span>{grp(tx.amt)}</span>
                 <Icon name="external-link" size={11} className="rl-ext" />
               </div>
             </a>
@@ -532,7 +532,7 @@
                 <div className={"form-field full" + (invalid.amount ? ' field-invalid' : '')}>
                   <span className="field-label">Amount<span className="field-required-mark">*</span></span>
                   <div className="amount-input-wrap">
-                    <input id="rec-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
+                    <CurrencyInput id="rec-modal-amount-input" value={f.amount} currency={f.cur} onChange={v => set('amount', v)} />
                     <StyledSelect id="rec-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
                       <option>TRY</option><option>USD</option><option>EUR</option>
                     </StyledSelect>

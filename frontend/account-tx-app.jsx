@@ -256,7 +256,7 @@
         <td key="amt" className="num" data-label="Amount">
           <span className="amount-cell">
             <span className={'amount-val ' + (isIn ? 'income' : 'expense')}>
-              <span className="sign">{isIn ? '+' : '−'}</span>{grp(tx.amt)}<span className="cur-sym suffix">{SYM[tx.cur]}</span>
+              <span className="sign">{isIn ? '+' : '−'}</span><span className="cur-sym">{SYM[tx.cur]}</span>{grp(tx.amt)}
             </span>
           </span>
         </td>
@@ -314,7 +314,7 @@
             <div className="detail-balance-hero">
               <span className="detail-bal-label">{isIn ? 'Received' : 'Sent'}</span>
               <span className={'atx-detail-amt ' + (isIn ? 'income' : 'expense')}>
-                {isIn ? '+' : '−'}{grp(tx.amt)}{SYM[tx.cur]}
+                {isIn ? '+' : '−'}{SYM[tx.cur]}{grp(tx.amt)}
               </span>
             </div>
             <div className="detail-info-grid">

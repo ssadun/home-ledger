@@ -17,6 +17,41 @@
   const typeMeta = (k) => ASSET_TYPES[k] || ASSET_TYPES.stock;
   const fmtQty = (q) => { const n = Number(q) || 0; return Number.isInteger(n) ? n.toLocaleString('en-US') : grp(n, 4); };
 
+  function parseCurrencyInput(raw, currency) {
+    if (!raw) return '';
+    const cleaned = currency === 'TRY' ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? '' : String(num);
+  }
+
+  function fmtCurrency(value, currency) {
+    if (!value && value !== 0) return '';
+    const num = parseFloat(value);
+    if (isNaN(num)) return '';
+    return currency === 'TRY'
+      ? num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function CurrencyInput({ id, value, currency, onChange, placeholder = '—' }) {
+    const [focused, setFocused] = React.useState(false);
+    const [raw, setRaw] = React.useState(value || '');
+    React.useEffect(() => { if (!focused) setRaw(value || ''); }, [value, focused]);
+    function handleFocus() { setFocused(true); setRaw(value || ''); }
+    function handleChange(e) { setRaw(e.target.value); onChange(parseCurrencyInput(e.target.value, currency)); }
+    function handleBlur() {
+      setFocused(false);
+      const parsed = parseCurrencyInput(raw, currency);
+      setRaw(parsed);
+      onChange(parsed);
+    }
+    return (
+      <input id={id} type="text" inputMode="decimal" className="field-input" placeholder={placeholder}
+        value={focused ? raw : fmtCurrency(value, currency)}
+        onFocus={handleFocus} onChange={handleChange} onBlur={handleBlur} />
+    );
+  }
+
   function TypeBadge({ type }) {
     const m = typeMeta(type);
     return <span className="inv-type-badge" style={{ '--t': m.color }}><Icon name={m.icon} size={11} />{m.label}</span>;
@@ -98,14 +133,14 @@
               </div>
               <div className="form-field">
                 <span className="field-label">Avg Cost / Unit <span className="field-opt">(optional)</span></span>
-                <input id="hold-modal-price-input" type="number" step="any" className="field-input" placeholder="—" value={f.price} onChange={e => set('price', e.target.value)} />
+                <CurrencyInput id="hold-modal-price-input" value={f.price} currency={f.cur} onChange={v => set('price', v)} />
               </div>
             </div>
 
             <div className="form-grid">
               <div className="form-field">
                 <span className="field-label">Current Price <span className="field-opt">(optional)</span></span>
-                <input id="hold-modal-current-price-input" type="number" step="any" className="field-input" placeholder="—" value={f.currentPrice} onChange={e => set('currentPrice', e.target.value)} />
+                <CurrencyInput id="hold-modal-current-price-input" value={f.currentPrice} currency={f.cur} onChange={v => set('currentPrice', v)} />
               </div>
               <div className="form-field">
                 <span className="field-label">Price Date <span className="field-opt">(optional)</span></span>

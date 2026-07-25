@@ -5,6 +5,7 @@
 (function () {
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
+  const CurrencyInput = window.CurrencyInput;
   const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;   // static config maps
   const { CATS } = window.LEDGER;
   const { DOCUMENTS, guessCategory } = window.IMPORT_DATA;
@@ -519,7 +520,7 @@
         <input id={'imp-inv-' + idx + '-qty-input'} type="number" step="any" className="imp-cell imp-inv-qty" title="Quantity held" value={row.qty} onChange={(e) => update(idx, { qty: parseFloat(e.target.value) || 0 })} />
         <div className="imp-inv-cost-wrap">
           <span className="imp-amt-sign">{SYM[row.cur]}</span>
-          <input id={'imp-inv-' + idx + '-cost-input'} type="number" step="0.01" className="imp-cell imp-inv-cost" title="Average cost per unit" value={row.cost} onChange={(e) => update(idx, { cost: parseFloat(e.target.value) || 0 })} />
+          <CurrencyInput id={'imp-inv-' + idx + '-cost-input'} className="imp-cell imp-inv-cost" title="Average cost per unit" value={row.cost} currency={row.cur} onChange={(v) => update(idx, { cost: parseFloat(v) || 0 })} />
         </div>
         <span className="imp-inv-value" title="Current market value (from statement)">{SYM[row.cur]}{grp(row.value)}</span>
         <button id={'imp-inv-' + idx + '-delete-btn'} className="imp-del" onClick={() => remove(idx)} title="Remove holding"><Icon name="trash-2" size={13} /></button>
@@ -642,8 +643,8 @@
                 </span>
                 <div className="imp-pen-val-wrap">
                   <span className="imp-amt-sign">₺</span>
-                  <input id={'imp-pen-' + i + '-value-input'} type="number" step="0.01" className="imp-cell imp-pen-val" title="Value in TRY"
-                    value={r.value} onChange={(e) => update(i, { value: parseFloat(e.target.value) || 0 })} />
+                  <CurrencyInput id={'imp-pen-' + i + '-value-input'} className="imp-cell imp-pen-val" title="Value in TRY"
+                    value={r.value} currency="TRY" onChange={(v) => update(i, { value: parseFloat(v) || 0 })} />
                 </div>
                 <button id={'imp-pen-' + i + '-delete-btn'} className="imp-del" onClick={() => remove(i)} title="Remove fund"><Icon name="trash-2" size={13} /></button>
               </div>

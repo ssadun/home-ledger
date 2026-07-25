@@ -65,8 +65,8 @@
   const NAV_TX_SUB = [
     { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: 'var(--green)', href: 'Spending.html' },
     { id: 'credit-payments',  icon: 'credit-card',  label: 'Card Payments',    color: 'var(--red)', href: 'Credit Payments.html' },
-    { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--coral)', href: 'Subscriptions.html' },
-    { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: 'var(--fuchsia)',      href: 'Recurring.html' },
+    { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--orange)', href: 'Subscriptions.html' },
+    { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: 'var(--yellow)',      href: 'Recurring.html' },
   ];
 
   // ── Accounts submenu ───────────────────────────────────────────────────────

@@ -73,7 +73,7 @@
     return (
       <span className="amount-cell">
         <span className={'amount-val ' + (income ? 'income' : 'expense')}>
-          <span className="sign">{income ? '+' : '−'}</span>{grp(tx.amt)}<span className="cur-sym suffix">{SYM[tx.cur]}</span>
+          <span className="sign">{income ? '+' : '−'}</span><span className="cur-sym">{SYM[tx.cur]}</span>{grp(tx.amt)}
         </span>
       </span>
     );
@@ -83,7 +83,7 @@
   function ConvCell({ value, cur }) {
     return (
       <span className="conv">
-        {grp(value)}<span className="unit suffix">{SYM[cur]}</span>
+        <span className="unit">{SYM[cur]}</span>{grp(value)}
       </span>
     );
   }

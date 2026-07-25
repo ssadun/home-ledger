@@ -218,6 +218,12 @@
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent) !important;
 }
 
+:root[data-theme="light"] .flatpickr-day.selected,
+:root[data-theme="light"] .flatpickr-day.selected:hover,
+:root[data-theme="light"] .flatpickr-day.selected:focus {
+  color: var(--on-accent) !important;
+}
+
 /* Disabled / out-of-month */
 .flatpickr-day.flatpickr-disabled,
 .flatpickr-day.flatpickr-disabled:hover {

@@ -132,7 +132,7 @@ do_start() {
   # Start the server in background
   cd "$SCRIPT_DIR"
   mkdir -p logs
-  PORT="$PORT" nohup "$PYTHON" "$SERVER_SCRIPT" >> "$LOG_FILE" 2>&1 &
+  PORT="$PORT" LOG_FILE="$LOG_FILE" nohup "$PYTHON" "$SERVER_SCRIPT" >/dev/null 2>&1 &
   local SERVER_PID=$!
   echo $SERVER_PID > "$PID_FILE"
 

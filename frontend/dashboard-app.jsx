@@ -3,7 +3,7 @@
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
   const { CATS, TX } = window.LEDGER;
-  const { grp, MONTHS } = window.LEDGER_FMT;
+  const { grp, MONTHS, SYM } = window.LEDGER_FMT;
   const { BUDGETS } = window.BUDGETS_DATA;
   const { ACCOUNTS, FX } = window.ACCOUNTS_DATA;
   const INVESTMENTS = window.INVESTMENTS_DATA || { HOLDINGS: [], ASSET_TYPES: {} };
@@ -115,7 +115,7 @@
                 </div>
                 <div className="dash-inv-metrics">
                   <span className="dash-inv-amt">₺{grp(invTryValue(h), 0)}</span>
-                  <span className="dash-inv-native">{h.cur} {grp(h.costBasis != null ? h.costBasis : h.qty, 2)}</span>
+                  <span className="dash-inv-native">{(SYM && SYM[h.cur]) || h.cur + ' '}{grp(h.costBasis != null ? h.costBasis : h.qty, 2)}</span>
                 </div>
               </div>
             );

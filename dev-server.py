@@ -7,6 +7,8 @@
 - Runs on a fresh port (8088) => a new origin with no service worker baggage.
 """
 import http.server
+import logging
+from logging.handlers import RotatingFileHandler
 import socketserver
 import urllib.request
 import urllib.error
@@ -15,12 +17,38 @@ import os
 PORT = int(os.environ.get("PORT", "8088"))
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
 BACKEND = os.environ.get("BACKEND", "http://localhost:8100")
+LOG_FILE = os.environ.get(
+    "LOG_FILE",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "home-ledger-web.log"),
+)
+MAX_LOG_BYTES = 10 * 1024 * 1024
+BACKUP_COUNT = 5
 
 EXTRA_TYPES = {
     ".jsx": "text/javascript",
     ".js": "text/javascript",
     ".webmanifest": "application/manifest+json",
 }
+
+
+def rotated_name(default_name):
+    stem, dot, index = default_name.rpartition(".")
+    if dot and index.isdigit():
+        return f"{stem}.{int(index):02d}"
+    return default_name
+
+
+def setup_logging():
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+    handler = RotatingFileHandler(
+        LOG_FILE,
+        maxBytes=MAX_LOG_BYTES,
+        backupCount=BACKUP_COUNT,
+        encoding="utf-8",
+    )
+    handler.namer = rotated_name
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -88,6 +116,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error(502, str(e))
 
+    def log_message(self, format, *args):
+        logging.info("%s - %s", self.address_string(), format % args)
+
 
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
@@ -100,6 +131,7 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 if __name__ == "__main__":
+    setup_logging()
     os.chdir(ROOT)
-    print(f"Home Ledger dev server: http://localhost:{PORT}  (serving {ROOT})")
+    logging.info("Home Ledger dev server: http://localhost:%s  (serving %s)", PORT, ROOT)
     Server(("0.0.0.0", PORT), Handler).serve_forever()

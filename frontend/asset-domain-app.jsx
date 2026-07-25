@@ -135,7 +135,7 @@
         </div>
         <div className="asset-card-value">
           <span className={isLiab ? 'expense' : 'income'}>{snap ? money(snap.value, snap.cur) : 'No snapshot'}</span>
-          {snap && snap.cur !== 'TRY' && <small>TRY {grp(snap.tryValue, 0)}</small>}
+          {snap && snap.cur !== 'TRY' && <small>₺{grp(snap.tryValue, 0)}</small>}
         </div>
         <div className="asset-card-foot">
           <span><Icon name="calendar" size={12} />{snap ? snap.date : 'Needs value'}</span>

@@ -4,7 +4,7 @@
   const StyledSelect = window.StyledSelect;
   const { CATS, FX, PAYERS } = window.LEDGER;
   const { grp, SYM, fmtDate, dowOf } = window.LEDGER_FMT;
-  const { DateInput } = window;
+  const { DateInput, CurrencyInput } = window;
   const { PayerBadge, PayingForCell, CategoryCell, PaymentMethodCell } = window;
 
   // ── Status badge ──────────────────────────────────────────────────────
@@ -124,7 +124,7 @@
     amount: (rec) => (
       <td key="amount" className="num" data-label="Amount">
         <span className="amount-cell">
-          <span className="amount-val expense"><span className="sign">−</span>{grp(rec.amount)}<span className="cur-sym suffix">{SYM[rec.cur]}</span></span>
+          <span className="amount-val expense"><span className="sign">−</span><span className="cur-sym">{SYM[rec.cur]}</span>{grp(rec.amount)}</span>
         </span>
       </td>
     ),
@@ -333,7 +333,7 @@
                 </div>
               </div>
               <div className="rl-right">
-                <span className={'amount-val ' + tx.type}><span className="sign">{tx.type === 'expense' ? '−' : '+'}</span>{grp(tx.amt)}</span>
+                <span className={'amount-val ' + tx.type}><span className="sign">{tx.type === 'expense' ? '−' : '+'}</span><span className="cur-sym">{SYM[tx.cur]}</span>{grp(tx.amt)}</span>
                 <span className={'cur-badge cur-' + tx.cur}>{tx.cur}</span>
                 <Icon name="external-link" size={11} className="rl-ext" />
               </div>
@@ -534,7 +534,7 @@
                 <div className={"form-field full" + (invalid.amount ? ' field-invalid' : '')}>
                   <span className="field-label">Amount<span className="field-required-mark">*</span></span>
                   <div className="amount-input-wrap">
-                    <input id="sub-modal-amount-input" className="field-input" type="number" step="0.01" min="0" placeholder="0.00" value={f.amount} onChange={e => set('amount', e.target.value)} />
+                    <CurrencyInput id="sub-modal-amount-input" value={f.amount} currency={f.cur} onChange={v => set('amount', v)} />
                     <StyledSelect id="sub-modal-currency-select" className="field-input" value={f.cur} onChange={e => set('cur', e.target.value)}>
                       <option>TRY</option><option>USD</option><option>EUR</option>
                     </StyledSelect>
