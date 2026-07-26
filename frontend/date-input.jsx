@@ -76,7 +76,7 @@
     // Currencies config form's full-width 400px field stretched the day grid to
     // nearly double the reference. A date grid has one natural size; don't
     // rubber-band it to its trigger.
-    const CAL_W = 232;
+    const CAL_W = 248.5;
     function syncWidth(fp) {
       if (!fp.calendarContainer) return;
       fp.calendarContainer.style.width = CAL_W + 'px';

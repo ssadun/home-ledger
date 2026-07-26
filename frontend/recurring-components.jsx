@@ -310,7 +310,7 @@
     const [f, setF] = React.useState({
       name: initial.name || '',
       desc: initial.desc || '',
-      cat: initial.cat || 'subscriptions',
+      cat: initial.cat || '',
       status: initial.status || 'active',
       frequency: initial.frequency || 'monthly',
       paymentDay: initial.paymentDay != null ? String(initial.paymentDay) : '1',
@@ -332,6 +332,7 @@
     function submit() {
       const v = window.HL_FORM.checkRequired([
         { key: 'name', label: 'Name', ok: !!f.name.trim() },
+        { key: 'cat', label: 'Category', ok: !!f.cat },
         { key: 'amount', label: 'Amount', ok: !!amtNum },
         { key: 'paymentMethod', label: 'Payment Method', ok: !!f.paymentMethod },
       ]);
@@ -395,9 +396,10 @@
                   <span className="field-label">Name<span className="field-required-mark">*</span></span>
                   <input id="rec-modal-name-input" className="field-input" placeholder="e.g. Netflix, Rent, Gym" value={f.name} onChange={e => set('name', e.target.value)} />
                 </div>
-                <div className="form-field">
-                  <span className="field-label">Category</span>
+                <div className={"form-field" + (invalid.cat ? ' field-invalid' : '')}>
+                  <span className="field-label">Category<span className="field-required-mark">*</span></span>
                   <StyledSelect id="rec-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
+                    <option value="">- Select Category -</option>
                     {recurringCategoryKeys(f.cat).map(k => (
                       <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>
                     ))}

@@ -78,7 +78,7 @@
 .seg button.on-none{background:rgba(84,91,122,.16);color:var(--slate)}
 
 /* ── Modal width ── */
-.rec-modal{width:560px}
+.rec-modal{width:552px}
 
 /* ── History modal ── */
 .rec-history-modal{width:480px}

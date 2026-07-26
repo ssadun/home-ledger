@@ -850,8 +850,8 @@
             }
 
             {/* Half-width, exactly like the "Add Spending" modal's Date field: a plain
-                .form-field inside a .form-grid. Both modals are the same 520px .modal
-                with a 20px .modal-body, so the two pickers come out identical. The
+                .form-field inside a .form-grid. Both modals use the shared 248.5px
+                paired-row column, so the two pickers come out identical. The
                 hint takes .full so it spans the grid on its own row instead of being
                 squeezed into one column. */}
             {isCredit && !isPrepaid &&

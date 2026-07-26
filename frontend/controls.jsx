@@ -341,7 +341,7 @@
       date: initial.date || new Date().toISOString().slice(0, 10),
       payer: initial.payer || 'Sadun',
       payingFor: initial.payingFor || 'Shared',
-      cat: initial.cat || 'groceries',
+      cat: initial.cat || '',
       desc: initial.desc || '',
       type: initial.type || 'expense',
       cur: initial.cur || 'TRY',
@@ -355,10 +355,10 @@
     const tryV = +(amtNum * FX[f.cur].toTRY).toFixed(2);
     const usdV = +(amtNum * FX[f.cur].toUSD).toFixed(2);
 
-    // Description, Amount and Payment Method are the fields a user can leave
-    // blank — the rest (date, category, payer…) always carry a default value.
+    // Category is intentionally not defaulted: the user must choose it.
     function submit() {
       const v = window.HL_FORM.checkRequired([
+        { key: 'cat', label: 'Category', ok: !!f.cat },
         { key: 'desc', label: 'Description', ok: !!f.desc.trim() },
         { key: 'amt', label: 'Amount', ok: !!amtNum },
         { key: 'paymentMethod', label: 'Payment Method', ok: !!f.paymentMethod },
@@ -412,9 +412,10 @@
                 <span className="field-label">Date</span>
                 <DateInput id="tx-modal-date-input" className="field-input" value={f.date} onChange={(e) => set('date', e.target.value)} />
               </div>
-              <div className="form-field">
-                <span className="field-label">Category</span>
+              <div className={"form-field" + (invalid.cat ? ' field-invalid' : '')}>
+                <span className="field-label">Category<span className="field-required-mark">*</span></span>
                 <StyledSelect id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+                  <option value="">- Select Category -</option>
                   {Object.keys(CATS).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
                 </StyledSelect>
               </div>

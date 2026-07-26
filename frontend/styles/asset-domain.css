@@ -33,7 +33,7 @@
 .asset-mini-row{padding:9px 4px;border-top:1px solid var(--border)}
 .asset-mini-val{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .income{color:var(--green)!important}.expense{color:var(--red)!important}.net{color:var(--accent)!important}.count{color:var(--white)!important}
-.asset-modal{width:520px}.asset-snapshot-modal{width:440px}
+.asset-modal,.asset-snapshot-modal{width:552px}
 .asset-load-error{margin:0 12px 10px}
 .asset-empty{margin-top:20px}
 @media (max-width:660px){

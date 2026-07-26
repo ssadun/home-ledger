@@ -117,9 +117,7 @@
   function BudgetModal({ initial, existingCats, onClose, onSave, onRemove }) {
     const editing = !!initial.cat;
     const expenseCats = Object.keys(CATS).filter(k => CATS[k].kind === 'expense');
-    const firstFree = expenseCats.find(k => !existingCats.includes(k)) || expenseCats[0];
-
-    const [cat, setCat] = React.useState(initial.cat || firstFree);
+    const [cat, setCat] = React.useState(initial.cat || '');
     const [limit, setLimit] = React.useState(initial.limit != null ? initial.limit : '');
     const [cur, setCur] = React.useState(initial.currency || 'TRY');
     const [start, setStart] = React.useState(initial.start != null ? initial.start : '2026-01-01');
@@ -136,6 +134,7 @@
 
     function submit() {
       const v = window.HL_FORM.checkRequired([
+        { key: 'cat', label: 'Category', ok: !!cat },
         { key: 'limit', label: 'Monthly Limit', ok: !!limitNum },
       ]);
       setInvalid(v.keys); setFormErr(v.message);
@@ -155,8 +154,8 @@
           </div>
 
           <div className="modal-body">
-            <div className="form-field full">
-              <span className="field-label">Category</span>
+            <div className={"form-field full" + (invalid.cat ? ' field-invalid' : '')}>
+              <span className="field-label">Category<span className="field-required-mark">*</span></span>
               {editing ? (
                 <div className="bgt-cat-readonly">
                   <span className="cat-ico cat-chip" style={{ '--cat': c.color }}>
@@ -166,6 +165,7 @@
                 </div>
               ) : (
                 <StyledSelect id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
+                  <option value="">- Select Category -</option>
                   {expenseCats.map(k => (
                     <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color} disabled={existingCats.includes(k)}>
                       {CATS[k].label}{existingCats.includes(k) ? ' - already set' : ''}

@@ -218,7 +218,7 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .backdrop{position:fixed;inset:0;background:var(--backdrop);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn .15s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes modalIn{from{transform:scale(.97);opacity:.6}to{transform:none;opacity:1}}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-modal);width:520px;max-width:96vw;box-shadow:var(--shadow-modal);animation:modalIn .15s ease both;display:flex;flex-direction:column;overflow:hidden;max-height:92vh}
+.modal{--form-control-row-w:510px;--form-control-col-w:248.5px;--form-control-gap:13px;--form-control-h:35.5px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-modal);width:552px;max-width:96vw;box-shadow:var(--shadow-modal);animation:modalIn .15s ease both;display:flex;flex-direction:column;overflow:hidden;max-height:92vh}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--bg3)}
 .modal-head-l{display:flex;flex-direction:column;gap:2px}
 .modal-title{font-size:15px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:9px}
@@ -228,15 +228,16 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .m-close:hover{color:var(--text);background:var(--bg4)}
 .m-close svg{width:17px;height:17px}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,var(--form-control-col-w)));gap:var(--form-control-gap);width:100%;max-width:var(--form-control-row-w)}
 /* min-width:0 — a grid item's automatic minimum is its CONTENT width, so a long
    option label (e.g. "TEB Türk Ekonomi Bankası (TEBUTRIS)") would widen its own
    column past 1fr and crush the field beside it instead of ellipsing. The inner
    .ss-value already truncates; it just needs to be allowed to shrink. */
 .form-field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .form-field.full{grid-column:1 / -1}
+.modal-body > .form-field.full{width:100%;max-width:var(--form-control-row-w)}
 .field-label{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
-.field-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:9px 11px;color:var(--text);font-family:var(--font-sans);font-size:13px;outline:none;transition:border-color .15s;width:100%}
+.field-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);height:var(--form-control-h,35.5px);padding:7px 11px;color:var(--text);font-family:var(--font-sans);font-size:13px;outline:none;transition:border-color .15s;width:100%}
 .field-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent)}
 .field-input::placeholder{color:var(--muted)}
 select.field-input{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23545b7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
@@ -250,15 +251,10 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .amount-input-wrap{display:flex;gap:0}
 .amount-input-wrap .field-input:not(select):not(.ss-wrap){border-top-right-radius:0;border-bottom-right-radius:0}
 .amount-input-wrap select,.amount-input-wrap .ss-wrap{width:90px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
-.tx-modal .tx-pay-amount-grid .amount-input-wrap .field-input{height:35.5px}
+.amount-input-wrap .field-input{height:var(--form-control-h,35.5px)}
 @media (min-width:661px){
   .form-grid > .form-field.full:has(.amount-input-wrap){grid-column:auto}
-  .tx-modal .tx-pay-amount-grid{grid-template-columns:minmax(0,1fr) 210px}
   .tx-modal .tx-pay-amount-grid .amount-input-wrap .ss-wrap{width:66px;padding-left:8px;padding-right:8px}
-  .modal-body > .form-field.full:has(.amount-input-wrap),
-  .modal-body > .form-field.full:has(#st-modal-balance-input),
-  .modal-body > .form-field.full:has(#acct-form-prepaid-balance-input),
-  .modal-body > .form-field.full:has(#acct-form-pension-balance-input){width:calc((100% - 14px) / 2)}
 }
 
 /* ── Payment Method custom dropdown ── */
@@ -539,18 +535,18 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 
   /* modal: single-column form, scrollable */
   .modal{max-height:92vh}
-  .form-grid{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:minmax(0,1fr);max-width:none}
   /* Add Spending modal keeps its paired rows on mobile, matching desktop */
-  .tx-modal .form-grid{grid-template-columns:1fr 1fr}
+  .tx-modal .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .tx-modal .tx-pay-amount-grid{grid-template-columns:1fr}
   .tx-modal .tx-pay-amount-grid .amount-input-wrap .ss-wrap{width:66px;padding-left:8px;padding-right:8px}
   /* Budget modal keeps Start/End dates on one row on mobile, matching desktop */
-  .budget-modal .form-grid{grid-template-columns:1fr 1fr}
+  .budget-modal .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   /* Account modal keeps its paired rows on mobile, matching desktop */
-  .acct-form-modal .form-grid{grid-template-columns:1fr 1fr}
+  .acct-form-modal .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   /* Credit Payment modal keeps its paired rows on mobile, matching desktop —
      Statement Month/Year, Cutover/Payment Due, Total/Minimum Payment. */
-  .cp-modal .form-grid{grid-template-columns:1fr 1fr}
+  .cp-modal .form-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   /* Total Payment is the one paired field carrying a currency select beside
      it, so an even split starves it: at 360px a half column is ~145px, and
      the shared 90px select left ~55px for the amount — a six-figure card

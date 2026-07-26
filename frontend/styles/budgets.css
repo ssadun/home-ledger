@@ -80,7 +80,7 @@
 @keyframes bgtFlash{0%{background:rgba(79,142,247,.18);border-color:var(--accent)}100%{background:var(--bg3);border-color:var(--border)}}
 
 /* ── Edit budget modal extras ── */
-.budget-modal{width:440px}
+.budget-modal{width:552px}
 .bgt-range-warn{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--orange);background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:var(--radius);padding:8px 11px}
 .bgt-range-warn svg{width:13px;height:13px;flex-shrink:0}
 .fl-opt{color:var(--separator);font-weight:500;letter-spacing:0;text-transform:none}

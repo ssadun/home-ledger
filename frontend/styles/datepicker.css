@@ -257,20 +257,15 @@
 }
 
 /* ── Input wrapper + calendar icon ─────────────────────────────────────── */
-/* 232px is THE date-field width — what #tx-modal-date-input measures in the
-   Add Spending modal (520px .modal − 40px body padding, 2-col .form-grid with a
-   16px gap). It is a max, not a fixed width, so a field in a narrower slot
-   still shrinks to fit: Backup & Export's 150px range fields, the import
-   wizard's 148px review cell, ~145px in a 2-col grid at 360px. What it stops is
-   a date field growing PAST the reference — the Currencies config form is
-   single-column, so its Date field used to stretch to the full 400px.
-   Keep in sync with CAL_W in date-input.jsx, which sizes the popup. */
+/* Date fields follow the shared form grid: 248.5px in paired desktop rows,
+   510px in single-column rows, and shrink only inside narrower mobile slots.
+   CAL_W in date-input.jsx sizes the popup, not the input field. */
 .date-input-wrap {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
-  max-width: 232px;
+  max-width: 100%;
 }
 
 /* Canonical date-field metrics. Every picker in the app is dimensioned from
