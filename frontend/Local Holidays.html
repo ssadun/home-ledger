@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script src="auth.js"></script>
 <script src="theme.js"></script>
-<script src="push.js"></script>
 <script>window.HL_AUTH && window.HL_AUTH.requireAuth();</script>
-<title>Home Ledger - Card Types</title>
+<title>Home Ledger - Local Holidays</title>
 <link rel="icon" href="assets/ledger-logo.svg" />
 <link rel="manifest" href="manifest.webmanifest" />
 <meta name="theme-color" content="#0d0f14" />
@@ -34,13 +33,15 @@
 <body>
 <div id="root"></div>
 <script src="data.js"></script>
+<script src="categories-data.js"></script>
+<script src="local-holidays-data.js"></script>
 <script src="accounts-data.js"></script>
 <script src="institutions-data.js"></script>
 <script src="menu.js"></script>
 <script src="export-data.js"></script>
 <script type="text/babel" src="Icon.jsx"></script>
 <script type="text/babel" src="tweaks-panel.jsx"></script>
-<script>window.CONFIG_SECTION = 'card-types';</script>
+<script>window.CONFIG_SECTION = 'local-holidays';</script>
 <script type="text/babel" src="resizable-columns.jsx"></script>
 <script type="text/babel" src="nav.jsx"></script>
 <script type="text/babel" src="export-data.jsx"></script>

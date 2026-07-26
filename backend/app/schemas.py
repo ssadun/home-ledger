@@ -554,6 +554,29 @@ class RecurringOut(RecurringCreate):
     model_config = {"from_attributes": True}
 
 
+# ── Local Holidays (Configuration) ────────────────────────────────────────────
+
+class LocalHolidayCreate(BaseModel):
+    country: str = "TR"
+    date: date
+    name: str
+    is_half_day: bool = False
+    affects_due_dates: bool = True
+    is_active: bool = True
+
+class LocalHolidayUpdate(BaseModel):
+    country: Optional[str] = None
+    date: Optional[date] = None
+    name: Optional[str] = None
+    is_half_day: Optional[bool] = None
+    affects_due_dates: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+class LocalHolidayOut(LocalHolidayCreate):
+    id: int
+    model_config = {"from_attributes": True}
+
+
 # ── Account ───────────────────────────────────────────────────────────────────
 
 class AccountCreate(BaseModel):

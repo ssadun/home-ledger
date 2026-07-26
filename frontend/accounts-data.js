@@ -1,6 +1,6 @@
 // accounts-data.js — Accounts API client (banks, cards, wallets, cash, overdraft, invest).
-// Replaces the former static sample list. Config maps (ACCOUNT_TYPES, CC_TYPES,
-// DEBIT_TYPES) stay static; ACCOUNTS is hydrated from the backend on mount.
+// Replaces the former static sample list. Config maps (ACCOUNT_TYPES, card types)
+// stay static; ACCOUNTS is hydrated from the backend on mount.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
@@ -240,13 +240,45 @@
     return base;
   }
 
+  function mergedCardTypes() {
+    const oldCc = withOverrides('cc-types', CC_TYPES);
+    const oldDebit = withOverrides('debit-types', DEBIT_TYPES);
+    let saved = null;
+    try {
+      const raw = JSON.parse(localStorage.getItem('hl-cfg-card-types-data') || 'null');
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) saved = raw;
+    } catch (e) {}
+    if (!saved) return { credit: oldCc, debit: oldDebit };
+
+    const credit = {};
+    const debit = {};
+    Object.entries(saved).forEach(([id, row]) => {
+      if (!row || typeof row !== 'object') return;
+      const kind = row.kind === 'debit' ? 'debit' : 'credit';
+      const fallbackKey = String(id).split(':').pop();
+      const key = String(row.key || fallbackKey || '').trim();
+      if (!key) return;
+      const target = kind === 'debit' ? debit : credit;
+      target[key] = {
+        label: row.label || key,
+        icon: row.icon || (kind === 'debit' ? 'wallet-cards' : 'credit-card'),
+      };
+    });
+    return {
+      credit: Object.keys(credit).length ? credit : oldCc,
+      debit: Object.keys(debit).length ? debit : oldDebit,
+    };
+  }
+
+  const CARD_TYPES = mergedCardTypes();
+
   // ACCOUNTS starts empty and is hydrated by the page via list(); ACCOUNT_ACTIVITY
   // kept empty (per-account mini-activity will derive from real transactions in the
   // Dashboard/Reports pass). Guarded reads across other pages get [] / {} for now.
   window.ACCOUNTS_DATA = {
     ACCOUNT_TYPES:          withOverrides('account-types', ACCOUNT_TYPES),
-    CC_TYPES:               withOverrides('cc-types', CC_TYPES),
-    DEBIT_TYPES:            withOverrides('debit-types', DEBIT_TYPES),
+    CC_TYPES:               CARD_TYPES.credit,
+    DEBIT_TYPES:            CARD_TYPES.debit,
     // No withOverrides(): institutions come from the DB via HL_INSTITUTIONS_API.hydrate().
     FINANCIAL_INSTITUTIONS,
     ACCOUNTS: [], ACCOUNT_ACTIVITY: {}, FX,

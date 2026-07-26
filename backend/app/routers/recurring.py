@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models import RecurringExpense, User
 from app.schemas import RecurringCreate, RecurringUpdate, RecurringOut
 from app.services.auth import get_current_user
-from app.services.recurring import roll_forward_due_dates
+from app.services.recurring import refresh_next_due, roll_forward_due_dates
 
 router = APIRouter(prefix="/api/recurring", tags=["recurring"])
 
@@ -31,6 +31,7 @@ def create_recurring(
 ):
     rec = RecurringExpense(**payload.model_dump(), owner_id=current_user.id)
     rec.is_active = (payload.status == "active")
+    refresh_next_due(rec, db)
     db.add(rec)
     db.commit()
     db.refresh(rec)
@@ -50,10 +51,16 @@ def update_recurring(
     if not rec:
         raise HTTPException(404, "Tekrarlayan kayıt bulunamadı")
     data = payload.model_dump(exclude_none=True)
+    scheduling_fields = {
+        "status", "frequency", "day_of_month", "weekend_rule",
+        "start_date", "end_date", "next_due",
+    }
     for field, value in data.items():
         setattr(rec, field, value)
     if "status" in data:
         rec.is_active = (data["status"] == "active")
+    if scheduling_fields.intersection(data):
+        refresh_next_due(rec, db)
     db.commit()
     db.refresh(rec)
     return rec

@@ -4,7 +4,7 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
-from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, push, assets, holdings, liabilities, net_worth, ui_logs
+from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, local_holidays, push, assets, holdings, liabilities, net_worth, ui_logs
 from app.services.notify import run_due_date_check
 
 # SQLite dosyasının yaşadığı klasörü garantile
@@ -18,6 +18,7 @@ Base.metadata.create_all(bind=engine)
 from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index
 from app.routers.currencies import seed_default_currencies
 from app.routers.statement_mappings import seed_default_statement_mappings, ensure_statement_mapping
+from app.routers.local_holidays import seed_default_local_holidays
 from app.routers.institutions import (
     seed_default_institutions,
     ensure_institution,
@@ -38,6 +39,7 @@ try:
     ensure_unique_key_index(_seed_db)
     seed_default_currencies(_seed_db)
     seed_default_statement_mappings(_seed_db)
+    seed_default_local_holidays(_seed_db)
     # Backfill mappings added after the initial seed (idempotent on existing DBs).
     ensure_statement_mapping(_seed_db, "tr", "Emeklilik / Sigorta", "insurance")
     ensure_short_name_column(_seed_db)
@@ -81,6 +83,7 @@ app.include_router(credit_payments.router)
 app.include_router(statements.router)
 app.include_router(statement_mappings.router)
 app.include_router(institutions.router)
+app.include_router(local_holidays.router)
 app.include_router(push.router)
 app.include_router(assets.router)
 app.include_router(holdings.router)

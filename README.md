@@ -213,6 +213,7 @@ public avatar lookup by token, `/api/push/vapid-public-key`, and
 | Credit payments | `/api/credit-payments` | Card statement records, upload preview/confirm/download |
 | Statements | `/api/statements` | Bank statement records, upload/download |
 | Statement mappings | `/api/statement-mappings` | Statement tag to category mapping CRUD |
+| Local holidays | `/api/local-holidays` | Editable non-working dates for recurring due-date calculation |
 | Institutions | `/api/institutions` | Bank/provider metadata and logos |
 | Members | `/api/members` | Admin-managed household users |
 | Push | `/api/push` | Subscribe, preferences, tests, snooze, manual due-date check |
@@ -229,9 +230,9 @@ Top-level navigation:
 - Transactions: Spending, Card Payments, Subscriptions, Recurring
 - Accounts: Accounts, Account Activity, Statements
 - Budgets
-- Configuration: Members, Categories, Currencies, Credit Cards, Debit Cards,
-  Account Types, Financial Institutions, Statement Value Mapping, Notifications,
-  Backup & Export
+- Configuration: Members, Categories, Currencies, Card Types, Account Types,
+  Financial Institutions, Statement Value Mapping, Local Holidays,
+  Notifications, Backup & Export
 - Profile, available from the top-right profile button
 
 ---

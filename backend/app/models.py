@@ -92,6 +92,18 @@ class FinancialInstitution(Base):
     is_default = Column(Boolean, default=False)
 
 
+class LocalHoliday(Base):
+    """Local non-working dates used by recurring/subscription due-date rules."""
+    __tablename__ = "local_holidays"
+    id = Column(Integer, primary_key=True, index=True)
+    country = Column(String, default="TR")
+    date = Column(Date, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    is_half_day = Column(Boolean, default=False)
+    affects_due_dates = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True, index=True)

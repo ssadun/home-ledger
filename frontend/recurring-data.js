@@ -55,7 +55,6 @@
       payment_method: item.paymentMethod || null,
       description: item.desc || null,
       last_paid: item.lastPaid || null,
-      next_due: item.nextDue || null,
       history: item.history || [],
       kind: kind || item.kind || 'bill',
     };

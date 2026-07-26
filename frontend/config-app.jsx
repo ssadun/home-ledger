@@ -3,8 +3,8 @@
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
 
-  // "Credit Card Types" section icon follows the user's Account Types → Credit
-  // Card colour, not a hardcoded orange. Falls back to orange when unset.
+  // Card Types section icon follows the user's Account Types → Credit Card colour,
+  // not a hardcoded orange. Falls back to orange when unset.
   const CREDIT_COLOR = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES
     && window.ACCOUNTS_DATA.ACCOUNT_TYPES.credit && window.ACCOUNTS_DATA.ACCOUNT_TYPES.credit.color) || 'var(--orange)';
 
@@ -24,6 +24,7 @@
   const { Sidebar, NAV_CFG_SUB } = window.HL_NAV;
   const CFG_SECTION = window.CONFIG_SECTION || null;
   const SYM = (window.LEDGER_FMT && window.LEDGER_FMT.SYM) || { TRY: '₺', USD: '$', EUR: '€' };
+  const MONTHS = (window.LEDGER_FMT && window.LEDGER_FMT.MONTHS) || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   // ── Rate source (TCMB = Central Bank of Turkey official bulletin, vs. a manual / market rate) ──
   const SOURCE_OPTIONS = [
@@ -41,6 +42,16 @@
     const p = n => String(n).padStart(2, '0');
     return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
   };
+
+  function slugLabel(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'card-type';
+  }
 
   // Source pill — gold landmark for TCMB, sky trend glyph for a market/manual rate.
   function SourceBadge({ source }) {
@@ -349,13 +360,17 @@
           };
         });
       }
-      case 'cc-types': {
+      case 'card-types': {
         const cc = A.CC_TYPES || {};
-        return Object.entries(cc).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon }));
-      }
-      case 'debit-types': {
         const dc = A.DEBIT_TYPES || {};
-        return Object.entries(dc).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon }));
+        return [
+          ...Object.entries(cc).map(([key, v]) => ({
+            id: 'credit:' + key, kind: 'credit', key, label: v.label, icon: v.icon || 'credit-card',
+          })),
+          ...Object.entries(dc).map(([key, v]) => ({
+            id: 'debit:' + key, kind: 'debit', key, label: v.label, icon: v.icon || 'wallet-cards',
+          })),
+        ];
       }
       case 'account-types': {
         const at = A.ACCOUNT_TYPES || {};
@@ -364,6 +379,8 @@
       case 'financial-institutions':
         return []; // loaded from the backend on mount (see effect in App)
       case 'statement-mappings':
+        return []; // loaded from the backend on mount (see effect in App)
+      case 'local-holidays':
         return []; // loaded from the backend on mount (see effect in App)
       default: return [];
     }
@@ -374,11 +391,19 @@
   // row list back to the { key: {…rest} } map shape those maps use.
   // 'financial-institutions' is NOT here any more — it persists to the backend
   // financial_institutions table (logos included), like categories/currencies.
-  const CLIENT_PERSIST_SECTIONS = ['account-types', 'cc-types', 'debit-types'];
+  const CLIENT_PERSIST_SECTIONS = ['account-types', 'card-types'];
   function persistClientSection(sectionId, rows) {
     if (!CLIENT_PERSIST_SECTIONS.includes(sectionId)) return;
     const map = {};
-    rows.forEach(({ id, key, ...rest }) => { if (key) map[key] = rest; });
+    rows.forEach(({ id, key, ...rest }) => {
+      if (sectionId === 'card-types') {
+        const kind = rest.kind === 'debit' ? 'debit' : 'credit';
+        const rowKey = key || slugLabel(rest.label);
+        map[kind + ':' + rowKey] = { ...rest, kind, key: rowKey };
+      } else if (key) {
+        map[key] = rest;
+      }
+    });
     try { localStorage.setItem('hl-cfg-' + sectionId + '-data', JSON.stringify(map)); } catch (e) { /* quota/unavailable */ }
   }
 
@@ -457,29 +482,21 @@
       ],
     },
     {
-      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: CREDIT_COLOR, addLabel: 'Add Credit Card Type',
-      desc: 'Card networks for credit cards',
+      id: 'card-types', label: 'Card Types', icon: 'credit-card', color: CREDIT_COLOR, addLabel: 'Add Card Type',
+      desc: 'Card type labels for credit and debit cards',
       columns: [
-        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
+        { key: 'kind', label: 'Type', render: v => {
+          const debit = v === 'debit';
+          return <span className={'cfg-status cfg-status-' + (debit ? 'inactive' : 'active')}><span className="cfg-status-dot" />{debit ? 'Debit Card' : 'Credit Card'}</span>;
+        } },
         { key: 'label', label: 'Label' },
       ],
       fields: [
-        { key: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. Amex' },
-        { key: 'key',   label: 'Key',   type: 'text', required: true, placeholder: 'e.g. amex', hint: 'Lowercase identifier' },
-        { key: 'icon',  label: 'Icon',  type: 'icon', placeholder: 'e.g. credit-card' },
-      ],
-    },
-    {
-      id: 'debit-types', label: 'Debit Card Types', icon: 'wallet-cards', color: 'var(--sky)', addLabel: 'Add Debit Card Type',
-      desc: 'Card networks for debit cards',
-      columns: [
-        { key: 'icon',  label: 'Icon',  render: v => <span className="cfg-icon-preview"><Icon name={v} size={14} /></span> },
-        { key: 'label', label: 'Label' },
-      ],
-      fields: [
-        { key: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. Visa Debit' },
-        { key: 'key',   label: 'Key',   type: 'text', required: true, placeholder: 'e.g. visa-debit', hint: 'Lowercase identifier' },
-        { key: 'icon',  label: 'Icon',  type: 'icon', placeholder: 'e.g. wallet-cards' },
+        { key: 'kind', label: 'Card Type', type: 'select', required: true, options: [
+          { value: 'credit', label: 'Credit Card' },
+          { value: 'debit', label: 'Debit Card' },
+        ] },
+        { key: 'label', label: 'Label', type: 'text', required: true, placeholder: 'e.g. Visa' },
       ],
     },
     {
@@ -526,6 +543,26 @@
         { key: 'lang',   label: 'Language', type: 'select', required: true, options: LANG_OPTIONS, hint: 'Language of the statement this tag comes from' },
         { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi', hint: 'The tag exactly as printed on the statement - spacing and diacritics are ignored when matching' },
         { key: 'category_key', label: 'Category', type: 'select', required: true, options: [], hint: 'Matching statement lines are booked to this category' },
+      ],
+    },
+    {
+      id: 'local-holidays', label: 'Local Holidays', icon: 'calendar-days', color: 'var(--orange)', addLabel: 'Add Holiday',
+      desc: 'Non-working dates for recurring due dates',
+      columns: [
+        { key: 'date', label: 'Date', render: v => v ? <span style={{ whiteSpace: 'nowrap' }}>{v}</span> : <span style={{ color: 'var(--muted)' }}>-</span> },
+        { key: 'name', label: 'Holiday' },
+        { key: 'country', label: 'Country', render: v => <span className="cfg-badge">{String(v || 'TR').toUpperCase()}</span> },
+        { key: 'isHalfDay', label: 'Day Type', render: v => <span className={'cfg-status cfg-status-' + (v ? 'inactive' : 'active')}><span className="cfg-status-dot" />{v ? 'Half Day' : 'Full Day'}</span> },
+        { key: 'affectsDueDates', label: 'Due Dates', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Affects' : 'Ignored'}</span>; } },
+        { key: 'active', label: 'Status', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Active' : 'Inactive'}</span>; } },
+      ],
+      fields: [
+        { key: 'date', label: 'Date', type: 'date', required: true },
+        { key: 'name', label: 'Holiday', type: 'text', required: true, placeholder: 'e.g. Republic Day' },
+        { key: 'country', label: 'Country', type: 'text', required: true, placeholder: 'TR', hint: 'Country code used by this local calendar' },
+        { key: 'isHalfDay', label: 'Day Type', type: 'checkbox', default: false, checkboxLabel: 'Half day holiday' },
+        { key: 'affectsDueDates', label: 'Due Date Calculation', type: 'checkbox', default: true, checkboxLabel: 'Treat this date as non-working for Recurring and Subscriptions' },
+        { key: 'active', label: 'Status', type: 'checkbox', default: true, checkboxLabel: 'Active' },
       ],
     },
   ];
@@ -608,6 +645,12 @@
       }
       setInvalid({});
       setErr('');
+      if (section.id === 'card-types') {
+        const kind = f.kind === 'debit' ? 'debit' : 'credit';
+        const key = (editing && item.key) || f.key || slugLabel(f.label);
+        onSave({ ...f, kind, key, icon: kind === 'debit' ? 'wallet-cards' : 'credit-card', id: editing ? item.id : kind + ':' + key });
+        return;
+      }
       const newId = editing ? item.id : (f.key || f.code || f.name || String(Date.now()));
       onSave({ ...f, id: newId });
     }
@@ -763,7 +806,7 @@
 
   // ── Filter bar (mirrors the Spending filter bar) — search + a Filters popover
   //    for facet selects, with the shared More menu beside it. ──
-  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, moreNode, popActions }) {
+  function CfgFilterBar({ table, search, setSearch, facets, setFacet, facetCols, searchCols, period, moreNode, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -786,6 +829,17 @@
     return (
       <div className="filter-wrap cfg-filter-wrap">
         <div className="filter-bar">
+          {period && (
+            <div className="filter-field ff-period">
+              <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
+              <div className="month-step">
+                <button id="cfg-filter-period-prev-btn" className="ms-btn" onClick={() => period.onMonthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
+                <span className="ms-label"><Icon name="calendar-days" size={13} />{MONTHS[period.month]} {period.year}</span>
+                <button id="cfg-filter-period-next-btn" className="ms-btn" onClick={() => period.onMonthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
+              </div>
+            </div>
+          )}
+
           <div className="filter-field ff-search">
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
@@ -914,6 +968,9 @@
       [section]);
     const [search, setSearch] = React.useState('');
     const [facets, setFacets] = React.useState({});
+    const today = React.useMemo(() => new Date(todayYMD() + 'T00:00:00'), []);
+    const [periodMonth, setPeriodMonth] = React.useState(today.getMonth());
+    const [periodYear, setPeriodYear] = React.useState(today.getFullYear());
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(() => {
       const v = +localStorage.getItem('hl-rows-per-page');
@@ -921,9 +978,21 @@
     });
     React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     const setFacet = (k, v) => setFacets(p => { const n = { ...p }; if (!v || v === 'all') delete n[k]; else n[k] = v; return n; });
+    function monthStep(delta) {
+      let m = periodMonth + delta;
+      let y = periodYear;
+      while (m < 0) { m += 12; y -= 1; }
+      while (m > 11) { m -= 12; y += 1; }
+      setPeriodMonth(m);
+      setPeriodYear(y);
+    }
     const filteredItems = React.useMemo(() => {
       const q = search.trim().toLowerCase();
+      const periodPrefix = section.id === 'local-holidays'
+        ? periodYear + '-' + String(periodMonth + 1).padStart(2, '0')
+        : null;
       return items.filter(it => {
+        if (periodPrefix && !String(it.date || '').startsWith(periodPrefix)) return false;
         for (const k in facets) { if (String(it[k]) !== facets[k]) return false; }
         if (q) {
           const hay = searchCols.map(k => String(it[k] ?? '')).join(' ').toLowerCase();
@@ -931,7 +1000,7 @@
         }
         return true;
       });
-    }, [items, facets, search, searchCols]);
+    }, [items, facets, search, searchCols, section.id, periodMonth, periodYear]);
 
     // ── Sorting — click a header to sort by that column (raw value, natural order) ──
     const [sort, setSort] = React.useState({ col: null, dir: 'asc' });
@@ -957,7 +1026,7 @@
     const start = (curPage - 1) * perPage;
     const end = Math.min(start + perPage, total);
     const pageRows = React.useMemo(() => sortedItems.slice(start, end), [sortedItems, start, end]);
-    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [search, facets, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [search, facets, perPage, periodMonth, periodYear]);
 
     // ── Mass-delete: checkbox selection over the visible (filtered) rows ──
     const [selected, setSelected] = React.useState(() => new Set());
@@ -1067,6 +1136,7 @@
             table={section.id}
             search={search} setSearch={setSearch}
             facets={facets} setFacet={setFacet} facetCols={facetCols} searchCols={searchCols}
+            period={section.id === 'local-holidays' ? { month: periodMonth, year: periodYear, onMonthStep: monthStep } : null}
             moreNode={<ExportData entity={section.id} entityLabel={section.label}
               columns={exportCols} rows={sortedItems} allRows={items} inline
               tableTools={<React.Fragment>
@@ -1227,6 +1297,17 @@
       return () => { alive = false; };
     }, []);
 
+    // Local holidays persist to the backend local_holidays table; loaded only on
+    // the Local Holidays page, which includes local-holidays-data.js.
+    React.useEffect(() => {
+      if (!window.HL_LOCAL_HOLIDAYS_API) return;
+      let alive = true;
+      window.HL_LOCAL_HOLIDAYS_API.list()
+        .then(rows => { if (alive) setSectionData(prev => ({ ...prev, 'local-holidays': rows })); })
+        .catch(() => {});
+      return () => { alive = false; };
+    }, []);
+
     // Financial institutions (and their logos) persist to the backend
     // financial_institutions table; hydrate() also runs the one-time migration of
     // logos left in this browser's localStorage from before that move.
@@ -1376,6 +1457,29 @@
         }
         return;
       }
+      // Local holidays persist to the local_holidays table.
+      if (view === 'local-holidays' && window.HL_LOCAL_HOLIDAYS_API) {
+        const exists = (sectionData['local-holidays'] || []).some(x => x.id === item.id);
+        try {
+          const saved = await notifySave(
+            exists
+            ? window.HL_LOCAL_HOLIDAYS_API.update(item.id, item)
+            : window.HL_LOCAL_HOLIDAYS_API.create(item),
+            exists,
+            'holiday'
+          );
+          setSectionData(prev => {
+            const list = prev['local-holidays'] || [];
+            const idx = list.findIndex(x => x.id === saved.id);
+            const next = idx >= 0 ? list.map((x, i) => i === idx ? saved : x) : [saved, ...list];
+            return { ...prev, 'local-holidays': next };
+          });
+          setModal(null);
+        } catch (err) {
+          window.HL_OP_NOTIFY.show((exists ? 'Could not update holiday: ' : 'Could not save holiday: ') + (err.message || err), { type: 'error', timeout: 4200 });
+        }
+        return;
+      }
       // Financial institutions persist to the financial_institutions table.
       if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
         const exists = (sectionData['financial-institutions'] || []).some(x => x.id === item.id);
@@ -1463,6 +1567,17 @@
         }
         return;
       }
+      if (view === 'local-holidays' && window.HL_LOCAL_HOLIDAYS_API) {
+        try {
+          await notifyDelete(window.HL_LOCAL_HOLIDAYS_API.remove(item.id), 'holiday');
+          setSectionData(prev => ({ ...prev, 'local-holidays': prev['local-holidays'].filter(x => x.id !== item.id) }));
+          setModal(null);
+          setConfirmDel(null);
+        } catch (err) {
+          window.HL_OP_NOTIFY.show('Could not delete holiday: ' + (err.message || err), { type: 'error', timeout: 4200 });
+        }
+        return;
+      }
       if (view === 'financial-institutions' && window.HL_INSTITUTIONS_API) {
         try {
           await notifyDelete(window.HL_INSTITUTIONS_API.remove(item.id), 'institution');
@@ -1496,6 +1611,7 @@
         : view === 'members' ? window.HL_MEMBERS_API
         : view === 'currencies' ? window.HL_CURRENCIES_API
         : view === 'statement-mappings' ? window.HL_STATEMENT_MAPPINGS_API
+        : view === 'local-holidays' ? window.HL_LOCAL_HOLIDAYS_API
         : view === 'financial-institutions' ? window.HL_INSTITUTIONS_API : null;
       if (api) {
         const results = await notifyDelete(

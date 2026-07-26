@@ -446,8 +446,8 @@
                 <div className="form-field">
                   <span className="field-label">On Weekend / Holiday</span>
                   <ColorSelect id="rec-modal-weekend" value={f.weekendRule} onChange={v => set('weekendRule', v)} options={[
-                    { value: 'defer',   label: 'Defer',     icon: 'arrow-right', color: 'var(--orange)', id: 'rec-modal-weekend-defer-btn' },
-                    { value: 'advance', label: 'Advance',   icon: 'arrow-left',  color: 'var(--sky)',    id: 'rec-modal-weekend-advance-btn' },
+                    { value: 'defer',   label: 'Defer',     icon: 'arrow-right', color: 'var(--yellow)', id: 'rec-modal-weekend-defer-btn' },
+                    { value: 'advance', label: 'Advance',   icon: 'arrow-left',  color: 'var(--accent)', id: 'rec-modal-weekend-advance-btn' },
                     { value: 'none',    label: 'No Change', icon: 'minus',       color: 'var(--slate)',  id: 'rec-modal-weekend-none-btn' },
                   ]} />
                 </div>

@@ -172,16 +172,13 @@
       ],
     },
     {
-      id: 'cc-types', label: 'Credit Card Types', icon: 'credit-card', color: (A.ACCOUNT_TYPES && A.ACCOUNT_TYPES.credit && A.ACCOUNT_TYPES.credit.color) || 'var(--orange)',
-      group: 'Configuration', desc: 'Card networks for credit cards', dateKey: null,
-      getRows: () => typeRows(A.CC_TYPES),
-      columns: [{ key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }],
-    },
-    {
-      id: 'debit-types', label: 'Debit Card Types', icon: 'wallet-cards', color: 'var(--sky)',
-      group: 'Configuration', desc: 'Card networks for debit cards', dateKey: null,
-      getRows: () => typeRows(A.DEBIT_TYPES),
-      columns: [{ key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }],
+      id: 'card-types', label: 'Card Types', icon: 'credit-card', color: (A.ACCOUNT_TYPES && A.ACCOUNT_TYPES.credit && A.ACCOUNT_TYPES.credit.color) || 'var(--orange)',
+      group: 'Configuration', desc: 'Card type labels for credit and debit cards', dateKey: null,
+      getRows: () => [
+        ...typeRows(A.CC_TYPES).map(r => ({ ...r, type: 'Credit Card' })),
+        ...typeRows(A.DEBIT_TYPES).map(r => ({ ...r, type: 'Debit Card' })),
+      ],
+      columns: [{ key: 'type', label: 'Type' }, { key: 'key', label: 'Key' }, { key: 'label', label: 'Label' }],
     },
     {
       id: 'account-types', label: 'Account Types', icon: 'landmark', color: 'var(--accent)',

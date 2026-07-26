@@ -8,7 +8,7 @@
 //   Top level : dashboard | transactions | accounts | budgets | configuration
 //   Tx sub    : spending | credit-payments | subscriptions | recurring
 //   Accts sub : accounts | assets | liabilities | account-activity | statements
-//   Config sub: members | categories | currencies | cc-types | debit-types | account-types | financial-institutions | statement-mappings | backup-export
+//   Config sub: members | categories | currencies | card-types | account-types | financial-institutions | statement-mappings | backup-export
 //
 // A NAV entry with a `parent` key renders as a collapsible group whose items come
 // from SUBMENUS[id] — add a submenu by adding the array and the map entry, nothing
@@ -85,11 +85,11 @@
     { id: 'members',       sectionId: 'members',       icon: 'users',              label: 'Members',       color: 'var(--green)', href: 'Members.html' },
     { id: 'categories',    sectionId: 'categories',    icon: 'tag',                label: 'Categories',    color: 'var(--lavender)', href: 'Categories.html' },
     { id: 'currencies',    sectionId: 'currencies',    icon: 'circle-dollar-sign', label: 'Currencies',    color: 'var(--gold)', href: 'Currencies.html' },
-    { id: 'cc-types',      sectionId: 'cc-types',      icon: 'credit-card',        label: 'Credit Cards',  color: 'var(--lime)', href: 'Credit Cards.html' },
-    { id: 'debit-types',   sectionId: 'debit-types',   icon: 'wallet-cards',       label: 'Debit Cards',   color: 'var(--sky)', href: 'Debit Cards.html' },
+    { id: 'card-types',    sectionId: 'card-types',    icon: 'credit-card',        label: 'Card Types',    color: 'var(--lime)', href: 'Card Types.html' },
     { id: 'account-types', sectionId: 'account-types', icon: 'landmark',           label: 'Account Types', color: 'var(--accent)', href: 'Account Types.html' },
     { id: 'financial-institutions', sectionId: 'financial-institutions', icon: 'building-2', label: 'Financial Institutions', color: 'var(--steel)', href: 'Financial Institutions.html' },
     { id: 'statement-mappings', sectionId: 'statement-mappings', icon: 'file-symlink', label: 'Statement Value Mapping', color: 'var(--sky)', href: 'Statement Value Mapping.html' },
+    { id: 'local-holidays', sectionId: 'local-holidays', icon: 'calendar-days', label: 'Local Holidays', color: 'var(--orange)', href: 'Local Holidays.html' },
     { id: 'notifications',  sectionId: 'notifications',  icon: 'bell',               label: 'Notifications',  color: 'var(--gold)', href: 'Notifications.html' },
     { id: 'backup-export', sectionId: 'backup-export', icon: 'database-backup',    label: 'Backup & Export', color: 'var(--emerald)', href: 'Backup & Export.html' },
   ];

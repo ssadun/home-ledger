@@ -5,7 +5,7 @@
   // Project rule: every date field renders through the shared DateInput (never a
   // raw <input type="date">) — one implementation, in date-input.jsx.
   const DateInput = window.DateInput;
-  const { ACCOUNT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
+  const { ACCOUNT_TYPES, CC_TYPES, DEBIT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
   const { maskCardNumber, cleanIban, cleanAccountNo, cleanCardNo } = window.HL_ACCOUNTS_API;
   function displayNumber(account) {
     return (account.type === 'credit' || account.type === 'debit') ? maskCardNumber(account.number) : account.number;
@@ -40,6 +40,14 @@
     const wanted = String(institution).trim();
     const hit = Object.values(map).find((fi) => fi && instName(fi) === wanted);
     return hit && hit.logo ? hit.logo : null;
+  }
+
+  function cardTypeOptions(map, fallbackIcon) {
+    return Object.entries(map || {}).map(([key, v]) => ({
+      key,
+      label: (v && v.label) || key,
+      icon: (v && v.icon) || fallbackIcon,
+    }));
   }
 
   // ── Statement cutoff & payment date helpers ──
@@ -464,6 +472,8 @@
   // ── Add / Edit Account modal ──
   function AccountFormModal({ initial, accounts = [], error = null, onClearError, onClose, onSave }) {
     const editing = !!initial.id;
+    const ccOptions = cardTypeOptions(CC_TYPES, 'credit-card');
+    const debitOptions = cardTypeOptions(DEBIT_TYPES, 'wallet-cards');
     const [f, setF] = React.useState({
       name: initial.name || '',
       owner: initial.owner || 'Sadun',
@@ -476,9 +486,9 @@
       showInPaymentMethod: initial.showInPaymentMethod || false,
       limit: initial.limit != null ? String(initial.limit) : '',
       iban: cleanIban(initial.iban),   // a legacy spaced IBAN normalizes on open
-      ccType: initial.ccType || 'visa',
+      ccType: initial.ccType || (ccOptions[0] && ccOptions[0].key) || 'visa',
       isPrepaid: initial.isPrepaid || false,
-      debitType: initial.debitType || 'visa',
+      debitType: initial.debitType || (debitOptions[0] && debitOptions[0].key) || 'electron',
       cardName: initial.cardName || '',
       cardMedium: initial.cardMedium || 'physical',
       validityMonth: initial.validityMonth || '',
@@ -638,9 +648,7 @@
               <div className="form-field">
                   <span className="field-label">CC Type</span>
                   <StyledSelect id="acct-form-cctype-select" className="field-input" value={f.ccType} onChange={(e) => set('ccType', e.target.value)}>
-                    <option value="visa">Visa</option>
-                    <option value="mastercard">MasterCard</option>
-                    <option value="troy">Troy</option>
+                    {ccOptions.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
                   </StyledSelect>
                 </div>
               }
@@ -648,9 +656,7 @@
               <div className="form-field">
                   <span className="field-label">Card Type</span>
                   <StyledSelect id="acct-form-debittype-select" className="field-input" value={f.debitType} onChange={(e) => set('debitType', e.target.value)}>
-                    <option value="electron">Visa Electron</option>
-                    <option value="maestro">Maestro</option>
-                    <option value="troy">Troy</option>
+                    {debitOptions.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
                   </StyledSelect>
                 </div>
               }
