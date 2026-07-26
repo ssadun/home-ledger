@@ -373,7 +373,7 @@
       }
       case 'account-types': {
         const at = A.ACCOUNT_TYPES || {};
-        return Object.entries(at).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon, color: v.color }));
+        return Object.entries(at).map(([key, v]) => ({ id: key, key, label: v.label, icon: v.icon, color: v.color, balanceSide: v.balanceSide || 'asset' }));
       }
       case 'financial-institutions':
         return []; // loaded from the backend on mount (see effect in App)
@@ -504,11 +504,16 @@
       columns: [
         { key: 'icon',  label: 'Icon',  render: (v, row) => <span className="cfg-icon-preview"><Icon name={v} size={14} color={row.color} /></span> },
         { key: 'label', label: 'Label' },
+        { key: 'balanceSide', label: 'Side', render: v => <span className={'cfg-status cfg-status-' + (v === 'liability' ? 'inactive' : 'active')}><span className="cfg-status-dot" />{v === 'liability' ? 'Liabilities' : 'Assets'}</span> },
         { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
       ],
       fields: [
         { key: 'label', label: 'Label', type: 'text',  required: true, placeholder: 'e.g. Savings Account' },
         { key: 'key',   label: 'Key',   type: 'text',  required: true, placeholder: 'e.g. savings', hint: 'Lowercase identifier' },
+        { key: 'balanceSide', label: 'Balance Side', type: 'select', required: true, options: [
+          { value: 'asset', label: 'Assets' },
+          { value: 'liability', label: 'Liabilities' },
+        ] },
         { key: 'icon',  label: 'Icon',  type: 'icon',  placeholder: 'e.g. landmark' },
         { key: 'color', label: 'Color', type: 'color' },
       ],

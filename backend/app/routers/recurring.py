@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/recurring", tags=["recurring"])
 
 @router.get("/", response_model=List[RecurringOut])
 def list_recurring(
-    kind: Optional[str] = Query(None, description="Filter by kind: bill | subscription"),
+    kind: Optional[str] = Query(None, description="Filter by kind: bill | subscription | wire_transfer"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

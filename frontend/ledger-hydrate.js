@@ -104,12 +104,7 @@
 
   async function hydrateRecurring() {
     if (!(window.HL_RECURRING_API && window.RECURRING_DATA)) return;
-    const bills = await window.HL_RECURRING_API.list();
-    let subs = [];
-    if (window.HL_SUBSCRIPTIONS_API) {
-      try { subs = await window.HL_SUBSCRIPTIONS_API.list(); } catch (e) { /* keep bills only */ }
-    }
-    fillArray(window.RECURRING_DATA.RECURRING, bills.concat(subs));
+    fillArray(window.RECURRING_DATA.RECURRING, await window.HL_RECURRING_API.list());
   }
 
   async function hydrateCreditPayments() {

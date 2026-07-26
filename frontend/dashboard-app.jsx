@@ -292,31 +292,27 @@
     return sym + grp(value || 0, digits == null ? 0 : digits);
   }
 
-  function DashboardAssetMiniRow({ item, kind }) {
-    const isLiab = kind === 'liability';
-    const metaMap = ASSET_DOMAIN ? (isLiab ? ASSET_DOMAIN.LIABILITY_TYPES : ASSET_DOMAIN.ASSET_TYPES) : {};
+  function DashboardAssetMiniRow({ item }) {
+    const metaMap = ASSET_DOMAIN ? ASSET_DOMAIN.ASSET_TYPES : {};
     const m = assetDomainMeta(metaMap, item.type);
     const snap = item.latest;
     return (
       <div className="asset-mini-row">
         <span className="asset-card-icon" style={{ '--asset-color': m.color }}><Icon name={m.icon} size={14} /></span>
         <span className="asset-mini-main"><b>{item.name}</b><small>{m.label}{item.institution ? ' - ' + item.institution : ''}</small></span>
-        <span className={'asset-mini-val ' + (isLiab ? 'expense' : 'income')}>{snap ? assetDomainMoney(snap.tryValue, 'TRY') : 'No snapshot'}</span>
+        <span className="asset-mini-val income">{snap ? assetDomainMoney(snap.tryValue, 'TRY') : 'No snapshot'}</span>
       </div>
     );
   }
 
-  function DashboardAssetsOverview({ summary, assets, liabilities, loading, error }) {
+  function DashboardAssetsOverview({ summary, assets, loading, error }) {
     const assetValue = assets.reduce((s, a) => s + (a.latest ? a.latest.tryValue * (a.ownership || 100) / 100 : 0), 0);
-    const liabilityValue = liabilities.reduce((s, l) => s + (l.latest ? l.latest.tryValue : 0), 0);
     const cards = [
       { label: 'Assets', icon: 'trending-up', cls: 'income', val: assetDomainMoney(summary?.assets_try ?? assetValue, 'TRY'), sub: (summary?.assets_count ?? assets.length) + ' records' },
-      { label: 'Liabilities', icon: 'trending-down', cls: 'expense', val: assetDomainMoney(summary?.liabilities_try ?? liabilityValue, 'TRY'), sub: (summary?.liabilities_count ?? liabilities.length) + ' records' },
-      { label: 'Net Worth', icon: 'scale', cls: 'net', val: assetDomainMoney(summary?.net_worth_try ?? (assetValue - liabilityValue), 'TRY'), sub: 'Included snapshots' },
-      { label: 'Needs Update', icon: 'alert-triangle', cls: (summary?.missing_asset_valuations || summary?.missing_liability_balances) ? 'expense' : 'count', val: String((summary?.missing_asset_valuations || 0) + (summary?.missing_liability_balances || 0)), sub: 'missing snapshots' },
+      { label: 'Net Worth', icon: 'scale', cls: 'net', val: assetDomainMoney(summary?.net_worth_try ?? assetValue, 'TRY'), sub: 'Included snapshots' },
+      { label: 'Needs Update', icon: 'alert-triangle', cls: (summary?.missing_asset_valuations || 0) ? 'expense' : 'count', val: String(summary?.missing_asset_valuations || 0), sub: 'missing snapshots' },
     ];
     const valuedAssets = assets.filter(a => a.latest).sort((a, b) => b.latest.tryValue - a.latest.tryValue).slice(0, 8);
-    const valuedLiabilities = liabilities.filter(l => l.latest).sort((a, b) => b.latest.tryValue - a.latest.tryValue).slice(0, 8);
     const staleAssets = assets.filter(a => !a.latest).slice(0, 6);
     return (
       <main className="asset-body">
@@ -330,17 +326,12 @@
             <div className="asset-overview-grid">
               <section className="asset-panel">
                 <div className="asset-panel-head"><span><Icon name="wallet" size={14} />Largest Assets</span><a href="Assets.html">Open Assets</a></div>
-                {valuedAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} kind="asset" />)}
+                {valuedAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} />)}
                 {!assets.length && <div className="detail-empty asset-empty"><Icon name="wallet" size={24} /><span>No assets yet.</span></div>}
-              </section>
-              <section className="asset-panel">
-                <div className="asset-panel-head"><span><Icon name="receipt" size={14} />Liabilities</span><a href="Liabilities.html">Open Liabilities</a></div>
-                {valuedLiabilities.map(l => <DashboardAssetMiniRow key={l.id} item={l} kind="liability" />)}
-                {!liabilities.length && <div className="detail-empty asset-empty"><Icon name="receipt" size={24} /><span>No liabilities yet.</span></div>}
               </section>
               <section className="asset-panel asset-panel-wide">
                 <div className="asset-panel-head"><span><Icon name="alert-triangle" size={14} />Needs Valuation</span><a href="Assets.html">Open Assets</a></div>
-                {staleAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} kind="asset" />)}
+                {staleAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} />)}
                 {!staleAssets.length && <div className="detail-empty asset-empty"><Icon name="check-circle" size={24} /><span>Every included asset has a valuation.</span></div>}
               </section>
             </div>
@@ -368,7 +359,7 @@
     // Bumped after every tx mutation; threaded into the aggregation memos below
     // (whose period-only dependency arrays would otherwise miss data changes).
     const [dataVersion, setDataVersion] = React.useState(0);
-    const [assetOverview, setAssetOverview] = React.useState({ assets: [], liabilities: [], summary: null, loading: false, loaded: false, error: '' });
+    const [assetOverview, setAssetOverview] = React.useState({ assets: [], summary: null, loading: false, loaded: false, error: '' });
 
     React.useEffect(() => {
       window.HL_THEME.accent(t.accent);
@@ -392,12 +383,11 @@
       }
       setAssetOverview(s => ({ ...s, loading: true, error: '' }));
       try {
-        const [assets, liabilities, summary] = await Promise.all([
+        const [assets, summary] = await Promise.all([
           ASSET_DOMAIN.listAssets(),
-          ASSET_DOMAIN.listLiabilities(),
           ASSET_DOMAIN.summary(),
         ]);
-        setAssetOverview({ assets, liabilities, summary, loading: false, loaded: true, error: '' });
+        setAssetOverview({ assets, summary, loading: false, loaded: true, error: '' });
       } catch (e) {
         setAssetOverview(s => ({ ...s, loading: false, loaded: true, error: 'Could not load assets overview: ' + ((e && e.message) || e) }));
       }
@@ -473,15 +463,14 @@
     const minYear = availableYears[0];
     const maxYear = availableYears[availableYears.length - 1];
 
-    let totalAssets = 0, totalLiabilities = 0;
+    let totalAssets = 0, totalNegativeBalances = 0;
     ACCOUNTS.forEach(a => {
       const rate = FX[a.cur] ? FX[a.cur].toTRY : 1;
       const tryV = a.balance * rate;
-      if (tryV >= 0) totalAssets += tryV; else totalLiabilities += Math.abs(tryV);
+      if (tryV >= 0) totalAssets += tryV; else totalNegativeBalances += Math.abs(tryV);
     });
     const assetAccountCount = ACCOUNTS.filter(a => a.balance * (FX[a.cur]?.toTRY || 1) >= 0).length;
-    const liabilityAccountCount = ACCOUNTS.filter(a => a.balance * (FX[a.cur]?.toTRY || 1) < 0).length;
-    const netWorth = totalAssets - totalLiabilities;
+    const netWorth = totalAssets - totalNegativeBalances;
     const netWorthTrend = React.useMemo(() =>
       buildNetWorthTrend(TX, CURRENT_YEAR, CURRENT_MONTH, 12, netWorth), [dataVersion, netWorth]);
     const netWorthStart = netWorthTrend.length ? netWorthTrend[0].netWorth : netWorth;
@@ -677,11 +666,11 @@
                     value={'₺' + grp(totalAssets, 0)}
                     sub={'All positive balances'}
                     detail={ACCOUNTS.filter(a => a.balance * (FX[a.cur]?.toTRY || 1) >= 0).length + ' accounts'} />
-                  <KpiCard label="Net Worth" icon="wallet"
-                    cls={netWorth >= 0 ? 'kpi-total' : 'kpi-warn'}
-                    value={(netWorth < 0 ? '−₺' : '₺') + grp(Math.abs(netWorth), 0)}
-                    sub={'Assets − liabilities'}
-                    detail={'₺' + grp(totalLiabilities, 0) + ' in liabilities'} />
+                    <KpiCard label="Net Worth" icon="wallet"
+                      cls={netWorth >= 0 ? 'kpi-total' : 'kpi-warn'}
+                      value={(netWorth < 0 ? '−₺' : '₺') + grp(Math.abs(netWorth), 0)}
+                    sub={'Account net balance'}
+                    detail={'₺' + grp(totalAssets, 0) + ' positive balances'} />
                   </div>
                 </div>
 
@@ -700,7 +689,7 @@
                   });
                   return (
                     <div className="dash-kpi-group">
-                      <div className="dash-kpi-source"><Icon name="database" size={11} /><span>Source: <strong>Subscriptions</strong></span></div>
+                      <div className="dash-kpi-source"><Icon name="database" size={11} /><span>Source: <strong>Recurring</strong></span></div>
                       <div className="dash-kpi-row">
                         <KpiCard label="Monthly Cost" icon="calculator" cls="kpi-expense"
                           value={'₺' + grp(recMonthly, 0)}
@@ -733,7 +722,6 @@
               <DashboardAssetsOverview
                 summary={assetOverview.summary}
                 assets={assetOverview.assets}
-                liabilities={assetOverview.liabilities}
                 loading={assetOverview.loading}
                 error={assetOverview.error}
               />
@@ -759,10 +747,6 @@
                       value={'₺' + grp(totalAssets, 0)}
                       sub="Positive balances"
                       detail={<a className="dash-kpi-link" href="Accounts.html?balance=assets">{assetAccountCount + ' accounts'}</a>} />
-                    <KpiCard label="Liabilities" icon="credit-card" cls="kpi-expense"
-                      value={'₺' + grp(totalLiabilities, 0)}
-                      sub="Negative balances"
-                      detail={<a className="dash-kpi-link" href="Accounts.html?balance=liabilities">{liabilityAccountCount + ' accounts'}</a>} />
                   </div>
                 </div>
                 <div className="rpt-grid rpt-single">

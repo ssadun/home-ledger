@@ -42,6 +42,13 @@
 .rec-paused svg{color:var(--yellow)}
 .rec-ended svg{color:var(--slate)}
 
+/* ── Type badge (plain) ── */
+.rec-kind-badge{display:inline-flex;align-items:center;gap:5px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
+.rec-kind-badge svg{flex-shrink:0}
+.rec-kind-bill svg{color:var(--gold)}
+.rec-kind-subscription svg{color:var(--fuchsia)}
+.rec-kind-wire-transfer svg{color:var(--sky)}
+
 /* ── Frequency badge (plain) ── */
 .rec-freq-badge{display:inline-flex;align-items:center;gap:5px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
 .rec-freq-badge svg{color:var(--accent);flex-shrink:0}
@@ -132,6 +139,7 @@
 .rec-tl-item:last-child .tl-line{display:none}
 .tl-content{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:12px 16px;flex:1;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;transition:var(--transition)}
 .tl-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tl-head-badges{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .tl-due{font-size:11px;color:var(--slate);font-weight:600;font-variant-numeric:tabular-nums}
 .tl-body{display:flex;align-items:center;gap:10px}
 .tl-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
@@ -168,6 +176,7 @@
   .rec-table td[data-label="Amount"]{grid-column:2;grid-row:1;order:2;justify-content:flex-end}
 
   /* Line 2: Meta (left) — hidden others */
+  .rec-table td[data-label="Type"]{display:none !important}
   .rec-table td[data-label="Status"]{display:none !important}
   .rec-table td[data-label="Frequency"]{display:none !important}
   .rec-table td[data-label="Weekend"]{display:none !important}

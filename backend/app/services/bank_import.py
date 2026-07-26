@@ -4,6 +4,7 @@ Banka ekstre import servisi.
 Desteklenen bankalar:
   - Garanti BBVA   → XLS/XLSX/CSV
   - ON (Burgan)    → XLS/XLSX/CSV
+  - QNB Finansbank → PDF hesap hareketleri
   - Generic        → Akıllı kolon tahmini (diğer bankalar için fallback)
 
 Her parser normalize edilmiş şu formata çıktı üretir:
@@ -917,6 +918,100 @@ def _parse_on_burgan_pdf(content: bytes, text: str) -> tuple[list[dict], list[di
     return rows, accounts
 
 
+# ─── QNB Finansbank "Hesap Hareketleri" (vadesiz hesap dökümü — PDF) ────────
+# Tablo: İşlem Tarihi | Kanal* | İşlem Açıklaması | Tutar | Bakiye
+# Tutarlar İngilizce ayraçlıdır: "1,414,000.00", "-1,264,001.00". Paylaşılan
+# _parse_amount bunu doğru okur; ayrı parserın asıl görevi QNB künyesini
+# (IBAN/sahip/şube/hesap adı) çıkarıp satırları banka hesabı olarak işaretlemektir.
+_QNB_IBAN_RE   = re.compile(r"Iban\s*:\s*(TR[\dA-Z ]{24,35})", re.IGNORECASE)
+_QNB_HOLDER_RE = re.compile(r"Ad\s+Soyad\s*:\s*([^\n]+?)(?:\s+Hesap\s+Ad[ıi]\s*:|\n)", re.IGNORECASE)
+_QNB_BRANCH_RE = re.compile(r"Şube\s*:\s*([^\n]+)", re.IGNORECASE)
+_QNB_ACCOUNT_NAME_RE = re.compile(r"Hesap\s+Ad[ıi]\s*:\s*([^\n]+?)(?:\s+Tckn/Ykn\s*:|\n)", re.IGNORECASE)
+
+
+def _is_qnb_pdf(text: str) -> bool:
+    """QNB Finansbank hesap hareketleri dökümü mü? (diakritikten bağımsız)."""
+    f = _fold(text)
+    return "HESAP HAREKETLERI" in f and "QNB" in f and "IBAN" in f
+
+
+def _qnb_field(text: str, rx: re.Pattern) -> Optional[str]:
+    m = rx.search(text)
+    return " ".join(m.group(1).split()) if m else None
+
+
+def _parse_qnb_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    """QNB 'Hesap Hareketleri' PDF'ini işlem satırları + hesap kimliğine çevirir."""
+    rows: list[dict] = []
+
+    iban = _clean_iban(_qnb_field(text, _QNB_IBAN_RE))
+    holder = _qnb_field(text, _QNB_HOLDER_RE)
+    branch = _qnb_field(text, _QNB_BRANCH_RE)
+    account_name = _qnb_field(text, _QNB_ACCOUNT_NAME_RE)
+    currency = _detect_currency(account_name or text)
+    last_balance = None
+
+    try:
+        import pdfplumber
+    except ImportError:
+        return rows, []
+
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                if not table:
+                    continue
+                header_idx = date_i = desc_i = amount_i = balance_i = None
+                for i, r in enumerate(table):
+                    folded = [_fold(str(c or "")) for c in r]
+                    joined = " ".join(folded)
+                    if "ISLEM TARIHI" in joined and "TUTAR" in joined and "BAKIYE" in joined:
+                        header_idx = i
+                        for k, c in enumerate(folded):
+                            if "ISLEM TARIHI" in c:
+                                date_i = k
+                            elif "ISLEM ACIKLAMASI" in c:
+                                desc_i = k
+                            elif c == "TUTAR":
+                                amount_i = k
+                            elif c == "BAKIYE":
+                                balance_i = k
+                        break
+                if header_idx is None or None in (date_i, desc_i, amount_i):
+                    continue
+                for r in table[header_idx + 1:]:
+                    cells = [str(c or "").strip() for c in r]
+                    if date_i >= len(cells) or amount_i >= len(cells):
+                        continue
+                    date = _parse_turkish_date(cells[date_i])
+                    if not date:
+                        continue
+                    amount = _parse_amount(cells[amount_i])
+                    if amount is None:
+                        continue
+                    balance = _parse_amount(cells[balance_i]) if (balance_i is not None and balance_i < len(cells)) else None
+                    if balance is not None:
+                        last_balance = balance
+                    desc = " ".join(cells[desc_i].split()) if desc_i < len(cells) else ""
+                    row = _normalize_row(
+                        date, desc, amount, balance=balance, currency=currency,
+                        source=iban, account_type="bank",
+                        raw={"row": cells},
+                    )
+                    if row["category_key"] is None and "ISLEMLERI" in _fold(desc):
+                        row["category_key"] = "wire-transfer"
+                    rows.append(row)
+
+    accounts: list[dict] = []
+    if iban:
+        accounts.append({
+            "source": iban, "type": "bank", "number": None, "card_number": None,
+            "iban": iban, "branch": branch, "holder": holder,
+            "currency": currency, "balance": last_balance, "institution": "qnb",
+        })
+    return rows, accounts
+
+
 # ─── TEB "Dijital Hesap Cüzdanı" (vadesiz hesap cüzdanı — PDF) ───────────────
 # 1. sayfa "Etiket: Değer" künye bloğu (IBAN, hesap/müşteri no, şube, para kodu,
 # bakiye) + gerçek bir tablo başlığı:
@@ -1680,6 +1775,9 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
         if not rows and text and _is_on_burgan_pdf(text):
             rows, accounts = _parse_on_burgan_pdf(content, text)
             bank_detected = "on_burgan (hesap hareketleri PDF)"
+        if not rows and text and _is_qnb_pdf(text):
+            rows, accounts = _parse_qnb_pdf(content, text)
+            bank_detected = "qnb (hesap hareketleri PDF)"
         if not rows:
             rows = _parse_pdf(content)
             bank_detected = bank_hint if bank_hint != "auto" else "pdf"

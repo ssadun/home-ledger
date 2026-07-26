@@ -19,6 +19,7 @@ ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
 MIDAS = "Midas_Ekstre_Mayıs_2026.pdf"
 GARANTI_TL = "garanti-tl-hesaphareketleri.pdf"
 GARANTI_USD = "garanti-usd-hesaphareketleri.pdf"
+QNB_KAZANDIRAN = "qnb_kazandiran_hesap_hareketleri.pdf"
 
 
 def find_row(rows, needle):
@@ -144,6 +145,48 @@ class TestOnBurganAccount:
 
     def test_running_balance_is_captured(self, res):
         assert all(r["balance"] is not None for r in res["rows"])
+
+
+# --------------------------------------------------------------------------
+# QNB Finansbank Kazandıran checking account — _parse_qnb_pdf
+# --------------------------------------------------------------------------
+
+class TestQnbKazandiranAccount:
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def res(parse_sample):
+        return parse_sample(QNB_KAZANDIRAN)
+
+    def test_totals(self, res):
+        assert res["bank_detected"] == "qnb (hesap hareketleri PDF)"
+        assert res["total_rows"] == 6
+        assert res["income_total"] == pytest.approx(3945882.67)
+        assert res["expense_total"] == pytest.approx(2529294.78)
+        assert res["date_range"] == {"from": "2026-06-26", "to": "2026-07-26"}
+
+    def test_account_identity(self, res):
+        assert len(res["accounts"]) == 1
+        acc = res["accounts"][0]
+        assert acc["type"] == "bank"
+        assert acc["iban"] == "TR550011100000000166539691"
+        assert acc["number"] == "539691"
+        assert acc["branch"] == "ATAŞE***"
+        assert acc["holder"] == "SADUN SEVİNGEN"
+        assert acc["currency"] == "TRY"
+        assert acc["balance"] == pytest.approx(1416587.89)
+        assert acc["institution"] == "qnb"
+
+    def test_english_amount_separators_and_balance(self, res):
+        row = find_row(res["rows"], "Gönderen: SADUN SEVİNGEN")
+        assert row["date"] == "2026-07-24"
+        assert row["amount"] == pytest.approx(1414000.0)
+        assert row["type"] == "income"
+        assert row["balance"] == pytest.approx(1414001.0)
+
+    def test_bank_transfer_categories_and_source(self, res):
+        assert {r["source"] for r in res["rows"]} == {"TR550011100000000166539691"}
+        assert {r["currency"] for r in res["rows"]} == {"TRY"}
+        assert {r["category_key"] for r in res["rows"]} == {"wire-transfer"}
 
 
 # --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
-// recurring-data.js — Recurring (bills) API client.
-// Replaces the former static sample list. Subscriptions reuse the same backend
-// table via the `kind` discriminator (see subscriptions-data.js).
+// recurring-data.js — Recurring API client for bills and subscriptions.
+// Replaces the former static sample list. Bills and subscriptions share the
+// same backend table via the `kind` discriminator.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
   const FX = () => (window.LEDGER && window.LEDGER.FX) || null;
@@ -60,11 +60,13 @@
     };
   }
 
-  // Build a client factory bound to a `kind` so Recurring (bill) and
-  // Subscriptions (subscription) share this code with the right filter/default.
+  // Build a client factory optionally bound to a `kind`. A null kind means
+  // "all recurring items"; a bound kind is kept for compatibility with older
+  // pages or links that still ask specifically for subscriptions.
   function makeApi(kind) {
     async function list() {
-      const res = await api()('/api/recurring/?kind=' + encodeURIComponent(kind), { method: 'GET' });
+      const suffix = kind ? '?kind=' + encodeURIComponent(kind) : '';
+      const res = await api()('/api/recurring/' + suffix, { method: 'GET' });
       if (!res.ok) throw new Error('Failed to load recurring (' + res.status + ')');
       return (await res.json()).map(fromApi);
     }
@@ -95,6 +97,6 @@
   // Empty placeholders so the many guarded `window.RECURRING_DATA?.…` reads across
   // pages keep working; the page hydrates RECURRING via the API on mount.
   window.RECURRING_DATA = { RECURRING: [], REC_TX_MAP: {}, TX_REC_MAP: {} };
-  window.HL_RECURRING_API = makeApi('bill');
+  window.HL_RECURRING_API = makeApi(null);
   window.HL_SUBSCRIPTIONS_API = makeApi('subscription');
 })();

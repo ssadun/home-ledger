@@ -5,14 +5,14 @@
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
   const ACCOUNT_TYPES = {
-    bank:      { label: 'Bank Account',      icon: 'landmark',     color: 'var(--accent)' },
-    overdraft: { label: 'Overdraft Account', icon: 'alert-circle', color: 'var(--coral)' },
-    credit:    { label: 'Credit Card',       icon: 'credit-card',  color: 'var(--orange)' },
-    debit:     { label: 'Debit Card',        icon: 'wallet-cards', color: 'var(--sky)' },
-    wallet:    { label: 'Digital Wallet',    icon: 'smartphone',   color: 'var(--lavender)' },
-    cash:      { label: 'Cash',              icon: 'banknote',     color: 'var(--green)' },
-    invest:    { label: 'Investment',        icon: 'trending-up',  color: 'var(--emerald)' },
-    pension:   { label: 'Retirement Plan',   icon: 'piggy-bank',   color: 'var(--lime)' },
+    bank:      { label: 'Bank Account',      icon: 'landmark',     color: 'var(--accent)',   balanceSide: 'asset' },
+    overdraft: { label: 'Overdraft Account', icon: 'alert-circle', color: 'var(--coral)',    balanceSide: 'liability' },
+    credit:    { label: 'Credit Card',       icon: 'credit-card',  color: 'var(--orange)',   balanceSide: 'liability' },
+    debit:     { label: 'Debit Card',        icon: 'wallet-cards', color: 'var(--sky)',      balanceSide: 'asset' },
+    wallet:    { label: 'Digital Wallet',    icon: 'smartphone',   color: 'var(--lavender)', balanceSide: 'asset' },
+    cash:      { label: 'Cash',              icon: 'banknote',     color: 'var(--green)',    balanceSide: 'asset' },
+    invest:    { label: 'Investment',        icon: 'trending-up',  color: 'var(--emerald)',  balanceSide: 'asset' },
+    pension:   { label: 'Retirement Plan',   icon: 'piggy-bank',   color: 'var(--lime)',     balanceSide: 'asset' },
   };
 
   const CC_TYPES = {
@@ -235,7 +235,15 @@
   function withOverrides(sectionId, base) {
     try {
       const saved = JSON.parse(localStorage.getItem('hl-cfg-' + sectionId + '-data') || 'null');
-      if (saved && typeof saved === 'object' && !Array.isArray(saved)) return { ...base, ...saved };
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        const merged = { ...base };
+        Object.entries(saved).forEach(([key, row]) => {
+          merged[key] = row && typeof row === 'object' && !Array.isArray(row)
+            ? { ...(base[key] || {}), ...row }
+            : row;
+        });
+        return merged;
+      }
     } catch (e) { /* corrupt/absent override → fall back to defaults */ }
     return base;
   }

@@ -227,9 +227,15 @@ def build_recurring_message(rec: RecurringExpense, user: User):
     headline = " - ".join(
         p for p in (rec.name, payer, due_label, _fmt_amount(rec.amount, currency)) if p
     )
-    kind_label = "Subscription" if rec.kind == "subscription" else "Bill"
+    kind_label = (
+        "Subscription"
+        if rec.kind == "subscription"
+        else "Wire Transfer"
+        if rec.kind == "wire_transfer"
+        else "Bill"
+    )
     body = f"Upcoming {kind_label}" + (f": {rec.source}" if rec.source else "")
-    url = "/Subscriptions.html" if rec.kind == "subscription" else "/Recurring.html"
+    url = "/Recurring.html"
     return headline, body, url
 
 

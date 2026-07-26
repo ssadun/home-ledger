@@ -11,13 +11,10 @@ from app.models import (
     ExchangeRate,
     Investment,
     InvestmentHolding,
-    Liability,
-    LiabilityBalance,
 )
 
 
 ASSET_ACCOUNT_TYPES = {"bank", "wallet", "cash", "invest", "pension"}
-LIABILITY_ACCOUNT_TYPES = {"credit", "overdraft"}
 
 
 def _code(value) -> str:
@@ -67,24 +64,11 @@ def account_valuation_mode(acc: Account) -> str:
     return "manual"
 
 
-def liability_type_for_account(acc: Account) -> str:
-    return "credit_card" if acc.type == "credit" else "overdraft"
-
-
 def latest_asset_valuation(db: Session, asset_id: int):
     return (
         db.query(AssetValuation)
         .filter(AssetValuation.asset_id == asset_id)
         .order_by(AssetValuation.valued_at.desc(), AssetValuation.id.desc())
-        .first()
-    )
-
-
-def latest_liability_balance(db: Session, liability_id: int):
-    return (
-        db.query(LiabilityBalance)
-        .filter(LiabilityBalance.liability_id == liability_id)
-        .order_by(LiabilityBalance.balanced_at.desc(), LiabilityBalance.id.desc())
         .first()
     )
 
@@ -180,63 +164,10 @@ def snapshot_asset_from_account(db: Session, acc: Account, as_of: date | None = 
         db.add(row)
 
 
-def ensure_liability_for_account(db: Session, acc: Account) -> Liability | None:
-    if (acc.type or "") not in LIABILITY_ACCOUNT_TYPES:
-        return None
-    liab = (
-        db.query(Liability)
-        .filter(Liability.owner_id == acc.owner_id, Liability.account_id == acc.id)
-        .first()
-    )
-    if liab is None:
-        liab = Liability(
-            owner_id=acc.owner_id,
-            account_id=acc.id,
-            name=acc.name,
-            type=liability_type_for_account(acc),
-            currency=acc.currency,
-            include_in_net_worth=True,
-            is_active=True,
-        )
-        db.add(liab)
-        db.flush()
-    liab.name = acc.name
-    liab.type = liability_type_for_account(acc)
-    liab.currency = acc.currency
-    liab.original_principal = acc.credit_limit
-    liab.minimum_payment = liab.minimum_payment
-    liab.include_in_net_worth = True if liab.include_in_net_worth is None else liab.include_in_net_worth
-    liab.is_active = True if liab.is_active is None else liab.is_active
-    return liab
-
-
-def snapshot_liability_from_account(db: Session, acc: Account, as_of: date | None = None) -> None:
-    liab = ensure_liability_for_account(db, acc)
-    if not liab:
-        return
-    d = as_of or date.today()
-    bal = abs(float(acc.balance or 0))
-    existing = (
-        db.query(LiabilityBalance)
-        .filter(LiabilityBalance.liability_id == liab.id, LiabilityBalance.balanced_at == d, LiabilityBalance.source == "account_balance")
-        .first()
-    )
-    row = existing or LiabilityBalance(liability_id=liab.id, balanced_at=d, source="account_balance")
-    row.balance = bal
-    row.currency = acc.currency
-    row.exchange_rate_to_try = rate_to_try(db, acc.currency, d)
-    row.balance_try = amount_to_try(db, bal, acc.currency, d)
-    if existing is None:
-        db.add(row)
-
-
 def sync_account_domain(db: Session, acc: Account) -> None:
     if (acc.type or "") in ASSET_ACCOUNT_TYPES:
         ensure_asset_for_account(db, acc)
         snapshot_asset_from_account(db, acc)
-    if (acc.type or "") in LIABILITY_ACCOUNT_TYPES:
-        ensure_liability_for_account(db, acc)
-        snapshot_liability_from_account(db, acc)
 
 
 def symbol_from_name(name: str | None) -> str | None:

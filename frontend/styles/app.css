@@ -250,6 +250,13 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .amount-input-wrap{display:flex;gap:0}
 .amount-input-wrap .field-input:not(select):not(.ss-wrap){border-top-right-radius:0;border-bottom-right-radius:0}
 .amount-input-wrap select,.amount-input-wrap .ss-wrap{width:90px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
+@media (min-width:661px){
+  .form-grid > .form-field.full:has(.amount-input-wrap){grid-column:auto}
+  .modal-body > .form-field.full:has(.amount-input-wrap),
+  .modal-body > .form-field.full:has(#st-modal-balance-input),
+  .modal-body > .form-field.full:has(#acct-form-prepaid-balance-input),
+  .modal-body > .form-field.full:has(#acct-form-pension-balance-input){width:calc((100% - 14px) / 2)}
+}
 
 /* ── Payment Method custom dropdown ── */
 .pm-select{position:relative;width:100%}

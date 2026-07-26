@@ -8,8 +8,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import get_db
-from app.models import Account, Asset, AssetValuation, Base, InvestmentHolding, Liability, LiabilityBalance, User
-from app.routers import assets, holdings, investments, liabilities, net_worth
+from app.models import Account, Asset, AssetValuation, Base, InvestmentHolding, User
+from app.routers import assets, holdings, investments, net_worth
 from app.services.assets import backfill_asset_domain
 from app.services.auth import get_current_user
 
@@ -33,7 +33,7 @@ def api():
     current = {"user": user1}
 
     app = FastAPI()
-    for router in (assets.router, holdings.router, investments.router, liabilities.router, net_worth.router):
+    for router in (assets.router, holdings.router, investments.router, net_worth.router):
         app.include_router(router)
 
     def override_db():
@@ -74,24 +74,9 @@ def test_asset_crud_owner_scope_and_summary(api):
     })
     assert res.status_code == 201
 
-    res = client.post("/api/liabilities/", json={
-        "name": "Mortgage",
-        "type": "mortgage",
-        "currency": "TRY",
-    })
-    assert res.status_code == 201
-    liability_id = res.json()["id"]
-    assert client.post(f"/api/liabilities/{liability_id}/balances", json={
-        "balance": 120000,
-        "currency": "TRY",
-        "balanced_at": "2026-07-24",
-        "source": "manual",
-    }).status_code == 201
-
     summary = client.get("/api/net-worth/summary").json()
     assert summary["assets_try"] == pytest.approx(500000)
-    assert summary["liabilities_try"] == pytest.approx(120000)
-    assert summary["net_worth_try"] == pytest.approx(380000)
+    assert summary["net_worth_try"] == pytest.approx(500000)
 
     current["user"] = user2
     assert client.get("/api/assets/").json() == []
@@ -135,15 +120,7 @@ def test_backfill_asset_domain_is_idempotent(api):
         currency="TRY",
         balance=500,
     )
-    card = Account(
-        owner_id=user1.id,
-        account_key="acc-2",
-        name="Bonus Card",
-        type="credit",
-        currency="TRY",
-        balance=-1250,
-    )
-    db.add_all([acc, card])
+    db.add(acc)
     db.commit()
 
     backfill_asset_domain(db)
@@ -151,6 +128,3 @@ def test_backfill_asset_domain_is_idempotent(api):
 
     assert db.query(Asset).filter(Asset.account_id == acc.id).count() == 1
     assert db.query(AssetValuation).join(Asset).filter(Asset.account_id == acc.id).count() == 1
-    assert db.query(Liability).filter(Liability.account_id == card.id).count() == 1
-    balance = db.query(LiabilityBalance).join(Liability).filter(Liability.account_id == card.id).first()
-    assert balance.balance == pytest.approx(1250)

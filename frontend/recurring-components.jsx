@@ -34,6 +34,21 @@
     );
   }
 
+  // ── Type badge ────────────────────────────────────────────────────────
+  const KIND_MAP = {
+    bill: { label: 'Bill', icon: 'receipt-text', cls: 'rec-kind-bill' },
+    subscription: { label: 'Subscription', icon: 'repeat-2', cls: 'rec-kind-subscription' },
+    wire_transfer: { label: 'Wire Transfer', icon: 'send', cls: 'rec-kind-wire-transfer' },
+  };
+  function KindBadge({ kind }) {
+    const k = KIND_MAP[kind] || KIND_MAP.bill;
+    return (
+      <span className={'rec-kind-badge ' + k.cls}>
+        <Icon name={k.icon} size={11} />{k.label}
+      </span>
+    );
+  }
+
   // ── Frequency badge ───────────────────────────────────────────────────
   const FREQ_MAP = {
     daily:   { label: 'Daily',   icon: 'calendar-clock' },
@@ -74,8 +89,6 @@
   // ── Summary strip for recurring ───────────────────────────────────────
   function RecSummaryStrip({ items }) {
     const active = items.filter(r => r.status === 'active');
-    const paused = items.filter(r => r.status === 'paused');
-    const ended  = items.filter(r => r.status === 'ended');
     let monthlyTRY = 0;
     active.forEach(r => {
       let m = r.tryAmount;
@@ -83,11 +96,13 @@
       else if (r.frequency === 'weekly') m *= 4.33;
       monthlyTRY += m;
     });
+    const bills = items.filter(r => r.kind !== 'subscription');
+    const subscriptions = items.filter(r => r.kind === 'subscription');
     const cards = [
       { label: 'Monthly Cost', icon: 'calculator', cls: 'expense', val: '₺' + grp(monthlyTRY), sub: 'Active recurring' },
       { label: 'Active', icon: 'circle-check', cls: 'income', val: String(active.length), sub: 'Bills & subs' },
-      { label: 'Paused', icon: 'pause-circle', cls: 'net', val: String(paused.length), sub: 'Temporarily off' },
-      { label: 'Ended', icon: 'circle-x', cls: 'count', val: String(ended.length), sub: 'Cancelled' },
+      { label: 'Bills', icon: 'receipt-text', cls: 'net', val: String(bills.length), sub: 'Fixed payments' },
+      { label: 'Subscriptions', icon: 'repeat-2', cls: 'count', val: String(subscriptions.length), sub: 'Recurring services' },
     ];
     return (
       <div className="summary-row">
@@ -103,7 +118,7 @@
   }
 
   // ── Table row ─────────────────────────────────────────────────────────
-  const REC_DEFAULT_ORDER = ['name', 'status', 'frequency', 'weekendRule', 'payer', 'paymentMethod', 'nextDue', 'amount'];
+  const REC_DEFAULT_ORDER = ['name', 'kind', 'status', 'frequency', 'weekendRule', 'payer', 'paymentMethod', 'nextDue', 'amount'];
   const REC_CELLS = {
     name: (rec) => {
       const c = CATS[rec.cat] || CATS.subscriptions;
@@ -121,6 +136,7 @@
         </td>
       );
     },
+    kind: (rec) => <td key="kind" data-label="Type"><KindBadge kind={rec.kind} /></td>,
     status: (rec) => <td key="status" data-label="Status"><StatusBadge status={rec.status} /></td>,
     frequency: (rec) => <td key="frequency" data-label="Frequency"><FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} /></td>,
     weekendRule: (rec) => <td key="weekendRule" data-label="Weekend"><WeekendBadge rule={rec.weekendRule} /></td>,
@@ -145,6 +161,7 @@
     const keys = order && order.length ? order : REC_DEFAULT_ORDER;
     const visible = new Set(keys);
     const meta = [
+      visible.has('kind') && { key: 'kind', node: <KindBadge kind={rec.kind} /> },
       visible.has('status') && { key: 'status', node: <StatusBadge status={rec.status} /> },
       visible.has('frequency') && { key: 'frequency', node: <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} /> },
       visible.has('payer') && { key: 'payer', node: <PayerBadge name={rec.payer} /> },
@@ -298,6 +315,7 @@
     const [f, setF] = React.useState({
       name: initial.name || '',
       desc: initial.desc || '',
+      kind: initial.kind || 'bill',
       cat: initial.cat || 'subscriptions',
       status: initial.status || 'active',
       frequency: initial.frequency || 'monthly',
@@ -327,7 +345,7 @@
       if (!v.ok) return;
       const saved = {
         ...initial,
-        name: f.name.trim(), desc: f.desc.trim(), cat: f.cat, status: f.status,
+        name: f.name.trim(), desc: f.desc.trim(), kind: f.kind, cat: f.cat, status: f.status,
         frequency: f.frequency, paymentDay: parseInt(f.paymentDay) || 1,
         weekendRule: f.weekendRule,
         startDate: f.startDate, endDate: f.endDate || null,
@@ -355,7 +373,7 @@
         <div className="modal rec-modal">
           <div className="modal-head">
             <div className="modal-head-l">
-              <span className="modal-title"><Icon name={editing ? 'pencil' : 'plus-circle'} size={16} />{editing ? 'Edit Recurring' : 'Add Recurring'}</span>
+              <span className="modal-title"><Icon name={editing ? 'pencil' : 'plus-circle'} size={16} />{editing ? 'Edit Recurring Item' : 'Add Recurring Item'}</span>
               <span className="modal-sub">{editing ? initial.name : 'Set up a new bill or subscription'}</span>
             </div>
             <button id="rec-modal-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
@@ -393,7 +411,27 @@
                 </div>
               </div>
 
-              {/* Row 2: Payer + Paying For */}
+              {/* Row 2: Type + Status */}
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Type</span>
+                  <StyledSelect id="rec-modal-kind-select" className="field-input" value={f.kind} onChange={e => set('kind', e.target.value)}>
+                    <option value="bill">Bill</option>
+                    <option value="subscription">Subscription</option>
+                    <option value="wire_transfer">Wire Transfer</option>
+                  </StyledSelect>
+                </div>
+                <div className="form-field">
+                  <span className="field-label">Status</span>
+                  <ColorSelect id="rec-modal-status" value={f.status} onChange={v => set('status', v)} options={[
+                    { value: 'active', label: 'Active', icon: 'circle-check', color: 'var(--green)',  id: 'rec-modal-status-active-btn' },
+                    { value: 'paused', label: 'Paused', icon: 'pause-circle', color: 'var(--yellow)', id: 'rec-modal-status-paused-btn' },
+                    { value: 'ended',  label: 'Ended',  icon: 'circle-x',     color: 'var(--slate)',  id: 'rec-modal-status-ended-btn' },
+                  ]} />
+                </div>
+              </div>
+
+              {/* Row 3: Payer + Paying For */}
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Payer</span>
@@ -411,7 +449,7 @@
                 </div>
               </div>
 
-              {/* Row 3: Frequency + Payment Day */}
+              {/* Row 4: Frequency + Payment Day */}
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Frequency</span>
@@ -431,26 +469,6 @@
                     </StyledSelect>
                   </div>
                 )}
-              </div>
-
-              {/* Row 4: Status + Weekend/Holiday Rule */}
-              <div className="form-grid">
-                <div className="form-field">
-                  <span className="field-label">Status</span>
-                  <ColorSelect id="rec-modal-status" value={f.status} onChange={v => set('status', v)} options={[
-                    { value: 'active', label: 'Active', icon: 'circle-check', color: 'var(--green)',  id: 'rec-modal-status-active-btn' },
-                    { value: 'paused', label: 'Paused', icon: 'pause-circle', color: 'var(--yellow)', id: 'rec-modal-status-paused-btn' },
-                    { value: 'ended',  label: 'Ended',  icon: 'circle-x',     color: 'var(--slate)',  id: 'rec-modal-status-ended-btn' },
-                  ]} />
-                </div>
-                <div className="form-field">
-                  <span className="field-label">On Weekend / Holiday</span>
-                  <ColorSelect id="rec-modal-weekend" value={f.weekendRule} onChange={v => set('weekendRule', v)} options={[
-                    { value: 'defer',   label: 'Defer',     icon: 'arrow-right', color: 'var(--yellow)', id: 'rec-modal-weekend-defer-btn' },
-                    { value: 'advance', label: 'Advance',   icon: 'arrow-left',  color: 'var(--accent)', id: 'rec-modal-weekend-advance-btn' },
-                    { value: 'none',    label: 'No Change', icon: 'minus',       color: 'var(--slate)',  id: 'rec-modal-weekend-none-btn' },
-                  ]} />
-                </div>
               </div>
 
               {/* Row 5: Start & End date */}
@@ -474,9 +492,9 @@
                 </div>
               </div>
 
-              {/* Row 7: Amount */}
+              {/* Row 7: Amount + Weekend/Holiday Rule */}
               <div className="form-grid">
-                <div className={"form-field full" + (invalid.amount ? ' field-invalid' : '')}>
+                <div className={"form-field" + (invalid.amount ? ' field-invalid' : '')}>
                   <span className="field-label">Amount<span className="field-required-mark">*</span></span>
                   <div className="amount-input-wrap">
                     <CurrencyInput id="rec-modal-amount-input" value={f.amount} currency={f.cur} onChange={v => set('amount', v)} />
@@ -484,6 +502,14 @@
                       <option>TRY</option><option>USD</option><option>EUR</option>
                     </StyledSelect>
                   </div>
+                </div>
+                <div className="form-field">
+                  <span className="field-label">On Weekend / Holiday</span>
+                  <ColorSelect id="rec-modal-weekend" value={f.weekendRule} onChange={v => set('weekendRule', v)} options={[
+                    { value: 'defer',   label: 'Defer',     icon: 'arrow-right', color: 'var(--yellow)', id: 'rec-modal-weekend-defer-btn' },
+                    { value: 'advance', label: 'Advance',   icon: 'arrow-left',  color: 'var(--accent)', id: 'rec-modal-weekend-advance-btn' },
+                    { value: 'none',    label: 'No Change', icon: 'minus',       color: 'var(--slate)',  id: 'rec-modal-weekend-none-btn' },
+                  ]} />
                 </div>
               </div>
 
@@ -514,5 +540,5 @@
     );
   }
 
-  Object.assign(window, { StatusBadge, FreqBadge, WeekendBadge, RecSummaryStrip, RecRow, HistoryPanel, RecModal });
+  Object.assign(window, { StatusBadge, KindBadge, FreqBadge, WeekendBadge, RecSummaryStrip, RecRow, HistoryPanel, RecModal });
 })();

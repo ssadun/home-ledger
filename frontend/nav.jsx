@@ -6,8 +6,8 @@
 //
 // `active` is the id of the current page. Valid ids:
 //   Top level : dashboard | transactions | accounts | budgets | configuration
-//   Tx sub    : spending | credit-payments | subscriptions | recurring
-//   Accts sub : accounts | assets | liabilities | account-activity | statements
+//   Tx sub    : spending | credit-payments | recurring
+//   Accts sub : accounts | assets | account-activity | statements
 //   Config sub: members | categories | currencies | card-types | account-types | financial-institutions | statement-mappings | backup-export
 //
 // A NAV entry with a `parent` key renders as a collapsible group whose items come
@@ -64,9 +64,8 @@
   // ── Transactions submenu ───────────────────────────────────────────────────
   const NAV_TX_SUB = [
     { id: 'spending',         icon: 'shopping-bag', label: 'Spending',         color: 'var(--green)', href: 'Spending.html' },
-    { id: 'credit-payments',  icon: 'credit-card',  label: 'Card Payments',    color: 'var(--red)', href: 'Credit Payments.html' },
-    { id: 'subscriptions',    icon: 'repeat-2',     label: 'Subscriptions',    color: 'var(--orange)', href: 'Subscriptions.html' },
     { id: 'recurring',        icon: 'repeat',       label: 'Recurring',        color: 'var(--yellow)',      href: 'Recurring.html' },
+    { id: 'credit-payments',  icon: 'credit-card',  label: 'Card Payments',    color: 'var(--red)', href: 'Credit Payments.html' },
   ];
 
   // ── Accounts submenu ───────────────────────────────────────────────────────
@@ -75,7 +74,6 @@
   const NAV_ACCT_SUB = [
     { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: 'var(--lavender)', href: 'Accounts.html' },
     { id: 'assets',           icon: 'gem',      label: 'Asset List',       color: 'var(--green)', href: 'Assets.html' },
-    { id: 'liabilities',      icon: 'receipt',  label: 'Liabilities',      color: 'var(--red)', href: 'Liabilities.html' },
     { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: 'var(--accent)', href: 'Account Activity.html' },
     { id: 'statements',       icon: 'files',    label: 'Statements',       color: 'var(--yellow)', href: 'Statements.html' },
   ];

@@ -417,70 +417,11 @@ class InvestmentHoldingOut(InvestmentHoldingCreate):
     updated_at: datetime
     model_config = {"from_attributes": True}
 
-class LiabilityCreate(BaseModel):
-    account_id: Optional[int] = None
-    secured_asset_id: Optional[int] = None
-    name: str
-    type: str = "other"
-    currency: Currency = Currency.TRY
-    original_principal: Optional[float] = None
-    interest_rate: Optional[float] = None
-    minimum_payment: Optional[float] = None
-    payment_frequency: Optional[str] = None
-    start_date: Optional[date] = None
-    maturity_date: Optional[date] = None
-    include_in_net_worth: bool = True
-    is_active: bool = True
-    note: Optional[str] = None
-
-class LiabilityUpdate(BaseModel):
-    account_id: Optional[int] = None
-    secured_asset_id: Optional[int] = None
-    name: Optional[str] = None
-    type: Optional[str] = None
-    currency: Optional[Currency] = None
-    original_principal: Optional[float] = None
-    interest_rate: Optional[float] = None
-    minimum_payment: Optional[float] = None
-    payment_frequency: Optional[str] = None
-    start_date: Optional[date] = None
-    maturity_date: Optional[date] = None
-    include_in_net_worth: Optional[bool] = None
-    is_active: Optional[bool] = None
-    note: Optional[str] = None
-
-class LiabilityOut(LiabilityCreate):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    model_config = {"from_attributes": True}
-
-class LiabilityBalanceCreate(BaseModel):
-    balance: float
-    currency: Currency = Currency.TRY
-    balanced_at: date
-    source: str = "manual"
-    exchange_rate_to_try: Optional[float] = None
-    balance_try: Optional[float] = None
-    note: Optional[str] = None
-
-class LiabilityBalanceOut(LiabilityBalanceCreate):
-    id: int
-    liability_id: int
-    created_at: datetime
-    model_config = {"from_attributes": True}
-
-class LiabilityWithLatest(LiabilityOut):
-    latest_balance: Optional[LiabilityBalanceOut] = None
-
 class NetWorthSummary(BaseModel):
     assets_try: float
-    liabilities_try: float
     net_worth_try: float
     assets_count: int
-    liabilities_count: int
     missing_asset_valuations: int
-    missing_liability_balances: int
     by_currency: dict
 
 
@@ -512,7 +453,7 @@ class RecurringCreate(BaseModel):
     day_of_month: Optional[int] = None
     source: Optional[str] = None
     note: Optional[str] = None
-    kind: str = "bill"                     # bill | subscription
+    kind: str = "bill"                     # bill | subscription | wire_transfer
     status: str = "active"                 # active | paused | ended
     frequency: str = "monthly"
     weekend_rule: Optional[str] = "none"

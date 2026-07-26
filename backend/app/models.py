@@ -258,42 +258,6 @@ class InvestmentHolding(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
 
-class Liability(Base):
-    __tablename__ = "liabilities"
-    id = Column(Integer, primary_key=True, index=True)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True, index=True)
-    secured_asset_id = Column(Integer, ForeignKey("assets.id"), nullable=True, index=True)
-    name = Column(String, nullable=False)
-    type = Column(String, default="other")
-    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
-    original_principal = Column(Float)
-    interest_rate = Column(Float)
-    minimum_payment = Column(Float)
-    payment_frequency = Column(String)
-    start_date = Column(Date)
-    maturity_date = Column(Date)
-    include_in_net_worth = Column(Boolean, default=True, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    note = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
-
-
-class LiabilityBalance(Base):
-    __tablename__ = "liability_balances"
-    id = Column(Integer, primary_key=True, index=True)
-    liability_id = Column(Integer, ForeignKey("liabilities.id"), nullable=False, index=True)
-    balance = Column(Float, nullable=False)
-    currency = Column(SAEnum(Currency), default=Currency.TRY, nullable=False)
-    balanced_at = Column(Date, nullable=False, index=True)
-    source = Column(String, default="manual")
-    exchange_rate_to_try = Column(Float)
-    balance_try = Column(Float)
-    note = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
 class Budget(Base):
     __tablename__ = "budgets"
     id = Column(Integer, primary_key=True, index=True)
@@ -328,7 +292,7 @@ class RecurringExpense(Base):
     is_active = Column(Boolean, default=True)
     note = Column(Text)
 
-    # Discriminator so Subscriptions can reuse this table: "bill" | "subscription"
+    # Discriminator for the recurring item type: "bill" | "subscription" | "wire_transfer"
     kind = Column(String, default="bill")
 
     # Scheduling / lifecycle (mirrors the frontend recurring item)

@@ -258,15 +258,19 @@
 
     // Apply an approved import. This carries the balance sync that used to live on
     // the Accounts page: re-hydrate from the backend first (so accounts created
-    // inside the wizard show up), then move each affected account's balance by its
-    // net delta and persist it. Finally reload the archive — the wizard has created
-    // a Statement record per imported bank account.
+    // inside the wizard show up), then persist each affected account's statement
+    // closing balance when the bank printed one. Older formats without a closing
+    // balance still fall back to applying the imported net movement.
     function handleImport(rows, byAcc) {
       window.HL_OP_NOTIFY.promise(
         window.HL_ACCOUNTS_API.list().then(fresh => {
           const affected = fresh.filter(a => byAcc && byAcc[a.id]);
           return Promise.all(affected.map(a => {
-            const updated = { ...a, balance: +(a.balance + byAcc[a.id].delta).toFixed(2) };
+            const summary = byAcc[a.id] || {};
+            const nextBalance = summary.closingBalance != null
+              ? Number(summary.closingBalance)
+              : a.balance + (Number(summary.delta) || 0);
+            const updated = { ...a, balance: +nextBalance.toFixed(2) };
             return window.HL_ACCOUNTS_API.update(a._dbId, updated);
           }));
         }),

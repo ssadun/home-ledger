@@ -20,7 +20,7 @@
 
   // Combined balance across every account (bank, credit, debit, cash, wallet,
   // investment) converted to TRY. Credit-card balances arrive negative
-  // (liabilities), so the sum nets to the household's current total worth.
+  // (negative balances), so the sum nets to the household's current total worth.
   // Snapshot of live balances — not tied to the visible calendar month.
   function accountsTotalTRY() {
     return accountsList().reduce((sum, a) => {
@@ -131,7 +131,7 @@
           paymentMethod: pmAcct ? pmAcct.name : null,
           paymentMethodType: pmAcct ? pmAcct.type : null,
           pmKey: pm ? pm.key : null,
-          href: 'Subscriptions.html?highlight=' + rec.id,
+          href: 'Recurring.html?highlight=' + rec.id,
         });
       });
     }
@@ -305,7 +305,7 @@
                 <div className="cal-events-list">
                   {selEvts.map((ev, i) => (
                     <a key={i} className="cal-event-row" href={ev.href}
-                      title={'View in ' + (ev.href && ev.href.startsWith('Credit Payments') ? 'Credit Payments' : ev.href && ev.href.startsWith('Account Activity') ? 'Account Activity' : ev.href && ev.href.startsWith('Subscriptions') ? 'Subscriptions' : 'Spending')}>
+                      title={'View in ' + (ev.href && ev.href.startsWith('Credit Payments') ? 'Credit Payments' : ev.href && ev.href.startsWith('Account Activity') ? 'Account Activity' : ev.href && ev.href.startsWith('Recurring') ? 'Recurring' : 'Spending')}>
                       <span className="cal-ev-icon" style={{
                         color: CAL_TYPES[ev.source].color,
                         background: 'color-mix(in srgb, ' + CAL_TYPES[ev.source].color + ' 12%, transparent)',

@@ -24,7 +24,7 @@
   ];
 
   // ── Filter bar ──
-  function AccountsFilter({ owner, setOwner, typeFilter, setTypeFilter, balanceFilter, setBalanceFilter, search, setSearch, layout, setLayout, extra, popActions }) {
+  function AccountsFilter({ bankFilter, setBankFilter, typeFilter, setTypeFilter, balanceFilter, setBalanceFilter, search, setSearch, bankOptions, extra, popActions }) {
     const [filtersOpen, setFiltersOpen] = React.useState(false);
     const filtersRef = React.useRef(null);
 
@@ -40,41 +40,16 @@
     }, [filtersOpen]);
 
     const active = [
-      owner !== 'all' && { key: 'owner', label: 'Owner', val: owner, clear: () => setOwner('all') },
-      typeFilter !== 'all' && { key: 'type', label: 'Type', val: ACCOUNT_TYPES[typeFilter] ? ACCOUNT_TYPES[typeFilter].label : typeFilter, clear: () => setTypeFilter('all') },
+      bankFilter !== 'all' && { key: 'bank', label: 'Bank', val: bankFilter, clear: () => setBankFilter('all') },
+      typeFilter !== 'all' && { key: 'type', label: 'Account Type', val: ACCOUNT_TYPES[typeFilter] ? ACCOUNT_TYPES[typeFilter].label : typeFilter, clear: () => setTypeFilter('all') },
       balanceFilter === 'assets' && { key: 'balance', label: 'Balance', val: 'Assets', clear: () => setBalanceFilter('all') },
       balanceFilter === 'liabilities' && { key: 'balance', label: 'Balance', val: 'Liabilities', clear: () => setBalanceFilter('all') },
     ].filter(Boolean);
-    const clearAll = () => { setOwner('all'); setTypeFilter('all'); setBalanceFilter('all'); };
+    const clearAll = () => { setBankFilter('all'); setTypeFilter('all'); setBalanceFilter('all'); };
 
     return (
       <div className="filter-wrap">
         <div className="filter-bar acct-filter-bar">
-          {/* Desktop: inline Owner select */}
-          <div className="filter-field acct-ff-inline">
-            <span className="filter-label"><Icon name="user" size={11} />Owner</span>
-            <div className="select-wrap">
-              <StyledSelect id="acct-filter-owner-select" className="sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
-                <option value="all">All Owners</option>
-                <option value="Sadun">Sadun</option>
-                <option value="Handan">Handan</option>
-                <option value="Shared">Shared</option>
-              </StyledSelect>
-            </div>
-          </div>
-          {/* Desktop: inline Type select */}
-          <div className="filter-field acct-ff-inline">
-            <span className="filter-label"><Icon name="layers" size={11} />Type</span>
-            <div className="select-wrap">
-              <StyledSelect id="acct-filter-type-select" className="sel" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                <option value="all">All Types</option>
-                {Object.keys(ACCOUNT_TYPES).map(k => (
-                  <option key={k} value={k}>{ACCOUNT_TYPES[k].label}</option>
-                ))}
-              </StyledSelect>
-            </div>
-          </div>
-
           <div className="filter-field ff-search">
             <span className="filter-label"><Icon name="search" size={11} />Search</span>
             <div className="search-wrap">
@@ -85,12 +60,11 @@
 
           {extra}
 
-          {/* Mobile: Filters popover button */}
-          <div className="filter-field acct-ff-filters">
+          <div className="filter-field ff-filters acct-ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={filtersRef}>
               <button id="acct-filter-toggle-btn" className={'filters-btn' + (active.length ? ' has' : '') + (filtersOpen ? ' open' : '')} onClick={() => setFiltersOpen(o => !o)}>
-                <Icon name="sliders-horizontal" size={14} />
+                <Icon name="sliders-horizontal" size={14} /><span className="filters-text">Filters</span>
                 {active.length > 0 && <span className="filters-count">{active.length}</span>}
                 <svg className="filters-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
               </button>
@@ -102,37 +76,37 @@
                     {active.length > 0 && <button id="acct-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
                   </div>
                   <div className="filter-field" style={{width:'100%'}}>
-                    <span className="filter-label" style={{display:'flex'}}><Icon name="user" size={11} />Owner</span>
+                    <span className="filter-label" style={{display:'flex'}}><Icon name="building-2" size={11} />Bank</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <StyledSelect id="acct-filter-owner-mobile-select" className="sel" style={{width:'100%'}} value={owner} onChange={(e) => setOwner(e.target.value)}>
-                        <option value="all">All Owners</option>
-                        <option value="Sadun">Sadun</option>
-                        <option value="Handan">Handan</option>
-                        <option value="Shared">Shared</option>
+                      <StyledSelect id="acct-filter-bank-select" className="sel" style={{width:'100%'}} value={bankFilter} onChange={(e) => setBankFilter(e.target.value)}>
+                        <option value="all">All Banks</option>
+                        {bankOptions.map(bank => <option key={bank} value={bank}>{bank}</option>)}
                       </StyledSelect>
                     </div>
                   </div>
                   <div className="filter-field" style={{width:'100%'}}>
-                    <span className="filter-label" style={{display:'flex'}}><Icon name="layers" size={11} />Type</span>
+                    <span className="filter-label" style={{display:'flex'}}><Icon name="layers" size={11} />Account Type</span>
                     <div className="select-wrap" style={{width:'100%'}}>
-                      <StyledSelect id="acct-filter-type-mobile-select" className="sel" style={{width:'100%'}} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                        <option value="all">All Types</option>
+                      <StyledSelect id="acct-filter-type-select" className="sel" style={{width:'100%'}} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                        <option value="all">All Account Types</option>
                         {Object.keys(ACCOUNT_TYPES).map(k => (
                           <option key={k} value={k}>{ACCOUNT_TYPES[k].label}</option>
                         ))}
                       </StyledSelect>
                     </div>
                   </div>
+                  <div className="filter-field" style={{width:'100%'}}>
+                    <span className="filter-label" style={{display:'flex'}}><Icon name="landmark" size={11} />Balance</span>
+                    <div className="select-wrap" style={{width:'100%'}}>
+                      <StyledSelect id="acct-filter-balance-select" className="sel" style={{width:'100%'}} value={balanceFilter} onChange={(e) => setBalanceFilter(e.target.value)}>
+                        <option value="all">All Balances</option>
+                        <option value="assets">Assets</option>
+                        <option value="liabilities">Liabilities</option>
+                      </StyledSelect>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          <div className="filter-field ff-tabs">
-            <span className="filter-label"><Icon name="layout-grid" size={11} />View</span>
-            <div className="view-toggle">
-              <button id="acct-view-grid-btn" className={'vt-btn' + (layout === 'grid' ? ' active' : '')} onClick={() => setLayout('grid')} title="Grid view"><Icon name="layout-grid" size={14} /></button>
-              <button id="acct-view-list-btn" className={'vt-btn' + (layout === 'list' ? ' active' : '')} onClick={() => setLayout('list')} title="List view"><Icon name="list" size={14} /></button>
             </div>
           </div>
         </div>
@@ -154,6 +128,18 @@
 
   function accountTryValue(a) {
     return a.balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
+  }
+
+  function accountBalanceSide(a) {
+    const type = ACCOUNT_TYPES[a.type] || {};
+    if (type.balanceSide === 'liability' || type.balanceSide === 'asset') return type.balanceSide;
+    return accountTryValue(a) < 0 ? 'liability' : 'asset';
+  }
+
+  function filterBalanceSide(value) {
+    if (value === 'assets') return 'asset';
+    if (value === 'liabilities') return 'liability';
+    return 'all';
   }
 
   const TYPE_ORDER = ['bank', 'overdraft', 'debit', 'credit', 'wallet', 'invest', 'pension', 'cash'];
@@ -183,15 +169,14 @@
     const URLP = React.useMemo(() => {
       try { return new URLSearchParams(window.location.search); } catch (e) { return new URLSearchParams(); }
     }, []);
-    const [layout, setLayout] = window.HL_NAV.usePersistentView('list');
     const [accounts, setAccounts] = React.useState(INITIAL_ACCOUNTS);
     const [loadError, setLoadError] = React.useState(null);
     const [saveError, setSaveError] = React.useState(null);   // rejected save, shown inside the form modal
-    const [owner, setOwner] = React.useState('all');
+    const [bankFilter, setBankFilter] = React.useState('all');
     const [typeFilter, setTypeFilter] = React.useState('all');
     const [balanceFilter, setBalanceFilter] = React.useState(() => {
       const b = URLP.get('balance');
-      return b === 'assets' || b === 'liabilities' ? b : 'all';
+      return ['assets', 'liabilities'].includes(b) ? b : 'all';
     });
     const [search, setSearch] = React.useState('');
     const [detail, setDetail] = React.useState(null);       // account obj
@@ -229,15 +214,19 @@
 
     const filtered = React.useMemo(() => {
       return accounts.filter(a => {
-        if (owner !== 'all' && a.owner !== owner) return false;
+        if (bankFilter !== 'all' && a.institution !== bankFilter) return false;
         if (typeFilter !== 'all' && a.type !== typeFilter) return false;
-        if (balanceFilter === 'assets' && accountTryValue(a) < 0) return false;
-        if (balanceFilter === 'liabilities' && accountTryValue(a) >= 0) return false;
+        if (balanceFilter !== 'all' && accountBalanceSide(a) !== filterBalanceSide(balanceFilter)) return false;
         if (search.trim() && !a.name.toLowerCase().includes(search.trim().toLowerCase()) &&
             !a.institution.toLowerCase().includes(search.trim().toLowerCase())) return false;
         return true;
       });
-    }, [accounts, owner, typeFilter, balanceFilter, search]);
+    }, [accounts, bankFilter, typeFilter, balanceFilter, search]);
+
+    const bankOptions = React.useMemo(() => {
+      return [...new Set(accounts.map(a => a.institution).filter(v => v && v !== '–'))]
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }, [accounts]);
 
     const grouped = React.useMemo(() => {
       const map = {};
@@ -333,10 +322,11 @@
                 <button id="acct-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>
               </div>
             </div>
-            <AccountsFilter owner={owner} setOwner={setOwner} typeFilter={typeFilter}
-              setTypeFilter={setTypeFilter} balanceFilter={balanceFilter} setBalanceFilter={setBalanceFilter}
+            <AccountsFilter bankFilter={bankFilter} setBankFilter={setBankFilter}
+              typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+              balanceFilter={balanceFilter} setBalanceFilter={setBalanceFilter}
               search={search} setSearch={setSearch}
-              layout={layout} setLayout={setLayout}
+              bankOptions={bankOptions}
               popActions={<button id="acct-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', account: {} })}><Icon name="plus" size={14} />Add Account</button>}
               extra={<ExportData entity="accounts" entityLabel="Accounts"
                 columns={EXPORT_COLS} rows={filtered} allRows={accounts} inline />} />
@@ -356,7 +346,7 @@
                 <AccountGroupHeader typeKey={g.type} count={g.accounts.length} total={g.total} cur="TRY"
                   collapsed={collapsed.has(g.type)} onToggle={() => toggleGroup(g.type)} />
                 {!collapsed.has(g.type) && (
-                  <div className={'card-grid acct-grid' + (layout === 'list' ? ' card-grid--list acct-list' : '')}>
+                  <div className="card-grid acct-grid card-grid--list acct-list">
                     {g.accounts.map(a => (
                       <AccountCard key={a.id} account={a} onClick={setDetail} flash={a.id === flashId} />
                     ))}

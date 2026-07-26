@@ -164,6 +164,19 @@
 
   }
 
+  function CurrencyAmountField({ id, value, currency, onAmount, onCurrency }) {
+    return (
+      <div className="amount-input-wrap">
+        <CurrencyInput id={id} value={value} currency={currency} onChange={onAmount} />
+        <StyledSelect id={id + '-currency-select'} className="field-input" value={currency} onChange={(e) => onCurrency(e.target.value)}>
+          <option value="TRY">TRY</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </StyledSelect>
+      </div>
+    );
+  }
+
   // ── Balance display ──
   function BalanceDisplay({ balance, cur, size = 'normal' }) {
     const neg = balance < 0;
@@ -870,7 +883,8 @@
               <div className="form-grid">
                 <div className="form-field">
                   <span className="field-label">Current Balance</span>
-                  <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+                  <CurrencyAmountField id="acct-form-balance-input" value={f.balance} currency={f.cur}
+                    onAmount={(v) => set('balance', v)} onCurrency={(v) => set('cur', v)} />
                 </div>
                 <div className="form-field">
                   <span className="field-label">Overdraft Limit</span>
@@ -891,7 +905,8 @@
               </div>
               <div className="form-field full">
                 <span className="field-label">Current Balance</span>
-                <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+                <CurrencyAmountField id="acct-form-balance-input" value={f.balance} currency={f.cur}
+                  onAmount={(v) => set('balance', v)} onCurrency={(v) => set('cur', v)} />
               </div>
               <div className="form-field full">
                 <label className="acct-check-label">
@@ -911,7 +926,8 @@
             {isCash &&
             <div className="form-field full">
               <span className="field-label">Current Balance</span>
-              <CurrencyInput id="acct-form-balance-input" value={f.balance} currency={f.cur} onChange={(v) => set('balance', v)} />
+              <CurrencyAmountField id="acct-form-balance-input" value={f.balance} currency={f.cur}
+                onAmount={(v) => set('balance', v)} onCurrency={(v) => set('cur', v)} />
             </div>
             }
           </div>
@@ -1022,16 +1038,15 @@
 
   // ── Summary strip ──
   function AccountsSummary({ accounts }) {
-    let assets = 0,liabilities = 0;
+    let assets = 0,negativeBalances = 0;
     accounts.forEach((a) => {
       const tryV = a.balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
-      if (tryV >= 0) assets += tryV;else liabilities += Math.abs(tryV);
+      if (tryV >= 0) assets += tryV;else negativeBalances += Math.abs(tryV);
     });
-    const net = assets - liabilities;
+    const net = assets - negativeBalances;
     const cards = [
     { label: 'Total Assets', icon: 'arrow-down-left', cls: 'income', val: '₺' + grp(assets), sub: 'All positive balances' },
-    { label: 'Liabilities', icon: 'arrow-up-right', cls: 'expense', val: '₺' + grp(liabilities), sub: 'Credit cards' },
-    { label: 'Net Worth', icon: 'scale', cls: 'net', val: (net < 0 ? '−₺' : '₺') + grp(Math.abs(net)), sub: 'Assets − liabilities' },
+    { label: 'Net Worth', icon: 'scale', cls: 'net', val: (net < 0 ? '−₺' : '₺') + grp(Math.abs(net)), sub: 'Account net balance' },
     { label: 'Accounts', icon: 'wallet', cls: 'count', val: String(accounts.length), sub: 'Active' }];
 
     return (

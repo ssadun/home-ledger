@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Account, Asset, AssetValuation, CreditPayment, Investment, InvestmentHolding, Liability, LiabilityBalance, Statement, Transaction, User
+from app.models import Account, Asset, AssetValuation, CreditPayment, Investment, InvestmentHolding, Statement, Transaction, User
 from app.schemas import AccountCreate, AccountUpdate, AccountOut
 from app.services.auth import get_current_user
 from app.services.assets import sync_account_domain
@@ -407,11 +407,6 @@ def delete_account(acc_id: int, db: Session = Depends(get_db), current_user: Use
         db.query(InvestmentHolding).filter(InvestmentHolding.owner_id == current_user.id, InvestmentHolding.asset_id == asset.id).delete(synchronize_session=False)
         db.query(AssetValuation).filter(AssetValuation.asset_id == asset.id).delete(synchronize_session=False)
         db.delete(asset)
-    linked_liabilities = db.query(Liability).filter(Liability.owner_id == current_user.id, Liability.account_id == acc.id).all()
-    for liab in linked_liabilities:
-        db.query(LiabilityBalance).filter(LiabilityBalance.liability_id == liab.id).delete(synchronize_session=False)
-        db.delete(liab)
-
     # Children (a debit card or overdraft attached to this account) survive as
     # accounts in their own right — only the now-dead link is cleared.
     linked = _linked_accounts(db, current_user.id, acc)
@@ -426,7 +421,6 @@ def delete_account(acc_id: int, db: Session = Depends(get_db), current_user: Use
             "statements": len(bank_statements),
             "investments": inv_deleted,
             "assets": len(linked_assets),
-            "liabilities": len(linked_liabilities),
             "unlinked_accounts": unlinked,
         }
     }

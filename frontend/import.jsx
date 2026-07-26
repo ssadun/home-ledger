@@ -1110,9 +1110,15 @@
         byAcc[r.accId].delta += r.amount;
         byAcc[r.accId].n += 1;
       });
+      (doc.statementAccounts || []).forEach(rec => {
+        const accId = resolveSource(rec.source);
+        if (!accId || rec.balance == null) return;
+        if (!byAcc[accId]) byAcc[accId] = { delta: 0, n: 0 };
+        byAcc[accId].closingBalance = rec.balance;
+      });
       const perAccount = Object.keys(byAcc).map(id => {
         const a = accounts.find(x => x.id === id);
-        return { accId: id, name: a ? a.name : id, cur: a ? a.cur : 'TRY', n: byAcc[id].n, delta: byAcc[id].delta };
+        return { accId: id, name: a ? a.name : id, cur: a ? a.cur : 'TRY', n: byAcc[id].n, delta: byAcc[id].delta, closingBalance: byAcc[id].closingBalance };
       });
       setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount,
         creditPayments: createdCP.map(c => c.name),
