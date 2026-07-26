@@ -9,11 +9,36 @@
   const ImportWizard = window.ImportWizard;
   const ST_API = window.HL_STATEMENTS_API;
   const { StatementTable, StatementFormModal, StatementDetail, DeleteStatementConfirm } = window;
+  const ExportData = window.ExportData;
+  const { useResizableColumns } = window;
+
+  const ST_COLS = [
+    { key: 'statement', label: 'Statement', size: 220, minSize: 150, maxSize: 460 },
+    { key: 'account', label: 'Account', size: 190, minSize: 140, maxSize: 360 },
+    { key: 'period', label: 'Period', size: 190, minSize: 150, maxSize: 300 },
+    { key: 'moneyIn', label: 'Money In', num: true, size: 125, minSize: 105, maxSize: 220 },
+    { key: 'moneyOut', label: 'Money Out', num: true, size: 125, minSize: 105, maxSize: 220 },
+    { key: 'movements', label: 'Movements', num: true, size: 105, minSize: 85, maxSize: 160 },
+    { key: 'document', label: 'Document', size: 250, minSize: 150, maxSize: 420 },
+  ];
+
+  const EXPORT_COLS = [
+    { key: 'name', label: 'Statement' },
+    { key: 'acctLabel', label: 'Account', get: r => r.acctLabel || r.accountKey || '' },
+    { key: 'from', label: 'Period From' },
+    { key: 'to', label: 'Period To' },
+    { key: 'cur', label: 'Currency' },
+    { key: 'moneyIn', label: 'Money In' },
+    { key: 'moneyOut', label: 'Money Out' },
+    { key: 'closingBalance', label: 'Closing Balance' },
+    { key: 'linkedCount', label: 'Movements' },
+    { key: 'fileName', label: 'Document' },
+  ];
 
   // ── Filter bar ────────────────────────────────────────────────────────────
   // Same structure/classes as Credit Payments' bar — Year stepper, search, and an
   // Account filter in the Filters popup.
-  function StatementFilterBar({ year, onYearStep, acctFilter, setAcctFilter, search, setSearch, accounts, popActions }) {
+  function StatementFilterBar({ year, onYearStep, acctFilter, setAcctFilter, search, setSearch, accounts, extra, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -52,6 +77,7 @@
               <input id="st-filter-search-input" className="search-input" placeholder="Statement, account or file…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
+          {extra}
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={anchorRef}>
@@ -121,6 +147,7 @@
     const [acctFilter, setAcctFilter] = React.useState('all');
     const [search, setSearch] = React.useState('');
     function yearStep(d) { setYear(y => y + d); }
+    const rz = useResizableColumns({ columns: ST_COLS, storageKey: 'hl-statements-colwidths' });
 
     // Rows after filtering; records without a statement year always pass the year check.
     const visible = React.useMemo(() => records.filter(r => {
@@ -163,19 +190,26 @@
         .catch(err => setLoadError(err.message));
     }
 
-    // Hydrate the institution map FIRST, then accounts (for the picker + labels),
-    // then records. The institution map is not cosmetic here: the wizard's "Create
+    // Hydrate categories/institutions first, then accounts (for the picker + labels),
+    // then records. Categories feed the import review dropdown from Configuration
+    // > Categories by mutating LEDGER.CATS in place before the wizard is used.
+    // The institution map is not cosmetic here: the wizard's "Create
     // from statement…" draft resolves the parsed bank through it, and the account
     // form refuses to save an account with a blank institution — so without this
     // the draft silently won't save. A failure is non-fatal for the rest of the
-    // page (the bootstrap map still names the banks, only logos are missing).
+    // page (the bootstrap maps still provide fallback names/icons).
     React.useEffect(() => {
+      const cats = window.HL_CATEGORIES_API
+        ? window.HL_CATEGORIES_API.hydrateLedgerCats().catch(err => {
+            console.warn('[statements] categories unavailable:', err.message);
+          })
+        : Promise.resolve();
       const insts = window.HL_INSTITUTIONS_API
         ? window.HL_INSTITUTIONS_API.hydrate().catch(err => {
             console.warn('[statements] institutions unavailable:', err.message);
           })
         : Promise.resolve();
-      insts
+      Promise.all([cats, insts])
         .then(() => ST_API.statementAccounts())
         .then(acctList => { setAccounts(acctList); return reload(acctList); })
         .catch(err => setLoadError(err.message));
@@ -298,7 +332,6 @@
               </div>
               <div className="head-actions st-head-actions">
                 <button id="st-import-btn" className="action-modal-btn scan" onClick={() => setImportWiz({ preAccId: null })}><Icon name="file-down" size={14} />Import Statement</button>
-                <button id="st-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button>
               </div>
             </div>
             <StatementFilterBar
@@ -306,10 +339,17 @@
               acctFilter={acctFilter} setAcctFilter={setAcctFilter}
               search={search} setSearch={setSearch}
               accounts={accounts}
-              popActions={<button id="st-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button>} />
+              extra={<ExportData entity="statements" entityLabel="Statements"
+                period={String(year)}
+                columns={EXPORT_COLS} rows={visible} allRows={records} inline
+                tableTools={<React.Fragment>
+                  <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
+                  <window.FitColumnsButton onClick={rz.resetSizes} />
+                  <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
+                </React.Fragment>} />} />
           </header>
 
-          <div className="st-body">
+          <div className="st-body table-card">
             {loadError && <div className="st-error" id="st-load-error"><Icon name="alert-triangle" size={13} />{loadError}</div>}
             {selectedIds.length > 0 && (
               <div className="bulk-bar" id="st-bulk-bar">
@@ -322,9 +362,12 @@
             )}
             <StatementTable
               records={visible}
+              columns={rz.orderedColumns}
+              tableRef={rz.tableRef}
+              colSizeVars={rz.colSizeVars}
+              headersById={rz.headersById}
+              getReorderProps={rz.getReorderProps}
               onRowClick={setDetail}
-              onEdit={(r) => setFormModal({ mode: 'edit', record: r })}
-              onDelete={setDel}
               selectable selected={selected} onToggleSelect={toggleSelect}
               allSelected={allSelected} someSelected={someSelected} onToggleSelectAll={toggleSelectAll} />
           </div>

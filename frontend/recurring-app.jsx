@@ -233,12 +233,13 @@
     ].filter(Boolean);
     const clearAll = () => { setStatus('all'); setCat('all'); setPayer('all'); setFrequency('all'); };
 
-    function RecSelect({ label, icon, value, onChange, children, id }) {
+    function RecSelect({ label, icon, value, onChange, children, id, searchable, searchPlaceholder }) {
       return (
         <div className="filter-field">
           <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
           <div className="select-wrap">
-            <StyledSelect id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</StyledSelect>
+            <StyledSelect id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}
+              searchable={searchable} searchPlaceholder={searchPlaceholder}>{children}</StyledSelect>
           </div>
         </div>
       );
@@ -278,9 +279,9 @@
                     <option value="paused">Paused</option>
                     <option value="ended">Ended</option>
                   </RecSelect>
-                  <RecSelect id="rec-filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat}>
+                  <RecSelect id="rec-filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat} searchable searchPlaceholder="Search categories...">
                     <option value="all" data-icon="tag" data-color="var(--muted)">All Categories</option>
-                    {Object.keys(CATS).filter(showCategoryInRecurring).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
+                    {window.HL_CATEGORY_OPTIONS.entries((key) => showCategoryInRecurring(key)).map(([k, c]) => <option key={k} value={k} data-icon={c.icon} data-color={c.color}>{c.label}</option>)}
                   </RecSelect>
                   <RecSelect id="rec-filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
                     <option value="all">All Payers</option>

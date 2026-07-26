@@ -10,9 +10,13 @@
   const money = (cur, v) => (SYM[cur] || '') + grp(Math.abs(Number(v) || 0));
   const fmtDate = (s) => s || '–';
   const period = (r) => (r.from && r.to) ? (r.from + ' → ' + r.to) : (r.from || r.to || '–');
+  const shortDate = (s) => s ? s.slice(5) : '';
+  const periodShort = (r) => (r.from && r.to)
+    ? (shortDate(r.from) + ' → ' + shortDate(r.to))
+    : (shortDate(r.from || r.to) || '–');
 
   // ── Records table ─────────────────────────────────────────────────────────
-  function StatementTable({ records, onRowClick, onEdit, onDelete, selectable, selected, onToggleSelect, allSelected, someSelected, onToggleSelectAll }) {
+  function StatementTable({ records, columns, tableRef, colSizeVars, headersById, getReorderProps, onRowClick, selectable, selected, onToggleSelect, allSelected, someSelected, onToggleSelectAll }) {
     if (!records.length) {
       return (
         <div className="st-empty" id="st-empty-state">
@@ -22,9 +26,55 @@
         </div>
       );
     }
+    const cols = columns && columns.length ? columns : [
+      { key: 'statement', label: 'STATEMENT' },
+      { key: 'account', label: 'ACCOUNT' },
+      { key: 'period', label: 'PERIOD' },
+      { key: 'moneyIn', label: 'MONEY IN', num: true },
+      { key: 'moneyOut', label: 'MONEY OUT', num: true },
+      { key: 'movements', label: 'MOVEMENTS', num: true },
+      { key: 'document', label: 'DOCUMENT' },
+    ];
+    const cells = {
+      statement: (r) => (
+        <td key="statement" data-label="Statement">
+          <span className="st-name" title={r.name || ''}><Icon name="file-text" size={14} /><span className="st-name-t">{r.name || '–'}</span></span>
+        </td>
+      ),
+      account: (r) => (
+        <td key="account" data-label="Account">
+          {r.acctNamePart ? (
+            <span className="st-acct">
+              {r.acctInst && <span className="st-acct-inst">{r.acctInst}</span>}
+              {r.acctInst && <span className="st-acct-dot">·</span>}
+              <span className="st-acct-name">{r.acctNamePart}</span>
+            </span>
+          ) : (r.acctLabel || r.accountKey || '–')}
+        </td>
+      ),
+      period: (r) => <td key="period" data-label="Period"><span className="st-period">{period(r)}</span></td>,
+      moneyIn: (r) => <td key="moneyIn" className="num" data-label="Money In"><span className="st-in">{money(r.cur, r.moneyIn)}</span></td>,
+      moneyOut: (r) => <td key="moneyOut" className="num" data-label="Money Out"><span className="st-out">{money(r.cur, r.moneyOut)}</span></td>,
+      movements: (r) => (
+        <td key="movements" className="num" data-label="Movements">
+          <span className="st-chip">{r.linkedCount}</span>
+        </td>
+      ),
+      document: (r) => (
+        <td key="document" data-label="Document">
+          {r.fileName
+            ? <span className="st-doc"><Icon name="paperclip" size={13} /><span className="st-doc-name" title={r.fileName}>{r.fileName}</span></span>
+            : <span className="st-doc-none">–</span>}
+        </td>
+      ),
+    };
     return (
-      <div className="st-table-wrap">
-        <table className="st-table" id="st-table">
+      <div className="st-table-wrap table-scroll">
+        <table ref={tableRef} className="ledger-table st-table resizable selectable zebra dens-compact" id="st-table" style={colSizeVars}>
+          <colgroup>
+            {selectable && <col className="col-select" />}
+            {cols.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
+          </colgroup>
           <thead>
             <tr>
               {selectable && (
@@ -34,14 +84,14 @@
                     onChange={onToggleSelectAll} aria-label="Select all statements" />
                 </th>
               )}
-              <th>STATEMENT</th>
-              <th>ACCOUNT</th>
-              <th>PERIOD</th>
-              <th className="num">MONEY IN</th>
-              <th className="num">MONEY OUT</th>
-              <th className="num">MOVEMENTS</th>
-              <th>DOCUMENT</th>
-              <th className="st-th-actions">ACTIONS</th>
+              {cols.map(c => (
+                <th key={c.key} className={c.num ? 'num' : ''}
+                    title="Drag To Reorder"
+                    {...(getReorderProps ? getReorderProps(c.key) : {})}>
+                  <span className="th-inner"><span className="th-label">{c.label}</span></span>
+                  <window.ColResizer header={headersById && headersById[c.key]} />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -53,36 +103,12 @@
                       onChange={() => {}} aria-label="Select row" />
                   </td>
                 )}
-                <td data-label="Statement">
-                  <span className="st-name"><Icon name="file-text" size={14} />{r.name || '–'}</span>
-                </td>
-                <td data-label="Account">
-                  {r.acctNamePart ? (
-                    <span className="st-acct">
-                      {r.acctInst && <span className="st-acct-inst">{r.acctInst}</span>}
-                      {r.acctInst && <span className="st-acct-dot">·</span>}
-                      <span className="st-acct-name">{r.acctNamePart}</span>
-                    </span>
-                  ) : (r.acctLabel || r.accountKey || '–')}
-                </td>
-                <td data-label="Period"><span className="st-period">{period(r)}</span></td>
-                <td className="num" data-label="Money In"><span className="st-in">{money(r.cur, r.moneyIn)}</span></td>
-                <td className="num" data-label="Money Out"><span className="st-out">{money(r.cur, r.moneyOut)}</span></td>
-                <td className="num" data-label="Movements">
-                  <span className="st-chip">{r.linkedCount}</span>
-                </td>
-                <td data-label="Document">
-                  {r.fileName
-                    ? <span className="st-doc"><Icon name="paperclip" size={13} /><span className="st-doc-name" title={r.fileName}>{r.fileName}</span></span>
-                    : <span className="st-doc-none">–</span>}
-                </td>
-                <td className="st-td-actions" onClick={(e) => e.stopPropagation()}>
-                  <button id={'st-edit-' + r.id} className="list-btn blue" onClick={() => onEdit(r)}>
-                    <Icon name="pencil" size={12} />Edit
-                  </button>
-                  <button id={'st-delete-' + r.id} className="list-btn red" onClick={() => onDelete(r)}>
-                    <Icon name="trash-2" size={12} />Delete
-                  </button>
+                {cols.map(c => cells[c.key] && cells[c.key](r))}
+                <td className="td-meta-mobile st-meta-mobile" data-label="Meta" title={(r.acctLabel || r.accountKey || '–') + ' · ' + period(r)}>
+                  <span className="st-meta-account">{r.acctLabel || r.accountKey || '–'}</span>
+                  <span className="meta-sep">·</span>
+                  <span className="meta-date">{periodShort(r)}</span>
+                  {r.fileName && <React.Fragment><span className="meta-sep">·</span><Icon name="paperclip" size={11} /></React.Fragment>}
                 </td>
               </tr>
             ))}

@@ -424,8 +424,8 @@
         <DateInput id={'imp-row-' + idx + '-date-input'} className="imp-date" wrapClassName="imp-date-wrap" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
         <input id={'imp-row-' + idx + '-desc-input'} className="imp-cell imp-desc" placeholder="Description" title="Transaction description" value={row.desc} onChange={(e) => update(idx, { desc: e.target.value })} />
         <div className="imp-cell-cat">
-          <StyledSelect id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })}>
-            {Object.keys(CATS).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
+          <StyledSelect id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })} searchable searchPlaceholder="Search categories...">
+            {window.HL_CATEGORY_OPTIONS.entries(null, row.cat).map(([k, c]) => <option key={k} value={k} data-icon={c.icon} data-color={c.color}>{c.label}</option>)}
           </StyledSelect>
         </div>
         <div className={'imp-amt-wrap ' + (row.amount >= 0 ? 'pos' : 'neg')}>

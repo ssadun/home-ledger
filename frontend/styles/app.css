@@ -295,6 +295,10 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .ss-wrap.open .ss-chev{transform:rotate(180deg)}
 .ss-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow-y:auto;box-shadow:var(--shadow-menu);max-height:260px;padding:4px 0}
 .ss-dropdown.up{top:auto;bottom:calc(100% + 4px)}
+.ss-search-row{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:7px;margin:0 4px 4px;padding:7px 8px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.ss-search-row svg{flex-shrink:0;color:var(--muted)}
+.ss-search-input{min-width:0;width:100%;border:none;background:transparent;color:var(--text);font:inherit;font-size:13px;outline:none}
+.ss-search-input::placeholder{color:var(--muted)}
 .ss-group-label{padding:7px 12px 4px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
 .ss-option{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text);transition:background .1s}
 .ss-option:hover{background:var(--bg3)}
@@ -303,6 +307,7 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .ss-option.disabled:hover{background:none}
 .ss-option-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ss-check{color:var(--accent);flex-shrink:0}
+.ss-empty{padding:12px;color:var(--muted);font-size:13px;text-align:center}
 
 /* themed number stepper */
 .amt-num{position:relative;flex:1;display:flex;align-items:stretch}

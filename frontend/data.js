@@ -32,6 +32,30 @@
 
   const PAYERS = ['Sadun', 'Handan'];
 
+  function categoryLabel(key) {
+    return (CATS[key] && CATS[key].label) || key || '';
+  }
+
+  function categoryEntries(filter, selectedKey) {
+    const keys = Object.keys(CATS).filter(k => !filter || filter(k, CATS[k]));
+    if (selectedKey && CATS[selectedKey] && !keys.includes(selectedKey)) keys.push(selectedKey);
+    return keys
+      .map(k => [k, CATS[k]])
+      .sort((a, b) => categoryLabel(a[0]).localeCompare(categoryLabel(b[0]), undefined, { sensitivity: 'base' }));
+  }
+
+  function categoryOptions(filter, selectedKey) {
+    return categoryEntries(filter, selectedKey).map(([key, cat]) => ({
+      key,
+      value: key,
+      label: cat.label || key,
+      icon: cat.icon,
+      color: cat.color,
+      kind: cat.kind,
+      showInRecurring: cat.showInRecurring,
+    }));
+  }
+
   // ── Transactions ─────────────────────────────────────────────────────────
   // Columns: date, payer, category, description, type, currency, amount, payingFor, paymentMethod
   // payingFor = beneficiary: 'Shared', a person, or '–' (N/A, e.g. income).
@@ -103,4 +127,5 @@
   const CURRENT_MONTH = TODAY.getMonth(); // 0-indexed (June = 5)
 
   window.LEDGER = { FX, CATS, PAYERS, TX, TODAY, CURRENT_YEAR, CURRENT_MONTH };
+  window.HL_CATEGORY_OPTIONS = { entries: categoryEntries, options: categoryOptions, label: categoryLabel };
 })();

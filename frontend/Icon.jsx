@@ -61,12 +61,14 @@
     return '';
   }
 
-  function StyledSelect({ id, className, value, onChange, children, style, disabled, placeholder, title }) {
+  function StyledSelect({ id, className, value, onChange, children, style, disabled, placeholder, title, searchable, searchPlaceholder }) {
     const [open, setOpen] = React.useState(false);
+    const [query, setQuery] = React.useState('');
     const [menu, setMenu] = React.useState(null);   // fixed-position box {left,width,top,bottom,up}
     const wrapRef = React.useRef(null);
     const btnRef = React.useRef(null);
     const menuRef = React.useRef(null);              // the portaled dropdown
+    const searchRef = React.useRef(null);
 
     // Flatten <option>/<optgroup> children into a positional item list.
     const items = [];
@@ -77,17 +79,33 @@
         React.Children.forEach(child.props.children, (o) => {
           if (!o || !o.props) return;
           const v = o.props.value !== undefined ? String(o.props.value) : ssLabel(o.props.children);
-          items.push({ value: v, label: ssLabel(o.props.children), icon: o.props['data-icon'], color: o.props['data-color'], disabled: !!o.props.disabled });
+          const label = ssLabel(o.props.children);
+          items.push({ value: v, label, searchText: o.props['data-search'] || label, icon: o.props['data-icon'], color: o.props['data-color'], disabled: !!o.props.disabled });
         });
       } else if (child.type === 'option') {
         const v = child.props.value !== undefined ? String(child.props.value) : ssLabel(child.props.children);
-        items.push({ value: v, label: ssLabel(child.props.children), icon: child.props['data-icon'], color: child.props['data-color'], disabled: !!child.props.disabled });
+        const label = ssLabel(child.props.children);
+        items.push({ value: v, label, searchText: child.props['data-search'] || label, icon: child.props['data-icon'], color: child.props['data-color'], disabled: !!child.props.disabled });
       }
     });
 
     const cur = value == null ? '' : String(value);
     const selected = items.find(it => it.value !== undefined && it.value === cur);
     const displayLabel = selected ? selected.label : (placeholder || '');
+    const q = query.trim().toLowerCase();
+    const visibleItems = React.useMemo(() => {
+      if (!searchable || !q) return items;
+      const out = [];
+      let group = null;
+      items.forEach(it => {
+        if (it.group !== undefined) { group = it; return; }
+        if (String(it.searchText || it.label || '').toLowerCase().includes(q)) {
+          if (group) { out.push(group); group = null; }
+          out.push(it);
+        }
+      });
+      return out;
+    }, [items, q, searchable]);
     function renderLabel(it, fallback, cls) {
       if (!it || !it.icon) return fallback;
       return (
@@ -132,6 +150,12 @@
       };
     }, [open]);
 
+    React.useEffect(() => {
+      if (!open || !searchable || !searchRef.current) return;
+      const t = setTimeout(() => searchRef.current && searchRef.current.focus(), 0);
+      return () => clearTimeout(t);
+    }, [open, searchable]);
+
     function toggle() {
       if (disabled) return;
       if (!open && btnRef.current) {
@@ -150,7 +174,11 @@
           up,
         });
       }
-      setOpen(o => !o);
+      setOpen(o => {
+        const next = !o;
+        if (next) setQuery('');
+        return next;
+      });
     }
     function pick(it) {
       if (it.disabled || it.value === undefined) return;
@@ -172,7 +200,16 @@
           // modal / scrollable review list). z-index sits above the .backdrop (1000).
           <div ref={menuRef} className={'ss-dropdown' + (menu.up ? ' up' : '')} role="listbox"
             style={{ position: 'fixed', left: menu.left, width: menu.width, top: menu.top, bottom: menu.bottom, right: 'auto', zIndex: 100000 }}>
-            {items.map((it, i) => it.group !== undefined
+            {searchable && (
+              <div className="ss-search-row">
+                <Icon name="search" size={13} />
+                <input ref={searchRef} className="ss-search-input" value={query}
+                  placeholder={searchPlaceholder || 'Search...'}
+                  onChange={e => setQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }} />
+              </div>
+            )}
+            {visibleItems.map((it, i) => it.group !== undefined
               ? <div key={'g' + i} className="ss-group-label">{it.group}</div>
               : <div key={i} role="option" aria-selected={it.value === cur}
                   id={id ? id + '-option-' + it.value : undefined}
@@ -182,6 +219,7 @@
                   {it.value === cur && <Icon name="check" size={12} className="ss-check" />}
                 </div>
             )}
+            {searchable && visibleItems.length === 0 && <div className="ss-empty">No matches</div>}
           </div>, document.body)}
       </div>
     );

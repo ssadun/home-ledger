@@ -116,7 +116,7 @@
   // ── Add / Edit budget modal ─────────────────────────────────────────────
   function BudgetModal({ initial, existingCats, onClose, onSave, onRemove }) {
     const editing = !!initial.cat;
-    const expenseCats = Object.keys(CATS).filter(k => CATS[k].kind === 'expense');
+    const expenseCats = window.HL_CATEGORY_OPTIONS.entries((k, c) => c.kind === 'expense').map(([k]) => k);
     const [cat, setCat] = React.useState(initial.cat || '');
     const [limit, setLimit] = React.useState(initial.limit != null ? initial.limit : '');
     const [cur, setCur] = React.useState(initial.currency || 'TRY');
@@ -164,10 +164,10 @@
                   {c.label}
                 </div>
               ) : (
-                <StyledSelect id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
+                <StyledSelect id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)} searchable searchPlaceholder="Search categories...">
                   <option value="">- Select Category -</option>
                   {expenseCats.map(k => (
-                    <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color} disabled={existingCats.includes(k)}>
+                    <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color} data-search={CATS[k].label} disabled={existingCats.includes(k)}>
                       {CATS[k].label}{existingCats.includes(k) ? ' - already set' : ''}
                     </option>
                   ))}

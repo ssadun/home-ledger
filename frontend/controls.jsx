@@ -123,12 +123,13 @@
   }
 
   // ── Select with chevron ────────────────────────────────────────────────
-  function Select({ label, icon, value, onChange, children, id }) {
+  function Select({ label, icon, value, onChange, children, id, searchable, searchPlaceholder }) {
     return (
       <div className="filter-field">
         <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
         <div className="select-wrap">
-          <StyledSelect id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}>{children}</StyledSelect>
+          <StyledSelect id={id} className="sel" value={value} onChange={(e) => onChange(e.target.value)}
+            searchable={searchable} searchPlaceholder={searchPlaceholder}>{children}</StyledSelect>
         </div>
       </div>
     );
@@ -234,9 +235,9 @@
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
                     <option value="–">N/A</option>
                   </Select>
-                  <Select id="filter-category-select" label="Category" icon="tag" value={draft.cat} onChange={(value) => setDraft(d => ({ ...d, cat: value }))}>
+                  <Select id="filter-category-select" label="Category" icon="tag" value={draft.cat} onChange={(value) => setDraft(d => ({ ...d, cat: value }))} searchable searchPlaceholder="Search categories...">
                     <option value="all" data-icon="tag" data-color="var(--muted)">All Categories</option>
-                    {Object.keys(CATS).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
+                    {window.HL_CATEGORY_OPTIONS.entries().map(([k, c]) => <option key={k} value={k} data-icon={c.icon} data-color={c.color}>{c.label}</option>)}
                   </Select>
                   {setPaymentSource && (
                     <Select id="filter-payment-source-select" label="Payment Source" icon="wallet-cards" value={draft.paymentSource} onChange={(value) => setDraft(d => ({ ...d, paymentSource: value }))}>
@@ -414,9 +415,9 @@
               </div>
               <div className={"form-field" + (invalid.cat ? ' field-invalid' : '')}>
                 <span className="field-label">Category<span className="field-required-mark">*</span></span>
-                <StyledSelect id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
+                <StyledSelect id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)} searchable searchPlaceholder="Search categories...">
                   <option value="">- Select Category -</option>
-                  {Object.keys(CATS).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
+                  {window.HL_CATEGORY_OPTIONS.entries(null, f.cat).map(([k, c]) => <option key={k} value={k} data-icon={c.icon} data-color={c.color}>{c.label}</option>)}
                 </StyledSelect>
               </div>
             </div>

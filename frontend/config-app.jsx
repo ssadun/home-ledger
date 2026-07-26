@@ -419,7 +419,8 @@
   function categoryOptionsFromRows(rows) {
     return (rows || [])
       .filter(c => c && c.key)
-      .map(c => ({ value: c.key, label: c.label || c.key, icon: c.icon, color: c.color }));
+      .map(c => ({ value: c.key, label: c.label || c.key, icon: c.icon, color: c.color }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   }
 
   // ── Sections definition ──────────────────────────────────────────────────
@@ -698,6 +699,7 @@
                   {(editing && fd.editHint ? fd.editHint : fd.hint) && <span className="field-hint">{editing && fd.editHint ? fd.editHint : fd.hint}</span>}
                   {fd.type === 'select' ? (
                     <StyledSelect className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
+                      searchable={fd.key === 'category_key'} searchPlaceholder="Search categories..."
                       onChange={e => set(fd.key, e.target.value)}>
                       <option value="">- Select -</option>
                       {fd.options.map(o => <option key={o.value} value={o.value} data-icon={o.icon} data-color={o.color}>{o.label}</option>)}

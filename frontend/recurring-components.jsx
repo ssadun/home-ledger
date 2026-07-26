@@ -26,9 +26,9 @@
   }
 
   function recurringCategoryKeys(selectedKey) {
-    const keys = Object.keys(CATS).filter(showCategoryInRecurring);
-    if (selectedKey && CATS[selectedKey] && !keys.includes(selectedKey)) keys.push(selectedKey);
-    return keys;
+    return window.HL_CATEGORY_OPTIONS
+      .entries((key) => showCategoryInRecurring(key), selectedKey)
+      .map(([key]) => key);
   }
 
   // ── Status badge ──────────────────────────────────────────────────────
@@ -398,7 +398,7 @@
                 </div>
                 <div className={"form-field" + (invalid.cat ? ' field-invalid' : '')}>
                   <span className="field-label">Category<span className="field-required-mark">*</span></span>
-                  <StyledSelect id="rec-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
+                  <StyledSelect id="rec-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)} searchable searchPlaceholder="Search categories...">
                     <option value="">- Select Category -</option>
                     {recurringCategoryKeys(f.cat).map(k => (
                       <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>
