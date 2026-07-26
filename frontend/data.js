@@ -38,9 +38,9 @@
 
   function categoryEntries(filter, selectedKey) {
     const keys = Object.keys(CATS).filter(k => !filter || filter(k, CATS[k]));
-    if (selectedKey && CATS[selectedKey] && !keys.includes(selectedKey)) keys.push(selectedKey);
+    if (selectedKey && !keys.includes(selectedKey)) keys.push(selectedKey);
     return keys
-      .map(k => [k, CATS[k]])
+      .map(k => [k, CATS[k] || { label: k, icon: 'tag', color: 'var(--muted)', kind: 'expense' }])
       .sort((a, b) => categoryLabel(a[0]).localeCompare(categoryLabel(b[0]), undefined, { sensitivity: 'base' }));
   }
 
@@ -119,12 +119,11 @@
     return { id: 'tx-' + (1000 + i), date, payer, cat, desc, type, cur, amt, payingFor, paymentMethod, tryV, usdV };
   });
 
-  // App-wide "today" - the ledger's narrative current date. The preview runtime
-  // clock is unreliable, so all pages read "current month/year" from here rather
-  // than new Date(), keeping every month-stepper in sync.
-  const TODAY = new Date('2026-06-15T00:00:00');
+  // App-wide "today". Every month-stepper reads current month/year from here so
+  // tables default to the real current month.
+  const TODAY = new Date();
   const CURRENT_YEAR = TODAY.getFullYear();
-  const CURRENT_MONTH = TODAY.getMonth(); // 0-indexed (June = 5)
+  const CURRENT_MONTH = TODAY.getMonth(); // 0-indexed (Jan = 0)
 
   window.LEDGER = { FX, CATS, PAYERS, TX, TODAY, CURRENT_YEAR, CURRENT_MONTH };
   window.HL_CATEGORY_OPTIONS = { entries: categoryEntries, options: categoryOptions, label: categoryLabel };

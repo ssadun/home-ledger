@@ -424,7 +424,8 @@
         <DateInput id={'imp-row-' + idx + '-date-input'} className="imp-date" wrapClassName="imp-date-wrap" value={row.date} onChange={(e) => update(idx, { date: e.target.value })} />
         <input id={'imp-row-' + idx + '-desc-input'} className="imp-cell imp-desc" placeholder="Description" title="Transaction description" value={row.desc} onChange={(e) => update(idx, { desc: e.target.value })} />
         <div className="imp-cell-cat">
-          <StyledSelect id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat} onChange={(e) => update(idx, { cat: e.target.value })} searchable searchPlaceholder="Search categories...">
+          <StyledSelect id={'imp-row-' + idx + '-cat-select'} className="imp-cell imp-catsel" value={row.cat || ''} onChange={(e) => update(idx, { cat: e.target.value || null })} searchable searchPlaceholder="Search categories...">
+            <option value="" data-icon="circle-slash" data-color="var(--muted)">Uncategorized</option>
             {window.HL_CATEGORY_OPTIONS.entries(null, row.cat).map(([k, c]) => <option key={k} value={k} data-icon={c.icon} data-color={c.color}>{c.label}</option>)}
           </StyledSelect>
         </div>
@@ -883,9 +884,8 @@
     }
 
     function goReview() {
-      // Build editable rows. Category is taken from the Turkish "Etiket" tag when
-      // mappable (falling back to keyword guessing); the account is auto-mapped per
-      // card/source, falling back to the document-level account when unmatched.
+      // Build editable rows. Backend-provided categories are authoritative; the
+      // local guesser only fills rows that the backend left uncategorized.
       // Keep the bank's ORIGINAL description casing verbatim for every source —
       // never Title-case or normalize it. Some line items carry meaningful mixed
       // casing (e.g. "Sadun Sevıngen--EFT-CEP ŞUBE", "K.Kartı Ödeme") that must be
@@ -901,7 +901,7 @@
           include: true,
           date: r[0],
           desc: r[1],
-          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, bankSources.has(r[5])),
+          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, bankSources.has(r[5])) || null,
           amount: r[2],
           cur: r[3],
           accId: resolveSource(r[5]) || accId,
@@ -999,7 +999,7 @@
         type: r.amount >= 0 ? 'income' : 'expense',
         currency: r.cur,
         description: r.desc,
-        category_key: r.cat,
+        category_key: r.cat || null,
         payment_method: r.accId || null,
         payer: ownerOf(r.accId),
       }));

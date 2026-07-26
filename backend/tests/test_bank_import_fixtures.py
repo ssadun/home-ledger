@@ -147,6 +147,43 @@ class TestOnBurganAccount:
         assert all(r["balance"] is not None for r in res["rows"])
 
 
+class TestStatementMappingFallback:
+    def test_structured_etiket_wins_over_description(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", {
+            "MARKET": "groceries",
+            "PARACEKME": "withdrawal",
+        })
+
+        row = bank_import._normalize_row(
+            "2026-07-26",
+            "ATM PARA ÇEKME",
+            -100,
+            etiket="Market",
+            account_type="bank",
+        )
+
+        assert row["category_key"] == "groceries"
+
+    def test_description_is_used_when_etiket_is_missing(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", {
+            "PARACEKME": "withdrawal",
+        })
+
+        row = bank_import._normalize_row(
+            "2026-07-26",
+            "ATM PARA ÇEKME SN:12345",
+            -100,
+            account_type="bank",
+        )
+
+        assert row["etiket"] is None
+        assert row["category_key"] == "withdrawal"
+
+
 # --------------------------------------------------------------------------
 # QNB Finansbank Kazandıran checking account — _parse_qnb_pdf
 # --------------------------------------------------------------------------

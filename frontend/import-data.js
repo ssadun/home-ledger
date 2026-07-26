@@ -137,7 +137,7 @@
     if (/^g\.?\s?e\.?\s+\d{6,}\b/i.test(desc)) return 'retirement';
     if (etiket && ETIKET_MAP[etiket]) return ETIKET_MAP[etiket];
     for (const [re, key] of RULES) if (re.test(desc)) return key;
-    return isIncome ? 'salary' : 'shopping';
+    return 'wire-transfer';
   }
 
   // Tidy raw bank descriptions into title-ish case for display

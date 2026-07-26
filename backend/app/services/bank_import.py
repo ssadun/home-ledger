@@ -186,7 +186,9 @@ def bes_contract_of(description: str) -> Optional[str]:
 _DIGER_RE = re.compile(r"\b(DIGER|OTHER)\b")
 
 
-# Garanti's structured "Etiket" column (Turkish category tag) → our category_key.
+# Statement mapping keys are matched against Garanti's structured "Etiket" column
+# when present. Account statements commonly have no such column; for those rows,
+# the same mapping text is matched as a normalized phrase inside the description.
 # Keys are diacritic-folded and stripped of every non-alphanumeric char so slash /
 # spacing variants ("Faiz / Komisyon", "Faiz/Komisyon") all collapse to one key.
 # "Diğer" is intentionally absent: on BANK statements it falls to the _DIGER_RE
@@ -240,26 +242,37 @@ def load_etiket_map(db) -> None:
                 m[_etiket_key(row.etiket)] = row.category_key
         _ETIKET_RUNTIME = m
     except Exception:
-        pass  # keep whatever we had; _etiket_category falls back to _ETIKET_CATEGORY
+        pass  # keep whatever we had; statement mapping falls back to _ETIKET_CATEGORY
 
 
-def _etiket_category(etiket: str) -> Optional[str]:
-    """Map a Garanti Etiket tag to a category_key (diacritic/spacing-insensitive).
-    Prefers the DB-loaded map when present, else the hardcoded defaults."""
-    if not etiket:
+def _statement_mapping_category(etiket: str = "", description: str = "") -> Optional[str]:
+    """Map statement text to a category_key.
+
+    If the parsed row has a structured Etiket value, match that exact normalized
+    tag. Otherwise, fall back to a normalized contains match on the description,
+    which covers account-movement PDFs whose tables only expose an Açıklama column.
+    """
+    if not etiket and not description:
         return None
     table = _ETIKET_RUNTIME if _ETIKET_RUNTIME is not None else _ETIKET_CATEGORY
-    return table.get(_etiket_key(etiket))
+    if etiket:
+        return table.get(_etiket_key(etiket))
+    desc_key = _etiket_key(description)
+    for key, category_key in table.items():
+        if key and key in desc_key:
+            return category_key
+    return None
 
 
 def _normalize_row(date: str, description: str, amount: float, balance=None, raw=None,
                    currency="TRY", etiket=None, source=None, account_type=None) -> dict:
     type_override, category_override = _cc_classify(description)
     # Garanti's "Etiket" column is a structured category tag — trust it when the
-    # description-based rules above didn't already classify the row. Only sets the
-    # category; direction (income/expense) still follows the amount's sign.
+    # description-based rules above didn't already classify the row. Account
+    # statements without Etiket fall back to matching the mapping text in the
+    # description. Only sets the category; direction still follows the amount sign.
     if category_override is None:
-        category_override = _etiket_category(etiket)
+        category_override = _statement_mapping_category(etiket, description)
     # BANK-ACCOUNT statements only: a "Diğer"/"Other" line item is a miscellaneous
     # transfer → Transfer (category wire-transfer). Scoped to account_type == "bank"
     # because on CARD statements "Diğer" is a legitimate spending tag (tolls, etc.).
