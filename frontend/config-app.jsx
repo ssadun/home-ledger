@@ -24,7 +24,6 @@
   const { Sidebar, NAV_CFG_SUB } = window.HL_NAV;
   const CFG_SECTION = window.CONFIG_SECTION || null;
   const SYM = (window.LEDGER_FMT && window.LEDGER_FMT.SYM) || { TRY: '₺', USD: '$', EUR: '€' };
-  const MONTHS = (window.LEDGER_FMT && window.LEDGER_FMT.MONTHS) || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   // ── Rate source (TCMB = Central Bank of Turkey official bulletin, vs. a manual / market rate) ──
   const SOURCE_OPTIONS = [
@@ -833,9 +832,9 @@
             <div className="filter-field ff-period">
               <span className="filter-label"><Icon name="calendar" size={11} />Period</span>
               <div className="month-step">
-                <button id="cfg-filter-period-prev-btn" className="ms-btn" onClick={() => period.onMonthStep(-1)} title="Previous month"><Icon name="chevron-left" size={14} /></button>
-                <span className="ms-label"><Icon name="calendar-days" size={13} />{MONTHS[period.month]} {period.year}</span>
-                <button id="cfg-filter-period-next-btn" className="ms-btn" onClick={() => period.onMonthStep(1)} title="Next month"><Icon name="chevron-right" size={14} /></button>
+                <button id="cfg-filter-period-prev-btn" className="ms-btn" onClick={() => period.onYearStep(-1)} title="Previous year"><Icon name="chevron-left" size={14} /></button>
+                <span className="ms-label"><Icon name="calendar-days" size={13} />{period.year}</span>
+                <button id="cfg-filter-period-next-btn" className="ms-btn" onClick={() => period.onYearStep(1)} title="Next year"><Icon name="chevron-right" size={14} /></button>
               </div>
             </div>
           )}
@@ -969,7 +968,6 @@
     const [search, setSearch] = React.useState('');
     const [facets, setFacets] = React.useState({});
     const today = React.useMemo(() => new Date(todayYMD() + 'T00:00:00'), []);
-    const [periodMonth, setPeriodMonth] = React.useState(today.getMonth());
     const [periodYear, setPeriodYear] = React.useState(today.getFullYear());
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(() => {
@@ -978,18 +976,11 @@
     });
     React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     const setFacet = (k, v) => setFacets(p => { const n = { ...p }; if (!v || v === 'all') delete n[k]; else n[k] = v; return n; });
-    function monthStep(delta) {
-      let m = periodMonth + delta;
-      let y = periodYear;
-      while (m < 0) { m += 12; y -= 1; }
-      while (m > 11) { m -= 12; y += 1; }
-      setPeriodMonth(m);
-      setPeriodYear(y);
-    }
+    function yearStep(delta) { setPeriodYear(y => y + delta); }
     const filteredItems = React.useMemo(() => {
       const q = search.trim().toLowerCase();
       const periodPrefix = section.id === 'local-holidays'
-        ? periodYear + '-' + String(periodMonth + 1).padStart(2, '0')
+        ? periodYear + '-'
         : null;
       return items.filter(it => {
         if (periodPrefix && !String(it.date || '').startsWith(periodPrefix)) return false;
@@ -1000,7 +991,7 @@
         }
         return true;
       });
-    }, [items, facets, search, searchCols, section.id, periodMonth, periodYear]);
+    }, [items, facets, search, searchCols, section.id, periodYear]);
 
     // ── Sorting — click a header to sort by that column (raw value, natural order) ──
     const [sort, setSort] = React.useState({ col: null, dir: 'asc' });
@@ -1026,7 +1017,7 @@
     const start = (curPage - 1) * perPage;
     const end = Math.min(start + perPage, total);
     const pageRows = React.useMemo(() => sortedItems.slice(start, end), [sortedItems, start, end]);
-    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [search, facets, perPage, periodMonth, periodYear]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [search, facets, perPage, periodYear]);
 
     // ── Mass-delete: checkbox selection over the visible (filtered) rows ──
     const [selected, setSelected] = React.useState(() => new Set());
@@ -1136,7 +1127,7 @@
             table={section.id}
             search={search} setSearch={setSearch}
             facets={facets} setFacet={setFacet} facetCols={facetCols} searchCols={searchCols}
-            period={section.id === 'local-holidays' ? { month: periodMonth, year: periodYear, onMonthStep: monthStep } : null}
+            period={section.id === 'local-holidays' ? { year: periodYear, onYearStep: yearStep } : null}
             moreNode={<ExportData entity={section.id} entityLabel={section.label}
               columns={exportCols} rows={sortedItems} allRows={items} inline
               tableTools={<React.Fragment>
