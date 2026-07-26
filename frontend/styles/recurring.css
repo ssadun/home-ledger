@@ -42,13 +42,6 @@
 .rec-paused svg{color:var(--yellow)}
 .rec-ended svg{color:var(--slate)}
 
-/* ── Type badge (plain) ── */
-.rec-kind-badge{display:inline-flex;align-items:center;gap:5px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
-.rec-kind-badge svg{flex-shrink:0}
-.rec-kind-bill svg{color:var(--gold)}
-.rec-kind-subscription svg{color:var(--fuchsia)}
-.rec-kind-wire-transfer svg{color:var(--sky)}
-
 /* ── Frequency badge (plain) ── */
 .rec-freq-badge{display:inline-flex;align-items:center;gap:5px;padding:0;border-radius:0;font-size:12px;font-weight:500;border:none;background:none;white-space:nowrap;color:var(--muted)}
 .rec-freq-badge svg{color:var(--accent);flex-shrink:0}
@@ -176,7 +169,6 @@
   .rec-table td[data-label="Amount"]{grid-column:2;grid-row:1;order:2;justify-content:flex-end}
 
   /* Line 2: Meta (left) — hidden others */
-  .rec-table td[data-label="Type"]{display:none !important}
   .rec-table td[data-label="Status"]{display:none !important}
   .rec-table td[data-label="Frequency"]{display:none !important}
   .rec-table td[data-label="Weekend"]{display:none !important}

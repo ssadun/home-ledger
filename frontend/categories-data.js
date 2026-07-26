@@ -1,6 +1,6 @@
 // categories-data.js — Categories API client (used by the Configuration page).
 // Maps between the backend Category row and the config-app item shape
-// { id, key, label, icon, color, kind }.
+// { id, key, label, icon, color, kind, showInRecurring }.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
@@ -12,6 +12,7 @@
       icon: row.icon || 'circle',
       color: row.color || 'var(--lavender)',
       kind: row.kind || (row.type === 'income' ? 'income' : 'expense'),
+      showInRecurring: row.show_in_recurring !== false,
     };
   }
 
@@ -22,6 +23,7 @@
       icon: item.icon,
       color: item.color,
       kind: item.kind || 'expense',
+      show_in_recurring: item.showInRecurring !== false,
     };
   }
 
@@ -75,7 +77,7 @@
       Object.keys(dict).forEach(k => delete dict[k]);
       cats.forEach(c => {
         if (!c.key) return;
-        dict[c.key] = { label: c.label, icon: c.icon, color: c.color, kind: c.kind };
+        dict[c.key] = { label: c.label, icon: c.icon, color: c.color, kind: c.kind, showInRecurring: c.showInRecurring };
       });
     } catch (e) { /* keep static fallback on failure */ }
   }

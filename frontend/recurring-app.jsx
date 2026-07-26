@@ -5,7 +5,7 @@
   const { CATS, PAYERS } = window.LEDGER;
   const { grp, SYM, fmtDate, dowOf } = window.LEDGER_FMT;
   const { Pagination, DeleteConfirm } = window;
-  const { StatusBadge, KindBadge, FreqBadge, WeekendBadge, RecRow, HistoryPanel, RecModal } = window;
+  const { StatusBadge, FreqBadge, WeekendBadge, RecRow, HistoryPanel, RecModal } = window;
   const ExportData = window.ExportData;
   const { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakToggle } = window;
   const { useResizableColumns, ColResizer } = window;
@@ -21,9 +21,10 @@
     return inst + acct.name;
   }
 
-  function kindLabel(value) {
-    if (value === 'wire_transfer') return 'Wire Transfer';
-    return value === 'subscription' ? 'Subscription' : 'Bill';
+  function showCategoryInRecurring(key) {
+    const cat = CATS[key] || {};
+    if (cat.showInRecurring === false) return false;
+    return cat.showInRecurring === true || cat.kind === 'expense' || key === 'wire-transfer';
   }
 
   const TWEAK_DEFAULTS = {
@@ -74,7 +75,6 @@
   // size = default width; minSize / maxSize = drag constraints (px), enforced by TanStack
   const COLS = [
     { key: 'name', label: 'NAME', size: 240, minSize: 150, maxSize: 420 },
-    { key: 'kind', label: 'TYPE', size: 125, minSize: 100, maxSize: 200 },
     { key: 'status', label: 'STATUS', size: 110, minSize: 90, maxSize: 200 },
     { key: 'frequency', label: 'FREQUENCY', size: 140, minSize: 130, maxSize: 240 },
     { key: 'weekendRule', label: 'WEEKEND RULE', size: 130, minSize: 100, maxSize: 220 },
@@ -88,7 +88,6 @@
   const EXPORT_COLS = [
     { key: 'name', label: 'Name' },
     { key: 'desc', label: 'Description' },
-    { key: 'kind', label: 'Type', get: r => kindLabel(r.kind) },
     { key: 'cat', label: 'Category', get: r => (CATS[r.cat] || {}).label || r.cat },
     { key: 'status', label: 'Status' },
     { key: 'frequency', label: 'Frequency' },
@@ -120,7 +119,6 @@
           </div>
         </div>
         <div className="rc-bottom">
-          <KindBadge kind={rec.kind} />
           <StatusBadge status={rec.status} />
           <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} />
           <WeekendBadge rule={rec.weekendRule} />
@@ -180,7 +178,7 @@
               <div className="tl-content">
                 <div className="tl-head">
                   <span className="tl-due">{rec.nextDue ? fmtDate(rec.nextDue) + ' ' + dowOf(rec.nextDue) : 'No next date'}</span>
-                  <span className="tl-head-badges"><KindBadge kind={rec.kind} /><StatusBadge status={rec.status} /></span>
+                  <span className="tl-head-badges"><StatusBadge status={rec.status} /></span>
                 </div>
                 <div className="tl-body">
                   <span className="cat-ico cat-chip" style={{ '--cat': c.color }}>
@@ -210,7 +208,7 @@
   }
 
   // ── Filter bar (simpler than Transactions) ────────────────────────────
-  function RecFilterBar({ status, setStatus, kind, setKind, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, exportEl, popActions }) {
+  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, exportEl, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -229,12 +227,11 @@
 
     const active = [
       status !== 'all' && { key: 'status', label: 'Status', val: cap(status), clear: () => setStatus('all') },
-      kind !== 'all' && { key: 'kind', label: 'Type', val: kindLabel(kind), clear: () => setKind('all') },
       cat !== 'all' && { key: 'cat', label: 'Category', val: (CATS[cat] || {}).label || cat, clear: () => setCat('all') },
       payer !== 'all' && { key: 'payer', label: 'Payer', val: payer, clear: () => setPayer('all') },
       frequency !== 'all' && { key: 'frequency', label: 'Frequency', val: freqLabel(frequency), clear: () => setFrequency('all') },
     ].filter(Boolean);
-    const clearAll = () => { setStatus('all'); setKind('all'); setCat('all'); setPayer('all'); setFrequency('all'); };
+    const clearAll = () => { setStatus('all'); setCat('all'); setPayer('all'); setFrequency('all'); };
 
     function RecSelect({ label, icon, value, onChange, children, id }) {
       return (
@@ -281,15 +278,9 @@
                     <option value="paused">Paused</option>
                     <option value="ended">Ended</option>
                   </RecSelect>
-                  <RecSelect id="rec-filter-kind-select" label="Type" icon="repeat-2" value={kind} onChange={setKind}>
-                    <option value="all">All Types</option>
-                    <option value="bill">Bill</option>
-                    <option value="subscription">Subscription</option>
-                    <option value="wire_transfer">Wire Transfer</option>
-                  </RecSelect>
                   <RecSelect id="rec-filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat}>
                     <option value="all" data-icon="tag" data-color="var(--muted)">All Categories</option>
-                    {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
+                    {Object.keys(CATS).filter(showCategoryInRecurring).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
                   </RecSelect>
                   <RecSelect id="rec-filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
                     <option value="all">All Payers</option>
@@ -329,7 +320,7 @@
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
     const [items, setItems] = React.useState([]);
 
-    // Load all recurring items from the backend on mount (bills + subscriptions).
+    // Load all recurring items from the backend on mount.
     // Accounts hydrate ACCOUNTS_DATA.ACCOUNTS in place so the modal's Payment Method
     // picker has options to show (it reads window.ACCOUNTS_DATA.ACCOUNTS).
     React.useEffect(() => {
@@ -364,7 +355,6 @@
     }, []);
 
     const [status, setStatus] = React.useState('all');
-    const [kind, setKind] = React.useState('all');
     const [cat, setCat] = React.useState('all');
     const [search, setSearch] = React.useState('');
     const [payer, setPayer] = React.useState('all');
@@ -399,7 +389,6 @@
     const filtered = React.useMemo(() => {
       return items.filter(r => {
         if (status !== 'all' && r.status !== status) return false;
-        if (kind !== 'all' && (r.kind || 'bill') !== kind) return false;
         if (!t.showEnded && r.status === 'ended') return false;
         if (cat !== 'all' && r.cat !== cat) return false;
         if (payer !== 'all' && r.payer !== payer) return false;
@@ -407,7 +396,7 @@
         if (search.trim() && !r.name.toLowerCase().includes(search.trim().toLowerCase()) && !r.desc.toLowerCase().includes(search.trim().toLowerCase())) return false;
         return true;
       });
-    }, [items, status, kind, cat, search, payer, frequency, t.showEnded]);
+    }, [items, status, cat, search, payer, frequency, t.showEnded]);
 
     // ── Sort ──
     const sorted = React.useMemo(() => {
@@ -416,7 +405,6 @@
       arr.sort((a, b) => {
         let av, bv;
         if (col === 'name') { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
-        else if (col === 'kind') { av = kindLabel(a.kind); bv = kindLabel(b.kind); }
         else if (col === 'status') { av = a.status; bv = b.status; }
         else if (col === 'frequency') { av = a.frequency; bv = b.frequency; }
         else if (col === 'weekendRule') { av = a.weekendRule; bv = b.weekendRule; }
@@ -439,7 +427,7 @@
     const end = Math.min(start + perPage, total);
     const pageRows = sorted.slice(start, end);
 
-    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [status, kind, cat, search, payer, frequency, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [status, cat, search, payer, frequency, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -508,7 +496,7 @@
                 <div className="page-title-wrap cfg-detail-title-wrap">
                   <div className="cfg-title-col">
                     <h1 className="page-title">Recurring</h1>
-                    <p className="page-subtitle">Bills and subscriptions in one schedule</p>
+                    <p className="page-subtitle">Recurring payments schedule</p>
                   </div>
                 </div>
               </div>
@@ -516,7 +504,7 @@
                 <button id="rec-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>
               </div>
             </div>
-            <RecFilterBar status={status} setStatus={setStatus} kind={kind} setKind={setKind} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency}
+            <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency}
               popActions={<button id="rec-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>}
               exportEl={<ExportData entity="recurring" entityLabel="Recurring Items"
                 columns={EXPORT_COLS} rows={sorted} allRows={items} inline

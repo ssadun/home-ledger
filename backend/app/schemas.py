@@ -101,6 +101,7 @@ class CategoryOut(BaseModel):
     kind: Optional[str]
     icon: Optional[str]
     color: Optional[str]
+    show_in_recurring: bool = True
     is_default: Optional[bool] = None
     model_config = {"from_attributes": True}
 
@@ -111,6 +112,7 @@ class CategoryCreate(BaseModel):
     kind: str = "expense"            # income | expense | transfer
     icon: Optional[str] = "circle"
     color: Optional[str] = "#6366f1"
+    show_in_recurring: bool = True
 
 class CategoryUpdate(BaseModel):
     key: Optional[str] = None
@@ -119,6 +121,7 @@ class CategoryUpdate(BaseModel):
     kind: Optional[str] = None
     icon: Optional[str] = None
     color: Optional[str] = None
+    show_in_recurring: Optional[bool] = None
 
 
 # ── Statement Value Mapping (Etiket → category) ────────────────────────────────
@@ -453,7 +456,6 @@ class RecurringCreate(BaseModel):
     day_of_month: Optional[int] = None
     source: Optional[str] = None
     note: Optional[str] = None
-    kind: str = "bill"                     # bill | subscription | wire_transfer
     status: str = "active"                 # active | paused | ended
     frequency: str = "monthly"
     weekend_rule: Optional[str] = "none"
@@ -475,7 +477,6 @@ class RecurringUpdate(BaseModel):
     day_of_month: Optional[int] = None
     source: Optional[str] = None
     note: Optional[str] = None
-    kind: Optional[str] = None
     status: Optional[str] = None
     frequency: Optional[str] = None
     weekend_rule: Optional[str] = None

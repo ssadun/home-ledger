@@ -43,6 +43,10 @@ def _type_from_kind(kind: str) -> TransactionType:
     return TransactionType.income if kind == "income" else TransactionType.expense
 
 
+def _default_show_in_recurring(key: str, kind: str) -> bool:
+    return (kind == "expense" and key != "credit-card-payment") or key == "wire-transfer"
+
+
 def seed_default_categories(db: Session) -> None:
     """Populate the shared categories table on first run if it is empty."""
     if db.query(Category).first():
@@ -50,21 +54,57 @@ def seed_default_categories(db: Session) -> None:
     for key, name, kind, icon, color in DEFAULT_CATEGORIES:
         db.add(Category(
             key=key, name=name, kind=kind, type=_type_from_kind(kind),
-            icon=icon, color=color, is_default=True,
+            icon=icon, color=color, show_in_recurring=_default_show_in_recurring(key, kind),
+            is_default=True,
         ))
     db.commit()
 
 
-def ensure_category(db: Session, key: str, name: str, kind: str, icon: str, color: str) -> None:
+def ensure_category(db: Session, key: str, name: str, kind: str, icon: str, color: str, show_in_recurring: bool | None = None) -> None:
     """Idempotently insert a default category so existing (non-empty) DBs gain it
     without a full reseed. No-op when a category with the key already exists."""
     if db.query(Category).filter(Category.key == key).first():
         return
     db.add(Category(
         key=key, name=name, kind=kind, type=_type_from_kind(kind),
-        icon=icon, color=color, is_default=True,
+        icon=icon, color=color,
+        show_in_recurring=_default_show_in_recurring(key, kind) if show_in_recurring is None else show_in_recurring,
+        is_default=True,
     ))
     db.commit()
+
+
+def ensure_show_in_recurring_column(db: Session) -> None:
+    """Add categories.show_in_recurring on existing SQLite DBs and backfill it.
+
+    Fresh DBs get the column from SQLAlchemy metadata. Existing DBs need an ALTER
+    because this project intentionally does not use Alembic migrations.
+    """
+    try:
+        cols = {row[1] for row in db.execute(text("PRAGMA table_info(categories)")).fetchall()}
+        added = "show_in_recurring" not in cols
+        if added:
+            db.execute(text("ALTER TABLE categories ADD COLUMN show_in_recurring BOOLEAN DEFAULT 1"))
+        if added:
+            db.execute(text("""
+                UPDATE categories
+                SET show_in_recurring = CASE
+                    WHEN (kind = 'expense' AND key != 'credit-card-payment') OR key = 'wire-transfer' THEN 1
+                    ELSE 0
+                END
+            """))
+        else:
+            db.execute(text("""
+                UPDATE categories
+                SET show_in_recurring = CASE
+                    WHEN (kind = 'expense' AND key != 'credit-card-payment') OR key = 'wire-transfer' THEN 1
+                    ELSE 0
+                END
+                WHERE show_in_recurring IS NULL
+            """))
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def ensure_unique_key_index(db: Session) -> None:
@@ -102,6 +142,7 @@ def create_category(
         type=_type_from_kind(payload.kind),
         icon=payload.icon,
         color=payload.color,
+        show_in_recurring=payload.show_in_recurring,
         is_default=False,
     )
     db.add(cat)

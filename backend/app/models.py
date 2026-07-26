@@ -58,6 +58,7 @@ class Category(Base):
     kind = Column(String, default="expense")
     icon = Column(String, default="circle")
     color = Column(String, default="#6366f1")
+    show_in_recurring = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
 
     transactions = relationship("Transaction", back_populates="category")
@@ -292,7 +293,8 @@ class RecurringExpense(Base):
     is_active = Column(Boolean, default=True)
     note = Column(Text)
 
-    # Discriminator for the recurring item type: "bill" | "subscription" | "wire_transfer"
+    # Legacy discriminator kept only so existing DB rows remain readable.
+    # The app now classifies recurring items through category_key.
     kind = Column(String, default="bill")
 
     # Scheduling / lifecycle (mirrors the frontend recurring item)

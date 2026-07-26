@@ -1,6 +1,6 @@
-// recurring-data.js — Recurring API client for bills and subscriptions.
-// Replaces the former static sample list. Bills and subscriptions share the
-// same backend table via the `kind` discriminator.
+// recurring-data.js — Recurring API client.
+// Recurring items are categorized through Transaction Categories. The backend
+// still has a legacy kind column, but the app no longer sends or reads it.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
   const FX = () => (window.LEDGER && window.LEDGER.FX) || null;
@@ -34,11 +34,10 @@
       lastPaid: row.last_paid || null,
       nextDue: row.next_due || null,
       history: row.history || [],
-      kind: row.kind || 'bill',
     });
   }
 
-  function toApi(item, kind) {
+  function toApi(item) {
     return {
       name: item.name,
       category_key: item.cat,
@@ -56,24 +55,19 @@
       description: item.desc || null,
       last_paid: item.lastPaid || null,
       history: item.history || [],
-      kind: kind || item.kind || 'bill',
     };
   }
 
-  // Build a client factory optionally bound to a `kind`. A null kind means
-  // "all recurring items"; a bound kind is kept for compatibility with older
-  // pages or links that still ask specifically for subscriptions.
-  function makeApi(kind) {
+  function makeApi() {
     async function list() {
-      const suffix = kind ? '?kind=' + encodeURIComponent(kind) : '';
-      const res = await api()('/api/recurring/' + suffix, { method: 'GET' });
+      const res = await api()('/api/recurring/', { method: 'GET' });
       if (!res.ok) throw new Error('Failed to load recurring (' + res.status + ')');
       return (await res.json()).map(fromApi);
     }
     async function create(item) {
       const res = await api()('/api/recurring/', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toApi(item, kind)),
+        body: JSON.stringify(toApi(item)),
       });
       if (!res.ok) throw new Error('Failed to create recurring (' + res.status + ')');
       return fromApi(await res.json());
@@ -81,7 +75,7 @@
     async function update(id, item) {
       const res = await api()('/api/recurring/' + id, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toApi(item, kind)),
+        body: JSON.stringify(toApi(item)),
       });
       if (!res.ok) throw new Error('Failed to update recurring (' + res.status + ')');
       return fromApi(await res.json());
@@ -97,6 +91,5 @@
   // Empty placeholders so the many guarded `window.RECURRING_DATA?.…` reads across
   // pages keep working; the page hydrates RECURRING via the API on mount.
   window.RECURRING_DATA = { RECURRING: [], REC_TX_MAP: {}, TX_REC_MAP: {} };
-  window.HL_RECURRING_API = makeApi(null);
-  window.HL_SUBSCRIPTIONS_API = makeApi('subscription');
+  window.HL_RECURRING_API = makeApi();
 })();

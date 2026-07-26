@@ -82,6 +82,10 @@
     { var: 'var(--steel)',    label: 'Steel' },
     { var: 'var(--gold)',     label: 'Gold' },
   ];
+  function colorLabel(value) {
+    const found = COLOR_OPTIONS.find(c => c.var === value);
+    return found ? found.label : (value || 'Color');
+  }
 
   // ── Icon palette (Lucide names) for the category icon picker ─────────────
   const ICON_OPTIONS = [
@@ -447,14 +451,16 @@
         { key: 'icon',  label: 'Icon',  render: (v, row) => <span className="cfg-icon-preview"><Icon name={v} size={14} color={row.color} /></span> },
         { key: 'label', label: 'Label' },
         { key: 'kind',  label: 'Kind',  render: v => <span className={'cfg-badge cfg-badge-' + v}>{v}</span> },
-        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
+        { key: 'showInRecurring', label: 'Recurring', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Shown' : 'Hidden'}</span>; } },
+        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} title={colorLabel(v)} aria-label={colorLabel(v)} /> },
       ],
       fields: [
         { key: 'label', label: 'Label',  type: 'text',   required: true, placeholder: 'e.g. Dining' },
         { key: 'key',   label: 'Key',    type: 'text',   required: true, placeholder: 'e.g. dining', hint: 'Lowercase identifier, no spaces' },
         { key: 'icon',  label: 'Icon',   type: 'icon',   placeholder: 'Lucide icon name, e.g. utensils' },
         { key: 'color', label: 'Color',  type: 'color' },
-        { key: 'kind',  label: 'Kind',   type: 'select', options: [{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }] },
+        { key: 'kind',  label: 'Kind',   type: 'select', options: [{ value: 'income', label: 'Income' }, { value: 'expense', label: 'Expense' }, { value: 'transfer', label: 'Transfer' }] },
+        { key: 'showInRecurring', label: 'Recurring Visibility', type: 'checkbox', default: true, checkboxLabel: 'Show on Recurring', hint: 'Uncheck to hide this category from Recurring filters and recurring item forms' },
       ],
     },
     {
@@ -505,7 +511,7 @@
         { key: 'icon',  label: 'Icon',  render: (v, row) => <span className="cfg-icon-preview"><Icon name={v} size={14} color={row.color} /></span> },
         { key: 'label', label: 'Label' },
         { key: 'balanceSide', label: 'Side', render: v => <span className={'cfg-status cfg-status-' + (v === 'liability' ? 'inactive' : 'active')}><span className="cfg-status-dot" />{v === 'liability' ? 'Liabilities' : 'Assets'}</span> },
-        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} /> },
+        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} title={colorLabel(v)} aria-label={colorLabel(v)} /> },
       ],
       fields: [
         { key: 'label', label: 'Label', type: 'text',  required: true, placeholder: 'e.g. Savings Account' },

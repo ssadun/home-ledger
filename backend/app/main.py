@@ -15,7 +15,7 @@ Path("/app/uploads").mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 # Seed shared default categories + currencies on first run
-from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index
+from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index, ensure_show_in_recurring_column
 from app.routers.currencies import seed_default_currencies
 from app.routers.statement_mappings import seed_default_statement_mappings, ensure_statement_mapping
 from app.routers.local_holidays import seed_default_local_holidays
@@ -28,6 +28,7 @@ from app.routers.institutions import (
 from app.services.assets import backfill_asset_domain
 _seed_db = SessionLocal()
 try:
+    ensure_show_in_recurring_column(_seed_db)
     seed_default_categories(_seed_db)
     # Backfill categories added after the initial seed (idempotent on existing DBs).
     ensure_category(_seed_db, "credit-card-payment", "Credit Card Payment", "transfer", "credit-card", "var(--orange)")

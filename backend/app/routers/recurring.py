@@ -1,5 +1,5 @@
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import RecurringExpense, User
@@ -12,14 +12,11 @@ router = APIRouter(prefix="/api/recurring", tags=["recurring"])
 
 @router.get("/", response_model=List[RecurringOut])
 def list_recurring(
-    kind: Optional[str] = Query(None, description="Filter by kind: bill | subscription | wire_transfer"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     roll_forward_due_dates(db, owner_id=current_user.id)
     q = db.query(RecurringExpense).filter(RecurringExpense.owner_id == current_user.id)
-    if kind:
-        q = q.filter(RecurringExpense.kind == kind)
     return q.order_by(RecurringExpense.id).all()
 
 
