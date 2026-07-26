@@ -382,14 +382,17 @@
     try { localStorage.setItem('hl-cfg-' + sectionId + '-data', JSON.stringify(map)); } catch (e) { /* quota/unavailable */ }
   }
 
-  // Statement Value Mapping option lists (built from the static category seed;
-  // DB-hydrated categories share the same keys so the picker stays valid).
+  // Statement Value Mapping option lists.
   const LANG_OPTIONS = [
     { value: 'tr', label: 'Turkish (tr)' },
     { value: 'en', label: 'English (en)' },
   ];
-  const CATEGORY_OPTIONS = Object.entries((window.LEDGER && window.LEDGER.CATS) || {})
-    .map(([key, v]) => ({ value: key, label: v.label || key }));
+
+  function categoryOptionsFromRows(rows) {
+    return (rows || [])
+      .filter(c => c && c.key)
+      .map(c => ({ value: c.key, label: c.label || c.key }));
+  }
 
   // ── Sections definition ──────────────────────────────────────────────────
   const SECTIONS = [
@@ -517,15 +520,12 @@
       columns: [
         { key: 'lang',   label: 'Lang', render: v => <span className={'cfg-badge'}>{String(v || 'tr').toUpperCase()}</span> },
         { key: 'etiket', label: 'Statement Tag' },
-        { key: 'category_key', label: 'Category', render: v => {
-            const c = ((window.LEDGER && window.LEDGER.CATS) || {})[v];
-            return c ? c.label : v;
-          } },
+        { key: 'category_key', label: 'Category' },
       ],
       fields: [
         { key: 'lang',   label: 'Language', type: 'select', required: true, options: LANG_OPTIONS, hint: 'Language of the statement this tag comes from' },
         { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi', hint: 'The tag exactly as printed on the statement - spacing and diacritics are ignored when matching' },
-        { key: 'category_key', label: 'Category', type: 'select', required: true, options: CATEGORY_OPTIONS, hint: 'Matching statement lines are booked to this category' },
+        { key: 'category_key', label: 'Category', type: 'select', required: true, options: [], hint: 'Matching statement lines are booked to this category' },
       ],
     },
   ];
@@ -1239,7 +1239,28 @@
       return () => { alive = false; };
     }, []);
 
-    const section = view ? SECTIONS.find(s => s.id === view) : null;
+    const categoryOptions = React.useMemo(
+      () => categoryOptionsFromRows(sectionData.categories),
+      [sectionData.categories]
+    );
+    const categoryLabels = React.useMemo(() => {
+      const labels = {};
+      (sectionData.categories || []).forEach(c => { if (c && c.key) labels[c.key] = c.label || c.key; });
+      return labels;
+    }, [sectionData.categories]);
+    const section = React.useMemo(() => {
+      const base = view ? SECTIONS.find(s => s.id === view) : null;
+      if (!base || base.id !== 'statement-mappings') return base;
+      return {
+        ...base,
+        columns: base.columns.map(c => c.key === 'category_key'
+          ? { ...c, render: v => categoryLabels[v] || v }
+          : c),
+        fields: base.fields.map(f => f.key === 'category_key'
+          ? { ...f, options: categoryOptions }
+          : f),
+      };
+    }, [view, categoryOptions, categoryLabels]);
     const items = view ? (sectionData[view] || []) : [];
 
     function sectionLabel(fallback) {
