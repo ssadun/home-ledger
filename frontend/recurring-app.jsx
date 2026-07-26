@@ -288,8 +288,8 @@
                     <option value="wire_transfer">Wire Transfer</option>
                   </RecSelect>
                   <RecSelect id="rec-filter-category-select" label="Category" icon="tag" value={cat} onChange={setCat}>
-                    <option value="all">All Categories</option>
-                    {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
+                    <option value="all" data-icon="tag" data-color="var(--muted)">All Categories</option>
+                    {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
                   </RecSelect>
                   <RecSelect id="rec-filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
                     <option value="all">All Payers</option>

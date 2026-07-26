@@ -415,7 +415,7 @@
   function categoryOptionsFromRows(rows) {
     return (rows || [])
       .filter(c => c && c.key)
-      .map(c => ({ value: c.key, label: c.label || c.key }));
+      .map(c => ({ value: c.key, label: c.label || c.key, icon: c.icon, color: c.color }));
   }
 
   // ── Sections definition ──────────────────────────────────────────────────
@@ -694,7 +694,7 @@
                     <StyledSelect className="field-input" id={'cfg-field-' + fd.key} value={f[fd.key] || ''}
                       onChange={e => set(fd.key, e.target.value)}>
                       <option value="">- Select -</option>
-                      {fd.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {fd.options.map(o => <option key={o.value} value={o.value} data-icon={o.icon} data-color={o.color}>{o.label}</option>)}
                     </StyledSelect>
                   ) : fd.type === 'color' ? (
                     <div className="cfg-color-grid">
@@ -879,7 +879,7 @@
                         <StyledSelect className="sel" id={'cfg-filter-' + fc.key + '-select'} value={facets[fc.key] || 'all'}
                           onChange={(e) => setFacet(fc.key, e.target.value)}>
                           <option value="all">All</option>
-                          {fc.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          {fc.options.map(o => <option key={o.value} value={o.value} data-icon={o.icon} data-color={o.color}>{o.label}</option>)}
                         </StyledSelect>
                       </div>
                     </div>

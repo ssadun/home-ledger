@@ -235,8 +235,8 @@
                     <option value="–">N/A</option>
                   </Select>
                   <Select id="filter-category-select" label="Category" icon="tag" value={draft.cat} onChange={(value) => setDraft(d => ({ ...d, cat: value }))}>
-                    <option value="all">All Categories</option>
-                    {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
+                    <option value="all" data-icon="tag" data-color="var(--muted)">All Categories</option>
+                    {Object.keys(CATS).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
                   </Select>
                   {setPaymentSource && (
                     <Select id="filter-payment-source-select" label="Payment Source" icon="wallet-cards" value={draft.paymentSource} onChange={(value) => setDraft(d => ({ ...d, paymentSource: value }))}>
@@ -415,7 +415,7 @@
               <div className="form-field">
                 <span className="field-label">Category</span>
                 <StyledSelect id="tx-modal-category-select" className="field-input" value={f.cat} onChange={(e) => set('cat', e.target.value)}>
-                  {Object.keys(CATS).map(k => <option key={k} value={k}>{CATS[k].label}</option>)}
+                  {Object.keys(CATS).map(k => <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>)}
                 </StyledSelect>
               </div>
             </div>
@@ -442,16 +442,13 @@
               <input id="tx-modal-desc-input" className="field-input" placeholder="e.g. Migros weekly shop" value={f.desc} onChange={(e) => set('desc', e.target.value)} />
             </div>
 
-            <div className="form-grid">
-              <div className={"form-field full" + (invalid.paymentMethod ? ' field-invalid' : '')}>
+            <div className="form-grid tx-pay-amount-grid">
+              <div className={"form-field" + (invalid.paymentMethod ? ' field-invalid' : '')}>
                 <span className="field-label">Payment Method<span className="field-required-mark">*</span></span>
                 <PaymentMethodSelect id="tx-modal-payment-method" value={f.paymentMethod} onChange={(v) => set('paymentMethod', v)}
                   groups={pmGroups} accounts={paymentAccounts} />
               </div>
-            </div>
-
-            <div className="form-grid">
-              <div className={"form-field full" + (invalid.amt ? ' field-invalid' : '')}>
+              <div className={"form-field tx-amount-field" + (invalid.amt ? ' field-invalid' : '')}>
                 <span className="field-label">Amount<span className="field-required-mark">*</span></span>
                 <div className="amount-input-wrap">
                   <CurrencyInput id="tx-modal-amount-input" value={f.amt} currency={f.cur} onChange={(v) => set('amt', v)} />

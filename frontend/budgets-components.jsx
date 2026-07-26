@@ -167,7 +167,7 @@
               ) : (
                 <StyledSelect id="bgt-modal-category-select" className="field-input" value={cat} onChange={(e) => setCat(e.target.value)}>
                   {expenseCats.map(k => (
-                    <option key={k} value={k} disabled={existingCats.includes(k)}>
+                    <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color} disabled={existingCats.includes(k)}>
                       {CATS[k].label}{existingCats.includes(k) ? ' - already set' : ''}
                     </option>
                   ))}

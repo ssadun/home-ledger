@@ -77,11 +77,11 @@
         React.Children.forEach(child.props.children, (o) => {
           if (!o || !o.props) return;
           const v = o.props.value !== undefined ? String(o.props.value) : ssLabel(o.props.children);
-          items.push({ value: v, label: ssLabel(o.props.children), icon: o.props['data-icon'], disabled: !!o.props.disabled });
+          items.push({ value: v, label: ssLabel(o.props.children), icon: o.props['data-icon'], color: o.props['data-color'], disabled: !!o.props.disabled });
         });
       } else if (child.type === 'option') {
         const v = child.props.value !== undefined ? String(child.props.value) : ssLabel(child.props.children);
-        items.push({ value: v, label: ssLabel(child.props.children), icon: child.props['data-icon'], disabled: !!child.props.disabled });
+        items.push({ value: v, label: ssLabel(child.props.children), icon: child.props['data-icon'], color: child.props['data-color'], disabled: !!child.props.disabled });
       }
     });
 
@@ -91,7 +91,7 @@
     function renderLabel(it, fallback, cls) {
       if (!it || !it.icon) return fallback;
       return (
-        <span className={cls || 'ss-label-with-icon'}>
+        <span className={cls || 'ss-label-with-icon'} style={it.color ? { '--ss-icon-color': it.color } : null}>
           <Icon name={it.icon} size={13} />
           <span>{it.label}</span>
         </span>

@@ -250,8 +250,11 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .amount-input-wrap{display:flex;gap:0}
 .amount-input-wrap .field-input:not(select):not(.ss-wrap){border-top-right-radius:0;border-bottom-right-radius:0}
 .amount-input-wrap select,.amount-input-wrap .ss-wrap{width:90px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
+.tx-modal .tx-pay-amount-grid .amount-input-wrap .field-input{height:35.5px}
 @media (min-width:661px){
   .form-grid > .form-field.full:has(.amount-input-wrap){grid-column:auto}
+  .tx-modal .tx-pay-amount-grid{grid-template-columns:minmax(0,1fr) 210px}
+  .tx-modal .tx-pay-amount-grid .amount-input-wrap .ss-wrap{width:66px;padding-left:8px;padding-right:8px}
   .modal-body > .form-field.full:has(.amount-input-wrap),
   .modal-body > .form-field.full:has(#st-modal-balance-input),
   .modal-body > .form-field.full:has(#acct-form-prepaid-balance-input),
@@ -290,7 +293,7 @@ select.field-input{appearance:none;cursor:pointer;background-image:url("data:ima
 .ss-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ss-value.ss-placeholder{color:var(--muted)}
 .ss-label-with-icon{display:flex;align-items:center;gap:7px;min-width:0}
-.ss-label-with-icon svg{width:13px;height:13px;flex-shrink:0}
+.ss-label-with-icon svg{width:13px;height:13px;flex-shrink:0;color:var(--ss-icon-color,currentColor)}
 .ss-label-with-icon span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ss-chev{color:var(--muted);flex-shrink:0;transition:transform .15s}
 .ss-wrap.open .ss-chev{transform:rotate(180deg)}
@@ -539,6 +542,8 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .form-grid{grid-template-columns:1fr}
   /* Add Spending modal keeps its paired rows on mobile, matching desktop */
   .tx-modal .form-grid{grid-template-columns:1fr 1fr}
+  .tx-modal .tx-pay-amount-grid{grid-template-columns:1fr}
+  .tx-modal .tx-pay-amount-grid .amount-input-wrap .ss-wrap{width:66px;padding-left:8px;padding-right:8px}
   /* Budget modal keeps Start/End dates on one row on mobile, matching desktop */
   .budget-modal .form-grid{grid-template-columns:1fr 1fr}
   /* Account modal keeps its paired rows on mobile, matching desktop */

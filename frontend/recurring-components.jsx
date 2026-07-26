@@ -405,7 +405,7 @@
                   <span className="field-label">Category</span>
                   <StyledSelect id="rec-modal-category-select" className="field-input" value={f.cat} onChange={e => set('cat', e.target.value)}>
                     {Object.keys(CATS).filter(k => CATS[k].kind === 'expense').map(k => (
-                      <option key={k} value={k}>{CATS[k].label}</option>
+                      <option key={k} value={k} data-icon={CATS[k].icon} data-color={CATS[k].color}>{CATS[k].label}</option>
                     ))}
                   </StyledSelect>
                 </div>
