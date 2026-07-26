@@ -282,7 +282,7 @@
   }
 
   // ── Account detail modal ──
-  function AccountDetail({ account, onClose, onEdit, onDelete, onImport }) {
+  function AccountDetail({ account, onClose, onEdit, onDelete }) {
     const t = ACCOUNT_TYPES[account.type];
     const isCredit = account.type === 'credit';
     const isPrepaid = isCredit && account.isPrepaid;
@@ -469,9 +469,6 @@
           <div className="modal-foot">
             <button id="acct-detail-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(account)}>
               <Icon name="trash-2" size={14} />Delete
-            </button>
-            <button id="acct-detail-import-btn" className="amb cancel" onClick={() => onImport(account.id)}>
-              <Icon name="file-down" size={14} />Import
             </button>
             <button id="acct-detail-edit-btn" className="amb ok" onClick={() => onEdit(account)}>
               <Icon name="pencil" size={14} />Edit Account

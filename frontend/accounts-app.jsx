@@ -298,14 +298,6 @@
       setDel(account);
     }
 
-    // The import wizard lives on the Statements page — importing is what creates a
-    // statement record, so both belong together. From an account's detail modal we
-    // hand off with the account pre-selected instead of opening the wizard here.
-    function openImport(preAccId) {
-      const q = preAccId ? '?import=1&account=' + encodeURIComponent(preAccId) : '?import=1';
-      window.location.href = 'Statements.html' + q;
-    }
-
     return (
       <div className="app">
         <Sidebar active="accounts" />
@@ -358,7 +350,7 @@
         </div>
 
         {detail && <AccountDetail account={detail} onClose={() => setDetail(null)}
-          onEdit={openEdit} onDelete={openDeleteFromDetail} onImport={openImport} />}
+          onEdit={openEdit} onDelete={openDeleteFromDetail} />}
         {formModal && <AccountFormModal initial={formModal.account} accounts={accounts}
           error={saveError} onClearError={() => setSaveError(null)}
           onClose={() => { setSaveError(null); setFormModal(null); }} onSave={handleSave} />}
