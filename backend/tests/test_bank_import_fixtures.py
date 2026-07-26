@@ -148,6 +148,15 @@ class TestOnBurganAccount:
 
 
 class TestStatementMappingFallback:
+    def test_comma_separated_mapping_tags_are_alternates(self):
+        from app.services import bank_import
+
+        assert bank_import._etiket_keys("Market, Yeme / İçme,  EFT ") == [
+            "MARKET",
+            "YEMEICME",
+            "EFT",
+        ]
+
     def test_structured_etiket_wins_over_description(self, monkeypatch):
         from app.services import bank_import
 

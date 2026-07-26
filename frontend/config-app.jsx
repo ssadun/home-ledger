@@ -552,7 +552,7 @@
       ],
       fields: [
         { key: 'lang',   label: 'Language', type: 'select', required: true, options: LANG_OPTIONS, hint: 'Language of the statement this tag comes from' },
-        { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi', hint: 'The tag exactly as printed on the statement - spacing and diacritics are ignored when matching' },
+        { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi, EFT', hint: 'Enter one or more tags separated by commas - spacing and diacritics are ignored when matching' },
         { key: 'category_key', label: 'Category', type: 'select', required: true, options: [], hint: 'Matching statement lines are booked to this category' },
       ],
     },

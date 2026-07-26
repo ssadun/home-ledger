@@ -223,6 +223,11 @@ def _etiket_key(etiket: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", _fold(etiket))
 
 
+def _etiket_keys(etiket: str) -> list[str]:
+    """Lookup keys for one UI mapping row; commas separate alternate tags."""
+    return [key for key in (_etiket_key(part) for part in (etiket or "").split(",")) if key]
+
+
 # Runtime Etiket→category_key map loaded from the DB (Configuration → Statement
 # Value Mapping). None until load_etiket_map() runs; the hardcoded _ETIKET_CATEGORY
 # above is the bootstrap fallback used when no DB session is available (e.g. tests).
@@ -239,7 +244,8 @@ def load_etiket_map(db) -> None:
         m: dict[str, str] = {}
         for row in db.query(StatementMapping).all():
             if row.etiket and row.category_key:
-                m[_etiket_key(row.etiket)] = row.category_key
+                for key in _etiket_keys(row.etiket):
+                    m[key] = row.category_key
         _ETIKET_RUNTIME = m
     except Exception:
         pass  # keep whatever we had; statement mapping falls back to _ETIKET_CATEGORY
