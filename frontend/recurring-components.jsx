@@ -115,7 +115,7 @@
   }
 
   // ── Table row ─────────────────────────────────────────────────────────
-  const REC_DEFAULT_ORDER = ['name', 'status', 'frequency', 'weekendRule', 'payer', 'paymentMethod', 'nextDue', 'amount'];
+  const REC_DEFAULT_ORDER = ['name', 'status', 'frequency', 'weekendRule', 'payer', 'payingFor', 'paymentMethod', 'nextDue', 'amount'];
   const REC_CELLS = {
     name: (rec) => {
       const c = CATS[rec.cat] || CATS.subscriptions;
@@ -137,6 +137,7 @@
     frequency: (rec) => <td key="frequency" data-label="Frequency"><FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} /></td>,
     weekendRule: (rec) => <td key="weekendRule" data-label="Weekend"><WeekendBadge rule={rec.weekendRule} /></td>,
     payer: (rec) => <td key="payer" data-label="Payer"><PayerBadge name={rec.payer} /></td>,
+    payingFor: (rec) => <td key="payingFor" data-label="Paying For"><PayingForCell value={rec.payingFor} /></td>,
     paymentMethod: (rec) => <td key="paymentMethod" data-label="Payment Method"><PaymentMethodCell value={rec.paymentMethod} /></td>,
     nextDue: (rec) => (
       <td key="nextDue" data-label="Next Due">
@@ -160,6 +161,7 @@
       visible.has('status') && { key: 'status', node: <StatusBadge status={rec.status} /> },
       visible.has('frequency') && { key: 'frequency', node: <FreqBadge frequency={rec.frequency} paymentDay={rec.paymentDay} /> },
       visible.has('payer') && { key: 'payer', node: <PayerBadge name={rec.payer} /> },
+      visible.has('payingFor') && { key: 'payingFor', node: <PayingForCell value={rec.payingFor} /> },
     ].filter(Boolean);
     return (
       <tr className={'tx-row rec-row' + (flash ? ' row-flash' : '') + (selected ? ' row-selected' : '') + (extraClass ? ' ' + extraClass : '')} onClick={() => onEdit(rec)} title="Edit recurring item">

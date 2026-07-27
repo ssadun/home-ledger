@@ -173,6 +173,7 @@
   .rec-table td[data-label="Frequency"]{display:none !important}
   .rec-table td[data-label="Weekend"]{display:none !important}
   .rec-table td[data-label="Payer"]{display:none !important}
+  .rec-table td[data-label="Paying For"]{display:none !important}
   .rec-table td[data-label="Next Due"]{display:none !important}
   /* Meta keeps content-priority: overflow:visible (overriding the global
      .ledger-table.resizable td{overflow:hidden} that would otherwise floor the
@@ -192,8 +193,9 @@
   .rec-table td[data-label="Payment Method"] .pm-plain{min-width:0;overflow:hidden;
        text-overflow:ellipsis;white-space:nowrap}
   /* Drop the payer badge (+ its leading separator) from the meta line on mobile:
-     the payment method takes the right slot, so Status · Frequency is all that
-     fits on the left. Payer stays in the row's detail modal. */
+     every row's Payer is the household owner, so it's redundant at a glance —
+     Paying For is the field that actually varies per row and earns the space.
+     Payer stays in the row's detail modal. */
   .rec-table td.td-meta-mobile .payer-badge,
   .rec-table td.td-meta-mobile .meta-sep:has(+ .payer-badge){display:none}
 

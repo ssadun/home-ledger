@@ -79,6 +79,7 @@
     { key: 'frequency', label: 'FREQUENCY', size: 140, minSize: 130, maxSize: 240 },
     { key: 'weekendRule', label: 'WEEKEND RULE', size: 130, minSize: 100, maxSize: 220 },
     { key: 'payer', label: 'PAYER', size: 120, minSize: 90, maxSize: 220 },
+    { key: 'payingFor', label: 'PAYING FOR', size: 135, minSize: 110, maxSize: 240 },
     { key: 'paymentMethod', label: 'PAYMENT METHOD', size: 185, minSize: 140, maxSize: 320 },
     { key: 'nextDue', label: 'NEXT DUE', size: 130, minSize: 100, maxSize: 220 },
     { key: 'amount', label: 'AMOUNT', num: true, size: 120, minSize: 90, maxSize: 220 },
@@ -94,6 +95,7 @@
     { key: 'paymentDay', label: 'Payment Day' },
     { key: 'weekendRule', label: 'Weekend Rule' },
     { key: 'payer', label: 'Payer' },
+    { key: 'payingFor', label: 'Paying For', get: r => r.payingFor === '–' ? '' : r.payingFor },
     { key: 'paymentMethod', label: 'Payment Method', get: r => pmLabel(r.paymentMethod) },
     { key: 'nextDue', label: 'Next Due' },
     { key: 'cur', label: 'Currency' },
@@ -208,7 +210,7 @@
   }
 
   // ── Filter bar (simpler than Transactions) ────────────────────────────
-  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, frequency, setFrequency, exportEl, popActions }) {
+  function RecFilterBar({ status, setStatus, cat, setCat, search, setSearch, payer, setPayer, payingFor, setPayingFor, frequency, setFrequency, exportEl, popActions }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -224,14 +226,16 @@
 
     const cap = (s) => s[0].toUpperCase() + s.slice(1);
     const freqLabel = (v) => ({ daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly' }[v] || v);
+    const forLabel = (v) => v === '–' ? 'N/A' : v;
 
     const active = [
       status !== 'all' && { key: 'status', label: 'Status', val: cap(status), clear: () => setStatus('all') },
       cat !== 'all' && { key: 'cat', label: 'Category', val: (CATS[cat] || {}).label || cat, clear: () => setCat('all') },
       payer !== 'all' && { key: 'payer', label: 'Payer', val: payer, clear: () => setPayer('all') },
+      payingFor !== 'all' && { key: 'payingFor', label: 'Paying For', val: forLabel(payingFor), clear: () => setPayingFor('all') },
       frequency !== 'all' && { key: 'frequency', label: 'Frequency', val: freqLabel(frequency), clear: () => setFrequency('all') },
     ].filter(Boolean);
-    const clearAll = () => { setStatus('all'); setCat('all'); setPayer('all'); setFrequency('all'); };
+    const clearAll = () => { setStatus('all'); setCat('all'); setPayer('all'); setPayingFor('all'); setFrequency('all'); };
 
     function RecSelect({ label, icon, value, onChange, children, id, searchable, searchPlaceholder }) {
       return (
@@ -286,6 +290,12 @@
                   <RecSelect id="rec-filter-payer-select" label="Payer" icon="user" value={payer} onChange={setPayer}>
                     <option value="all">All Payers</option>
                     {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </RecSelect>
+                  <RecSelect id="rec-filter-payingfor-select" label="Paying For" icon="users" value={payingFor} onChange={setPayingFor}>
+                    <option value="all">All Beneficiaries</option>
+                    <option value="Shared">Shared</option>
+                    {PAYERS.map(p => <option key={p} value={p}>{p}</option>)}
+                    <option value="–">N/A</option>
                   </RecSelect>
                   <RecSelect id="rec-filter-frequency-select" label="Frequency" icon="calendar-clock" value={frequency} onChange={setFrequency}>
                     <option value="all">All Frequencies</option>
@@ -359,6 +369,7 @@
     const [cat, setCat] = React.useState('all');
     const [search, setSearch] = React.useState('');
     const [payer, setPayer] = React.useState('all');
+    const [payingFor, setPayingFor] = React.useState('all');
     const [frequency, setFrequency] = React.useState('all');
     const [sort, setSort] = React.useState({ col: 'nextDue', dir: 'asc' });
     const [page, setPage] = React.useState(1);
@@ -393,11 +404,12 @@
         if (!t.showEnded && r.status === 'ended') return false;
         if (cat !== 'all' && r.cat !== cat) return false;
         if (payer !== 'all' && r.payer !== payer) return false;
+        if (payingFor !== 'all' && r.payingFor !== payingFor) return false;
         if (frequency !== 'all' && r.frequency !== frequency) return false;
         if (search.trim() && !r.name.toLowerCase().includes(search.trim().toLowerCase()) && !r.desc.toLowerCase().includes(search.trim().toLowerCase())) return false;
         return true;
       });
-    }, [items, status, cat, search, payer, frequency, t.showEnded]);
+    }, [items, status, cat, search, payer, payingFor, frequency, t.showEnded]);
 
     // ── Sort ──
     const sorted = React.useMemo(() => {
@@ -410,6 +422,7 @@
         else if (col === 'frequency') { av = a.frequency; bv = b.frequency; }
         else if (col === 'weekendRule') { av = a.weekendRule; bv = b.weekendRule; }
         else if (col === 'payer') { av = a.payer; bv = b.payer; }
+        else if (col === 'payingFor') { av = a.payingFor; bv = b.payingFor; }
         else if (col === 'paymentMethod') { av = pmLabel(a.paymentMethod).toLowerCase(); bv = pmLabel(b.paymentMethod).toLowerCase(); }
         else if (col === 'nextDue') { av = a.nextDue || 'z'; bv = b.nextDue || 'z'; }
         else if (col === 'amount') { av = a.tryAmount; bv = b.tryAmount; }
@@ -428,7 +441,7 @@
     const end = Math.min(start + perPage, total);
     const pageRows = sorted.slice(start, end);
 
-    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [status, cat, search, payer, frequency, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [status, cat, search, payer, payingFor, frequency, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -505,7 +518,7 @@
                 <button id="rec-add-btn" className="action-modal-btn ok ha-overflow" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>
               </div>
             </div>
-            <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} frequency={frequency} setFrequency={setFrequency}
+            <RecFilterBar status={status} setStatus={setStatus} cat={cat} setCat={setCat} search={search} setSearch={setSearch} payer={payer} setPayer={setPayer} payingFor={payingFor} setPayingFor={setPayingFor} frequency={frequency} setFrequency={setFrequency}
               popActions={<button id="rec-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', rec: {} })}><Icon name="plus" size={14} />Add Recurring</button>}
               exportEl={<ExportData entity="recurring" entityLabel="Recurring Items"
                 columns={EXPORT_COLS} rows={sorted} allRows={items} inline
