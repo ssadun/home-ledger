@@ -7,7 +7,7 @@
 // `active` is the id of the current page. Valid ids:
 //   Top level : dashboard | transactions | accounts | budgets | configuration
 //   Tx sub    : spending | credit-payments | recurring
-//   Accts sub : accounts | assets | account-activity | statements
+//   Accts sub : accounts | holdings | assets | account-activity | statements
 //   Config sub: members | categories | currencies | card-types | account-types | financial-institutions | statement-mappings | backup-export
 //
 // A NAV entry with a `parent` key renders as a collapsible group whose items come
@@ -73,6 +73,7 @@
   // Accounts.html lights up both the group and its first item.
   const NAV_ACCT_SUB = [
     { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: 'var(--lavender)', href: 'Accounts.html' },
+    { id: 'holdings',         icon: 'chart-no-axes-combined', label: 'Holdings', color: 'var(--emerald)', href: 'Holdings.html' },
     { id: 'assets',           icon: 'gem',      label: 'Asset List',       color: 'var(--green)', href: 'Assets.html' },
     { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: 'var(--accent)', href: 'Account Activity.html' },
     { id: 'statements',       icon: 'files',    label: 'Statements',       color: 'var(--yellow)', href: 'Statements.html' },
@@ -206,6 +207,29 @@
     );
   }
 
+  // Desktop-only back affordance rendered into every page's own `<h1.page-title>`.
+  // Pages define their headers locally, but Sidebar is mounted everywhere, so the
+  // portal keeps this behavior global without editing each app file.
+  function PageTitleBackButton() {
+    const [host, setHost] = React.useState(null);
+    React.useEffect(() => {
+      setHost(document.querySelector('.page-title'));
+    }, []);
+    if (!host) return null;
+    return ReactDOM.createPortal(
+      <button id="page-title-back-btn" className="page-title-back" title="Back" aria-label="Back"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (window.history.length > 1) window.history.back();
+          else window.location.href = 'Dashboard.html';
+        }}>
+        <Icon name="arrow-big-left-dash" size={18} color="currentColor" />
+      </button>,
+      host
+    );
+  }
+
   function SbSubItem({ item }) {
     const inner = (
       <React.Fragment>
@@ -264,6 +288,7 @@
 
     return (
       <React.Fragment>
+      <PageTitleBackButton />
       <TopbarProfile active={active === 'profile'} />
       <nav className="sidebar" id="sidebar">
         <button id="sidebar-toggle-btn" className="sidebar-toggle" onClick={() => window.toggleSidebar()} title="Toggle sidebar">
@@ -290,5 +315,5 @@
     );
   }
 
-  window.HL_NAV = { Sidebar, SbItem, SbSubItem, TopbarProfile, rgba, NAV, NAV_TX_SUB, NAV_ACCT_SUB, NAV_CFG_SUB, NAV_BOTTOM, SUBMENUS, usePersistentView };
+  window.HL_NAV = { Sidebar, SbItem, SbSubItem, TopbarProfile, PageTitleBackButton, rgba, NAV, NAV_TX_SUB, NAV_ACCT_SUB, NAV_CFG_SUB, NAV_BOTTOM, SUBMENUS, usePersistentView };
 })();

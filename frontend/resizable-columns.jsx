@@ -174,6 +174,12 @@
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [columnSizing, tableColumns]);
 
+    const applyColSizeVars = React.useCallback(() => {
+      const el = tableRef.current;
+      if (!el) return;
+      Object.keys(colSizeVars || {}).forEach(k => el.style.setProperty(k, colSizeVars[k]));
+    }, [colSizeVars]);
+
     // Persist widths — debounced, and never while a drag is in progress.
     React.useEffect(() => {
       if (!scopedStorageKey || isResizing) return;
@@ -217,8 +223,9 @@
       if (!el) return 0;
       let reserved = 0;
       el.querySelectorAll('colgroup > col').forEach((col) => {
-        const w = col.style && col.style.width;
-        if (!w || w.indexOf('--rz-') === -1) reserved += col.getBoundingClientRect().width;
+        const managed = col.hasAttribute('data-rz-col')
+          || ((col.style && col.style.width) || '').indexOf('--rz-') > -1;
+        if (!managed) reserved += col.getBoundingClientRect().width;
       });
       return Math.round(reserved);
     };
@@ -357,7 +364,7 @@
       onDragEnd: () => { setDragKey(null); setOverKey(null); },
     }), [dragKey, overKey, moveColumn]);
 
-    return { tableRef, headersById, colSizeVars, isResizing, wasResizingRef, resetSizes,
+    return { tableRef, headersById, colSizeVars, applyColSizeVars, isResizing, wasResizingRef, resetSizes,
              orderedColumns, allColumns: columns, hiddenColumns: hidden, setColumnVisible,
              getReorderProps, resetOrder, isDefaultOrder, isReordering: !!dragKey,
              storageKey: scopedStorageKey };

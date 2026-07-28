@@ -142,8 +142,12 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .brand-word .bw{color:var(--white)}
 .brand-word .bl{color:var(--accent)}
 .page-title{font-size:18px;font-weight:800;letter-spacing:0;text-transform:none;color:var(--white);line-height:1;display:flex;align-items:center;gap:11px}
+.page-title:has(.page-title-back){gap:6px}
 :root[data-theme="light"] .page-title{color:var(--text)}
 .page-title svg{width:26px;height:26px;color:inherit}
+.page-title-back{order:-1;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin-right:0;border:0;background:none;color:var(--white);cursor:pointer;transition:all .15s;flex-shrink:0;padding:0}
+.page-title-back:hover{color:var(--accent)}
+.page-title-back svg{width:18px;height:18px}
 .page-sub{display:none}
 .page-sub b{color:var(--slate);font-weight:600}
 /* Subtitle under page title — icon sits left, title + subtitle stack beside it (matches config pages) */
@@ -496,6 +500,7 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   /* header */
   .page-head{padding:12px;min-height:95px;display:flex;flex-direction:column;justify-content:center;gap:12px}
   .page-title{font-size:18px;letter-spacing:0}
+  .page-title-back{display:none}
   /* List-page actions share one compact mobile header treatment. Extra actions
      move into the Filters popover, while the primary action stays inline. */
   .page-head-top:has(.sp-head-actions),
