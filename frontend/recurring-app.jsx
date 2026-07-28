@@ -632,11 +632,11 @@
               </div>
               <Pagination page={curPage} pages={pages} total={total} start={start} end={end}
                 perPage={perPage} setPage={setPage} setPerPage={setPerPage}
-                totalNode={pageRows.length > 0 && (() => {
-                  const sum = pageRows.reduce((s, r) => s + (r.tryAmount || 0), 0);
+                totalNode={sorted.length > 0 && (() => {
+                  const sum = sorted.reduce((s, r) => s + (r.tryAmount || 0), 0);
                   return (
                     <span id="rec-table-total-bar">
-                      <span className="ttb-label">Total<span className="ttb-count"> ({pageRows.length} item{pageRows.length !== 1 ? 's' : ''})</span></span>
+                      <span className="ttb-label">Total<span className="ttb-count"> ({sorted.length} item{sorted.length !== 1 ? 's' : ''})</span></span>
                       <span className="ttb-value amount-val expense"><span className="sign">−</span>₺{grp(sum)}</span>
                     </span>
                   );

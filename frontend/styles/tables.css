@@ -136,7 +136,8 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 .page-info .sep{color:var(--border2);margin:0 7px}
 .page-controls{display:flex;align-items:center;gap:5px}
 .pager-rows{display:inline-flex;vertical-align:middle;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
-.pager-rows .ss-wrap.sel{width:96px;min-width:96px}
+.pager-rows .select-wrap{width:94px}
+.pager-rows .ss-wrap.sel{width:94px !important;min-width:94px !important}
 .page-btn{min-width:30px;height:30px;padding:0 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--slate);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:var(--transition)}
 .page-btn svg{width:14px;height:14px}
 .page-btn:hover:not(:disabled){background:var(--bg4);color:var(--text);border-color:var(--border2)}
@@ -258,11 +259,13 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
      would clip the value off entirely and leave only "Total…" with no figure */
   .pagination:has(.pagination-total) .pager-rows-label{display:none}
   /* !important: the select's inline style (Pagination's own minWidth:96 default) outranks a plain override */
-  .pagination:has(.pagination-total) .pager-rows .ss-wrap.sel{width:60px !important;min-width:60px !important}
+  .pagination:has(.pagination-total) .pager-rows .select-wrap{width:94px}
+  .pagination:has(.pagination-total) .pager-rows .ss-wrap.sel{width:94px !important;min-width:94px !important}
   .pagination:has(.pagination-total) .page-controls{gap:2px}
   .pagination:has(.pagination-total) .page-btn{min-width:24px;padding:0 4px}
   .pagination-total{font-size:11px}
-  .pagination-total .ttb-label{display:none}
+  .pagination-total .ttb-label{display:inline;font-size:11px;margin-right:4px}
+  .pagination-total .ttb-count{display:inline;font-size:11px;font-weight:400;color:var(--muted)}
   .pagination-total .ttb-value{font-size:12px;margin-left:0}
 }
 

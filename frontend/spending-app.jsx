@@ -451,11 +451,11 @@
             </div>
             <Pagination page={curPage} pages={pages} total={total} start={start} end={end}
               perPage={perPage} setPage={setPage} setPerPage={setPerPage}
-              totalNode={pageRows.length > 0 && (() => {
-                const net = pageRows.reduce((s, r) => s + (r.type === 'income' ? (r.tryV || 0) : -(r.tryV || 0)), 0);
+              totalNode={sorted.length > 0 && (() => {
+                const net = sorted.reduce((s, r) => s + (r.type === 'income' ? (r.tryV || 0) : -(r.tryV || 0)), 0);
                 return (
                   <span id="sp-table-total-bar">
-                    <span className="ttb-label">Total<span className="ttb-count"> ({pageRows.length} row{pageRows.length !== 1 ? 's' : ''})</span></span>
+                    <span className="ttb-label">Total<span className="ttb-count"> ({sorted.length} row{sorted.length !== 1 ? 's' : ''})</span></span>
                     <span className={'ttb-value amount-val ' + (net < 0 ? 'expense' : 'income')}>
                       <span className="sign">{net < 0 ? '−' : '+'}</span>₺{grp(Math.abs(net))}
                     </span>
