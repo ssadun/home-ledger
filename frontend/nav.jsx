@@ -73,9 +73,9 @@
   // Accounts.html lights up both the group and its first item.
   const NAV_ACCT_SUB = [
     { id: 'accounts',         icon: 'wallet',   label: 'Accounts',         color: 'var(--lavender)', href: 'Accounts.html' },
-    { id: 'holdings',         icon: 'chart-no-axes-combined', label: 'Holdings', color: 'var(--emerald)', href: 'Holdings.html' },
-    { id: 'assets',           icon: 'gem',      label: 'Asset List',       color: 'var(--green)', href: 'Assets.html' },
+    { id: 'holdings',         icon: 'chart-no-axes-combined', label: 'Holdings', color: 'var(--sky)', href: 'Holdings.html' },
     { id: 'account-activity', icon: 'landmark', label: 'Account Activity', color: 'var(--accent)', href: 'Account Activity.html' },
+    { id: 'assets',           icon: 'sparkle',  label: 'Asset List',       color: 'var(--green)', href: 'Assets.html' },
     { id: 'statements',       icon: 'files',    label: 'Statements',       color: 'var(--yellow)', href: 'Statements.html' },
   ];
 

@@ -3,7 +3,7 @@
   const Icon = window.Icon;
   const { Sidebar } = window.HL_NAV;
   const { Pagination } = window;
-  const { ExportData, ColResizer } = window;
+  const { ExportData } = window;
   const { grp, SYM } = window.LEDGER_FMT;
   const { ASSET_TYPES } = window.INVESTMENTS_DATA;
   const ACCOUNT_TYPES = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES) || {};
@@ -37,11 +37,6 @@
 
   function Empty({ icon, text }) {
     return <div className="detail-empty holdings-empty"><Icon name={icon} size={24} /><span>{text}</span></div>;
-  }
-
-  function TypeBadge({ type }) {
-    const m = typeMeta(type);
-    return <span className={'inv-type-badge ' + typeClass(type)}><Icon name={m.icon} size={11} />{m.label}</span>;
   }
 
   function FilterSelect({ id, label, icon, value, onChange, children }) {
@@ -160,10 +155,6 @@
                 </div>
               </div>
             </div>
-            <div className="head-actions holdings-head-actions">
-              <a id="holdings-accounts-link" className="action-modal-btn scan" href="Accounts.html"><Icon name="wallet" size={14} />Open Accounts</a>
-              <a id="holdings-assets-link" className="action-modal-btn ok ha-overflow" href="Assets.html"><Icon name="gem" size={14} />Open Asset List</a>
-            </div>
           </div>
           <HoldingsFilterBar search={search} setSearch={setSearch}
             accountFilter={accountFilter} setAccountFilter={setAccountFilter}
@@ -176,90 +167,91 @@
     );
   }
 
-  function SortHeader({ col, sort, setSort, rz }) {
-    const id = col.key;
-    const active = sort.col === id;
-    const toggle = () => {
-      if (rz.isResizing || rz.wasResizingRef.current) return;
-      setSort(s => s.col === id ? { col: id, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col: id, dir: 'asc' });
-    };
-    return (
-      <th className={(col.num ? 'num ' : '') + (active ? 'sorted' : '')} onClick={toggle} title="Drag To Reorder · Click To Sort" {...rz.getReorderProps(id)}>
-        <span className="th-inner"><span className="th-label">{col.label}</span><span className="sort-arrow">{active ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}</span></span>
-        <ColResizer header={rz.headersById[id]} />
-      </th>
-    );
-  }
-
-  function HoldingCell({ row, keyName }) {
-    const m = typeMeta(row.assetType);
+  function HoldingMetric({ row, field }) {
     const unit = row.price != null ? (SYM[row.cur] || row.cur + ' ') + grp(row.price) : '-';
-    if (keyName === 'name') {
-      return (
-        <td data-label="Holding">
-          <div className="hold-name-cell">
-            <span className={'cat-chip hold-asset-chip ' + typeClass(row.assetType)}><Icon name={m.icon} size={14} /></span>
-            <span className="hold-name-text">
-              <span className="hold-name-primary">{row.name}</span>
-              <span className="hold-name-secondary">{row.accountName}</span>
-            </span>
-          </div>
-        </td>
-      );
-    }
-    if (keyName === 'type') return <td data-label="Type"><TypeBadge type={row.assetType} /></td>;
-    if (keyName === 'currency') return <td data-label="Currency"><span className="inv-cur-chip">{row.cur}</span></td>;
-    if (keyName === 'quantity') return <td data-label="Quantity" className="mono num">{fmtQty(row.qty)}</td>;
-    if (keyName === 'avgCost') return <td data-label="Avg Cost" className="mono num">{unit}</td>;
-    if (keyName === 'costBasis') return <td data-label="Cost Basis" className="mono num">{money(row.costBasis, row.cur, 2)}</td>;
-    return <td data-label="TRY Value" className="mono num income">₺{grp(row.tryValue || 0, 0)}</td>;
-  }
-
-  function HoldingRow({ row, order }) {
+    const values = {
+      currency: row.cur,
+      quantity: fmtQty(row.qty),
+      avgCost: unit,
+      costBasis: money(row.costBasis, row.cur, 2),
+    };
+    const labels = {
+      currency: 'Currency',
+      quantity: 'Quantity',
+      avgCost: 'Avg Cost',
+      costBasis: 'Cost Basis',
+    };
+    if (!labels[field]) return null;
     return (
-      <tr className="tx-row holdings-row" id={'holding-row-' + row.id}>
-        {order.map(k => <HoldingCell key={k} row={row} keyName={k} />)}
-      </tr>
+      <span className={'hold-card-field hold-card-field-' + field}>
+        <span className="hold-card-field-label">{labels[field]}:</span>
+        <span className="hold-card-field-value">{values[field]}</span>
+      </span>
     );
   }
 
-  function HoldingGroupHeader({ group, colSpan, collapsed, onToggle }) {
+  function HoldingCard({ row, fields }) {
+    const m = typeMeta(row.assetType);
+    const visible = new Set(fields);
+    const detailFields = fields.filter(k => ['quantity', 'avgCost', 'costBasis'].includes(k));
+    return (
+      <div id={'holding-card-' + row.id} className={'acct-card holdings-card ' + typeClass(row.assetType)}>
+        <div className="acct-card-row holdings-card-row">
+          {visible.has('name') && (
+            <React.Fragment>
+              <span className={'cat-chip hold-asset-chip ' + typeClass(row.assetType)}><Icon name={m.icon} size={14} /></span>
+              <span className="acct-card-meta holdings-card-meta">
+                <span className="acct-card-name">{row.name}</span>
+                {detailFields.length > 0 && (
+                  <span className="hold-card-fields">
+                    {detailFields.map((field, idx) => (
+                      <React.Fragment key={field}>
+                        {idx > 0 && <span className="hold-card-field-sep">·</span>}
+                        <HoldingMetric row={row} field={field} />
+                      </React.Fragment>
+                    ))}
+                  </span>
+                )}
+              </span>
+            </React.Fragment>
+          )}
+          <span className="acct-card-end holdings-card-end">
+            {visible.has('tryValue') && <span className="hold-card-value income">₺{grp(row.tryValue || 0, 0)}</span>}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  function HoldingGroupHeader({ group, collapsed, onToggle }) {
     const meta = ACCOUNT_TYPES[group.accountType] || ACCOUNT_TYPES.invest || { icon: 'wallet', label: 'Investment' };
     return (
-      <tr className="holdings-group-row">
-        <td colSpan={colSpan}>
-          <button type="button" id={'holdings-group-head-' + group.accountId}
-            className={'acct-group-head holdings-group-head' + (collapsed ? ' is-collapsed' : '')}
-            aria-expanded={!collapsed} onClick={onToggle}
-            title={collapsed ? 'Expand group' : 'Collapse group'}>
-            <Icon name="chevron-down" size={13} className="acct-group-chevron" />
-            <span className="acct-group-icon">
-              <Icon name={meta.icon || 'wallet'} size={15} />
-            </span>
-            <span className="acct-group-label">{group.accountName}</span>
-            <span className="acct-group-count">{group.count || group.rows.length}</span>
-            <span className="acct-group-total">₺{grp(group.totalTry, 0)}</span>
-          </button>
-        </td>
-      </tr>
+      <button type="button" id={'holdings-group-head-' + group.accountId}
+        className={'acct-group-head holdings-group-head' + (collapsed ? ' is-collapsed' : '')}
+        aria-expanded={!collapsed} onClick={onToggle}
+        title={collapsed ? 'Expand group' : 'Collapse group'}>
+        <Icon name="chevron-down" size={13} className="acct-group-chevron" />
+        <span className="acct-group-icon">
+          <Icon name={meta.icon || 'wallet'} size={15} />
+        </span>
+        <span className="acct-group-label">{group.accountName}</span>
+        <span className="acct-group-count">{group.count || group.rows.length}</span>
+        <span className="acct-group-total">₺{grp(group.totalTry, 0)}</span>
+      </button>
     );
   }
 
-  function GroupedHoldingBody({ groups, collapsedGroups, toggleGroup, order, colSpan }) {
-    const out = [];
-    groups.forEach(group => {
-      const collapsed = collapsedGroups.has(group.accountId);
-      out.push(
-        <HoldingGroupHeader key={'g-' + group.accountId} group={group} colSpan={colSpan}
-          collapsed={collapsed} onToggle={() => toggleGroup(group.accountId)} />
-      );
-      if (!collapsed) {
-        group.rows.forEach(row => out.push(
-          <HoldingRow key={row.accountId + '-' + row.id} row={row} order={order} />
-        ));
-      }
-    });
-    return <tbody>{out}</tbody>;
+  function HoldingGroup({ group, collapsed, onToggle, fields }) {
+    return (
+      <div className={'acct-group holdings-group' + (collapsed ? ' is-collapsed' : '')}>
+        <HoldingGroupHeader group={group} collapsed={collapsed} onToggle={onToggle} />
+        {!collapsed && (
+          <div className="card-grid acct-grid card-grid--list acct-list holdings-card-grid">
+            {group.rows.map(row => <HoldingCard key={row.accountId + '-' + row.id} row={row} fields={fields} />)}
+          </div>
+        )}
+      </div>
+    );
   }
 
   function App() {
@@ -350,9 +342,6 @@
     const pageRows = sorted.slice(start, end);
     const totalTry = sorted.reduce((s, r) => s + (r.tryValue || 0), 0);
     const rz = window.useResizableColumns({ columns: HOLDING_COLS, storageKey: 'hl-holdings-colwidths' });
-    React.useEffect(() => {
-      rz.applyColSizeVars();
-    }, [rz.colSizeVars, rz.applyColSizeVars]);
     const orderKeys = React.useMemo(() => rz.orderedColumns.map(c => c.key), [rz.orderedColumns]);
     const pageGroups = React.useMemo(() => {
       const byAccount = new Map(groupedRows.map(group => [group.accountId, group]));
@@ -386,13 +375,7 @@
       <ExportData entity="holdings" entityLabel="Holdings" columns={EXPORT_COLS} rows={sorted} allRows={rows || []} inline
         tableTools={<React.Fragment>
           <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
-          <window.FitColumnsButton onClick={rz.resetSizes} />
           <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
-          <div className="holdings-overflow-actions">
-            <div className="export-pop-head"><Icon name="square-arrow-out-up-right" size={12} />More Actions</div>
-            <a id="holdings-accounts-more-link" className="action-modal-btn scan" href="Accounts.html"><Icon name="wallet" size={14} />Open Accounts</a>
-            <a id="holdings-assets-more-link" className="action-modal-btn ok" href="Assets.html"><Icon name="gem" size={14} />Open Asset List</a>
-          </div>
         </React.Fragment>} />
     );
 
@@ -405,25 +388,17 @@
             accounts={accounts}
             moreControl={moreControl} />
           {error && <div className="acct-form-error holdings-load-error"><Icon name="alert-triangle" size={14} />{error}</div>}
-          <div className="table-card holdings-table-card">
+          <div className="acct-body holdings-body">
             {rows === null ? (
               <Empty icon="loader" text="Loading holdings..." />
             ) : filtered.length ? (
               <React.Fragment>
-              <div className="table-scroll">
-                <table ref={rz.tableRef} className="ledger-table holdings-table resizable">
-                  <colgroup>
-                    {rz.orderedColumns.map(c => <col key={c.key} className={'rz-col rz-col-' + c.key} data-rz-col={c.key} />)}
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      {rz.orderedColumns.map(c => <SortHeader key={c.key} col={c} sort={sort} setSort={setSort} rz={rz} />)}
-                    </tr>
-                  </thead>
-                  <GroupedHoldingBody groups={pageGroups} collapsedGroups={collapsedGroups}
-                    toggleGroup={toggleGroup} order={orderKeys} colSpan={rz.orderedColumns.length} />
-                </table>
-              </div>
+              {pageGroups.map(group => (
+                <HoldingGroup key={group.accountId} group={group}
+                  collapsed={collapsedGroups.has(group.accountId)}
+                  onToggle={() => toggleGroup(group.accountId)}
+                  fields={orderKeys} />
+              ))}
               <Pagination page={page} pages={pages} total={total} start={start} end={end}
                 perPage={perPage} setPage={setCurPage} setPerPage={setPerPage}
                 totalNode={<React.Fragment><span className="ttb-label">Total TRY</span><span className="ttb-value income">₺{grp(totalTry, 0)}</span></React.Fragment>} />
