@@ -299,7 +299,7 @@
   }
 
   // ── Pagination ──────────────────────────────────────────────────────────
-  function Pagination({ page, pages, total, start, end, perPage, setPage, setPerPage }) {
+  function Pagination({ page, pages, total, start, end, perPage, setPage, setPerPage, totalNode }) {
     const nums = [];
     if (pages <= 7) { for (let i = 1; i <= pages; i++) nums.push(i); }
     else {
@@ -324,6 +324,7 @@
             </div>
           </span>
         </span>
+        {totalNode && <span className="pagination-total">{totalNode}</span>}
         <div className="page-controls">
           <button id="pagination-prev-btn" className="page-btn" disabled={page === 1} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={14} /><span className="page-btn-label">Prev</span></button>
           {nums.map((n, i) => n === '…'
