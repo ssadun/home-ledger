@@ -5,6 +5,7 @@ Desteklenen bankalar:
   - Garanti BBVA   → XLS/XLSX/CSV
   - ON (Burgan)    → XLS/XLSX/CSV
   - QNB Finansbank → PDF hesap hareketleri
+  - Odea Bank      → PDF/XLSX hesap hareketleri
   - Generic        → Akıllı kolon tahmini (diğer bankalar için fallback)
 
 Her parser normalize edilmiş şu formata çıktı üretir:
@@ -865,6 +866,7 @@ def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], lis
 _ON_IBAN_RE   = re.compile(r"(TR\d{24})")
 _ON_HOLDER_RE = re.compile(r"Ad Soyad\s*:\s*(.+?)\s+TCKN")
 _ON_CUR_RE    = re.compile(r"[\d.]+,\d{3}\s*(TRY|USD|EUR)")
+_ON_HEADER_BALANCE_RE = re.compile(r"IBAN\s+Bakiye\s+TR\d{24}\s+(-?[\d.]+,\d{3})\s*(TRY|USD|EUR)", re.IGNORECASE)
 _ON_DATE_RE   = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
 # ON tutar hücresi: isteğe bağlı '-', binlik '.', zorunlu ',ddd' ondalık.
 _ON_AMOUNT_RE = re.compile(r"^-?\d{1,3}(?:\.\d{3})*,\d{3}$")
@@ -901,6 +903,11 @@ def _parse_on_burgan_pdf(content: bytes, text: str) -> tuple[list[dict], list[di
         holder = " ".join(mh.group(1).split())
     mcur = _ON_CUR_RE.search(text)
     currency = mcur.group(1).replace("TRY", "TRY") if mcur else "TRY"
+    statement_balance = None
+    mhb = _ON_HEADER_BALANCE_RE.search(" ".join((text or "").split()))
+    if mhb:
+        statement_balance = _parse_on_amount(mhb.group(1))
+        currency = mhb.group(2).replace("TRY", "TRY")
 
     try:
         import pdfplumber
@@ -932,7 +939,7 @@ def _parse_on_burgan_pdf(content: bytes, text: str) -> tuple[list[dict], list[di
         accounts.append({
             "source": iban, "type": "bank", "number": None, "card_number": None,
             "iban": iban, "branch": None, "holder": holder,
-            "currency": currency, "institution": "burgan",
+            "currency": currency, "balance": statement_balance, "institution": "burgan",
         })
     return rows, accounts
 
@@ -1028,6 +1035,157 @@ def _parse_qnb_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
             "iban": iban, "branch": branch, "holder": holder,
             "currency": currency, "balance": last_balance, "institution": "qnb",
         })
+    return rows, accounts
+
+
+# ─── Odea Bank "Hesap Hareketleri" (vadeli/vadesiz hesap dökümü — PDF/XLSX) ─
+# Odea'nın PDF ve XLSX çıktısı aynı grid'i kullanır:
+#   Ad Soyad/Ünvan | SADUN SEVİNGEN
+#   IBAN           | TR430014600000594423600003
+#   Tarih Aralığı  | 29.06.2026 Pzt - 29.07.2026 Çrş
+#   Tarih | İşlem | Tutar(USD) | Bakiye(USD)
+# Tarih hücresi saat de taşır ("29.07.2026 14:30"); işlem açıklaması PDF'de
+# satır kırılabilir. Tutar işaret önekli Türkçe 2-ondalıklıdır: "+30.000,00".
+_ODEA_HOLDER_RE = re.compile(r"Ad\s+Soyad/[ÜU]nvan\s*:\s*([^\n]+)", re.IGNORECASE)
+_ODEA_IBAN_RE   = re.compile(r"IBAN\s*:\s*(TR[\dA-Z ]{24,35})", re.IGNORECASE)
+
+
+def _odea_cell_text(value) -> str:
+    text = " ".join(str(value or "").split())
+    return re.sub(r"(?<=\d)-\s+(?=\d)", "-", text)
+
+
+def _parse_odea_date(value: str) -> Optional[str]:
+    m = re.search(r"\d{2}\.\d{2}\.\d{4}", str(value or ""))
+    return _parse_turkish_date(m.group(0)) if m else None
+
+
+def _odea_currency_from_headers(cells: list) -> str:
+    joined = " ".join(_odea_cell_text(c) for c in cells)
+    m = re.search(r"\((TRY|TL|USD|EUR)\)", joined, re.IGNORECASE)
+    return _detect_currency(m.group(1)) if m else "TRY"
+
+
+def _is_odea_grid(grid: list[list]) -> bool:
+    head = _fold(" ".join(str(c or "") for row in (grid or [])[:20] for c in row))
+    return (
+        "HESAP HAREKETLERI" in head
+        and "AD SOYAD/UNVAN" in head
+        and "TARIH ARALIGI" in head
+        and "IBAN" in head
+        and re.search(r"TUTAR\s*\(", head) is not None
+        and re.search(r"BAKIYE\s*\(", head) is not None
+    )
+
+
+def _is_odea_pdf(text: str) -> bool:
+    """Odea hesap hareketleri dökümü mü? İçerik bankayı yazmadığı için grid imzası kullanılır."""
+    return _is_odea_grid([[line] for line in (text or "").splitlines()[:40]])
+
+
+def _parse_odea_grid(grid: list[list]) -> tuple[list[dict], list[dict]]:
+    """Odea PDF/XLSX tablo grid'ini işlem satırları + hesap kimliğine çevirir."""
+    rows: list[dict] = []
+    holder = None
+    iban = None
+    currency = "TRY"
+    idx: dict = {}
+    last_balance = None
+
+    for raw in grid or []:
+        cells = ["" if c is None else str(c) for c in raw]
+        if not any(str(c).strip() for c in cells):
+            continue
+        col0 = _fold(cells[0])
+
+        if col0 == "AD SOYAD/UNVAN":
+            val = next((_odea_cell_text(c) for c in cells[1:] if _odea_cell_text(c)), "")
+            holder = val or holder
+            continue
+        if col0 == "IBAN":
+            val = next((_odea_cell_text(c) for c in cells[1:] if _odea_cell_text(c)), "")
+            iban = _clean_iban(val) or iban
+            continue
+
+        joined = " ".join(_fold(c) for c in cells)
+        if (
+            "TARIH" in joined
+            and re.search(r"TUTAR\s*\(", joined) is not None
+            and re.search(r"BAKIYE\s*\(", joined) is not None
+        ):
+            idx = {
+                "date": _match_idx(cells, ["tarih"]),
+                "desc": _match_idx(cells, ["işlem", "islem"]),
+                "amount": _match_idx(cells, ["tutar"]),
+                "balance": _match_idx(cells, ["bakiye"]),
+            }
+            currency = _odea_currency_from_headers(cells)
+            continue
+
+        if not idx or None in (idx.get("date"), idx.get("desc"), idx.get("amount")):
+            continue
+
+        def _cell(i):
+            return cells[i].strip() if (i is not None and i < len(cells)) else ""
+
+        date = _parse_odea_date(_cell(idx["date"]))
+        if not date:
+            continue
+        amount = _parse_amount(re.sub(r"[^\d.,+-]", "", _cell(idx["amount"])))
+        if amount is None:
+            continue
+        balance = _parse_amount(re.sub(r"[^\d.,+-]", "", _cell(idx["balance"]))) if idx.get("balance") is not None else None
+        if balance is not None:
+            last_balance = balance
+        desc = _odea_cell_text(_cell(idx["desc"]))
+        rows.append(_normalize_row(
+            date, desc, amount, balance=balance, currency=currency,
+            source=iban, account_type="bank", raw={"row": cells},
+        ))
+
+    accounts: list[dict] = []
+    if iban:
+        accounts.append({
+            "source": iban, "type": "bank", "number": None, "card_number": None,
+            "iban": iban, "branch": None, "holder": holder,
+            "currency": currency, "balance": last_balance, "institution": "odea",
+        })
+    return rows, accounts
+
+
+def _parse_odea_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    rows: list[dict] = []
+    holder = _odea_cell_text(_qnb_field(text, _ODEA_HOLDER_RE) or "")
+    iban = _clean_iban(_qnb_field(text, _ODEA_IBAN_RE))
+    try:
+        import pdfplumber
+    except ImportError:
+        return rows, []
+
+    grids: list[list] = []
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                grids.extend(table or [])
+    rows, accounts = _parse_odea_grid(grids)
+    if iban:
+        for row in rows:
+            if not row.get("source"):
+                row["source"] = iban
+        if not accounts and rows:
+            currency = rows[0].get("currency") or "TRY"
+            balance = next((r.get("balance") for r in reversed(rows) if r.get("balance") is not None), None)
+            accounts.append({
+                "source": iban, "type": "bank", "number": None, "card_number": None,
+                "iban": iban, "branch": None, "holder": holder or None,
+                "currency": currency, "balance": balance, "institution": "odea",
+            })
+    for acc in accounts:
+        if not acc.get("holder") and holder:
+            acc["holder"] = holder
+        if not acc.get("iban") and iban:
+            acc["iban"] = iban
+            acc["source"] = iban
     return rows, accounts
 
 
@@ -1165,6 +1323,11 @@ def _account_no_from_hesap(val: str) -> Optional[str]:
     return max(nums, key=len) if nums else None
 
 
+def _money_from_cell(value) -> Optional[float]:
+    """Parse a money cell that may carry a currency suffix ("33.896,30 TL")."""
+    return _parse_amount(re.sub(r"[^\d.,+-]", "", str(value or "")))
+
+
 _IBAN_TR_RE = re.compile(r"TR\d{24}")
 
 
@@ -1205,6 +1368,44 @@ def _normalize_account_identity(accounts: list[dict]) -> list[dict]:
             derived = _account_no_from_iban(acc.get("iban"))
             if derived:
                 acc["number"] = derived
+    return accounts
+
+
+def _account_source_key(value) -> str:
+    return re.sub(r"[^0-9A-Za-z]", "", str(value or "")).upper()
+
+
+def _fill_account_balances_from_rows(accounts: list[dict], rows: list[dict]) -> list[dict]:
+    """If the statement prints running balances but no account-level balance, expose one.
+
+    The import wizard treats account.balance as the statement's closing balance and
+    writes it directly to Accounts. This fallback lets any parser with row balances
+    avoid net-delta reconciliation when the statement already tells us the balance.
+    Parser-specific header balances, when present, stay authoritative.
+    """
+    if not accounts or not rows:
+        return accounts
+    by_source: dict[str, dict] = {}
+    for row in rows:
+        if row.get("balance") is None:
+            continue
+        key = _account_source_key(row.get("source"))
+        if key and key not in by_source:
+            by_source[key] = row
+    first_with_balance = next((r for r in rows if r.get("balance") is not None), None)
+    for acc in accounts:
+        if acc.get("balance") is not None:
+            continue
+        keys = [
+            _account_source_key(acc.get("source")),
+            _account_source_key(acc.get("iban")),
+            _account_source_key(acc.get("number")),
+        ]
+        row = next((by_source[k] for k in keys if k and k in by_source), None)
+        if row is None and len(accounts) == 1:
+            row = first_with_balance
+        if row is not None:
+            acc["balance"] = row.get("balance")
     return accounts
 
 
@@ -1294,6 +1495,23 @@ def _parse_garanti_export(grid: list[list]) -> tuple[list[dict], list[dict]]:
                 _acc(current_source)["branch"] = " ".join(val.split())
             continue
 
+        # Hesap üst bilgisi: kredili mevduat hesaplarında iki değer basılır.
+        #   Bakiye                = gerçek hesap bakiyesi
+        #   Kullanılabilir Bakiye = gerçek bakiye + kredili hesap limiti
+        # Import sonrası Account.balance her zaman gerçek "Bakiye" olmalı; limit
+        # ayrı credit_limit alanına yazılır.
+        meta_key = re.sub(r"[^A-Z0-9]", "", _fold(col0))
+        if meta_key in ("BAKIYE", "KULLANILABILIRBAKIYE") and current_source:
+            val = next((c.strip() for c in cells[1:] if c.strip()), "")
+            amount_meta = _money_from_cell(val)
+            if amount_meta is not None:
+                rec = _acc(current_source)
+                if meta_key == "BAKIYE":
+                    rec["balance"] = amount_meta
+                else:
+                    rec["available_balance"] = amount_meta
+            continue
+
         # Başlık satırı: "Tarih" + bir açıklama/tutar adayı içeriyor mu?
         di = _match_idx(cells, GARANTI_DATE_COLS)
         ai = _match_idx(cells, GARANTI_AMOUNT_COLS)
@@ -1332,6 +1550,13 @@ def _parse_garanti_export(grid: list[list]) -> tuple[list[dict], list[dict]]:
     for rec in accounts.values():
         if rec["holder"] is None:
             rec["holder"] = holder
+        balance = rec.get("balance")
+        available = rec.get("available_balance")
+        if rec.get("type") == "bank" and balance is not None and available is not None:
+            limit = round(float(available) - float(balance), 2)
+            if limit > 0:
+                rec["bank_subtype"] = "overdraft"
+                rec["credit_limit"] = limit
 
     return rows, list(accounts.values())
 
@@ -1797,6 +2022,9 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
         if not rows and text and _is_qnb_pdf(text):
             rows, accounts = _parse_qnb_pdf(content, text)
             bank_detected = "qnb (hesap hareketleri PDF)"
+        if not rows and text and _is_odea_pdf(text):
+            rows, accounts = _parse_odea_pdf(content, text)
+            bank_detected = "odea (hesap hareketleri PDF)"
         if not rows:
             rows = _parse_pdf(content)
             bank_detected = bank_hint if bank_hint != "auto" else "pdf"
@@ -1804,11 +2032,15 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
         # Önce Garanti çok-bölümlü export imzasını dene (ham ızgara üzerinden).
         # Bu format gecikmiş başlık + birden fazla kart bölümü içerdiğinden
         # standart tek-başlık DataFrame yolu onu okuyamaz.
-        grid = _load_raw_grid(content, ext) if bank_hint in ("auto", "garanti") else None
+        bank_detected = None
+        grid = _load_raw_grid(content, ext) if bank_hint in ("auto", "garanti", "odea") else None
         rows, accounts = _parse_garanti_export(grid) if (grid and _is_garanti_export(grid)) else ([], [])
+        if not rows and grid and _is_odea_grid(grid):
+            rows, accounts = _parse_odea_grid(grid)
+            bank_detected = "odea"
 
         if rows:
-            bank_detected = "garanti"
+            bank_detected = bank_detected or "garanti"
         else:
             df = _load_dataframe(content, ext)
             if df is None:
@@ -1823,6 +2055,9 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
             elif bank_hint in ("on_burgan", "on", "burgan"):
                 rows = _parse_on_burgan(df)
                 bank_detected = "on_burgan"
+            elif bank_hint == "odea":
+                rows, accounts = _parse_odea_grid(grid or [])
+                bank_detected = "odea"
             else:
                 # Otomatik algıla
                 cols_str = " ".join(str(c).lower() for c in df.columns)
@@ -1842,6 +2077,7 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
     # IBAN'ı boşluksuz biçime indirge; hesap numarası basmayan formatlarda
     # numarayı IBAN'ın son 6 hanesinden türet.
     _normalize_account_identity(accounts)
+    _fill_account_balances_from_rows(accounts, rows)
 
     income_total  = sum(r["amount"] for r in rows if r["type"] == "income")
     expense_total = sum(r["amount"] for r in rows if r["type"] == "expense")
@@ -1894,6 +2130,21 @@ def import_transactions(
     imported = 0
     skipped = 0
     errors = []
+    existing_keys = set()
+    if skip_duplicates:
+        parsed_dates = []
+        for row in rows:
+            try:
+                parsed_dates.append(date_type.fromisoformat(row["date"]))
+            except Exception:
+                continue
+        if parsed_dates:
+            existing_keys = {
+                (tx.date, round(float(tx.amount or 0), 2), tx.type)
+                for tx in db.query(Tx.date, Tx.amount, Tx.type)
+                .filter(Tx.owner_id == owner_id, Tx.date.in_(set(parsed_dates)))
+                .all()
+            }
 
     for row in rows:
         try:
@@ -1913,16 +2164,10 @@ def import_transactions(
             amount = abs(raw_amount)
             currency = row.get("currency", "TRY")
 
-            if skip_duplicates:
-                exists = db.query(Tx).filter(
-                    Tx.owner_id == owner_id,
-                    Tx.date == tx_date,
-                    Tx.amount == amount,
-                    Tx.type == tx_type,
-                ).first()
-                if exists:
-                    skipped += 1
-                    continue
+            dedupe_key = (tx_date, round(amount, 2), tx_type)
+            if skip_duplicates and dedupe_key in existing_keys:
+                skipped += 1
+                continue
 
             tx = Tx(
                 owner_id=owner_id,
@@ -1941,6 +2186,8 @@ def import_transactions(
             )
             _apply_rates(tx, db)
             db.add(tx)
+            if skip_duplicates:
+                existing_keys.add(dedupe_key)
             imported += 1
 
         except Exception as e:
@@ -1961,6 +2208,7 @@ def import_investments(
     upsert: bool = True,
     note: str = "midas_import",
     replace: bool = False,
+    sync_holdings: bool = False,
 ) -> dict:
     """
     Parse edilmiş Midas portföy satırlarını Investment tablosuna yazar.
@@ -2015,7 +2263,8 @@ def import_investments(
                     existing.purchase_price = price
                 existing.asset_type = asset_type or existing.asset_type
                 existing.currency = currency
-                sync_investment_holding(db, existing)
+                if sync_holdings:
+                    sync_investment_holding(db, existing)
                 updated += 1
             else:
                 inv = Inv(
@@ -2030,7 +2279,8 @@ def import_investments(
                 )
                 db.add(inv)
                 db.flush()
-                sync_investment_holding(db, inv)
+                if sync_holdings:
+                    sync_investment_holding(db, inv)
                 created += 1
 
             seen.setdefault(platform, set()).add(name)
@@ -2046,24 +2296,26 @@ def import_investments(
                 .all()
             ):
                 if stale.name not in names:
-                    delete_investment_holding(db, stale)
+                    if sync_holdings:
+                        delete_investment_holding(db, stale)
                     db.delete(stale)
                     removed += 1
 
-    asset_ids = set()
-    from app.models import Asset, InvestmentHolding
-    for platform in seen:
-        asset = (
-            db.query(Asset)
-            .filter(Asset.owner_id == owner_id, Asset.name == platform)
-            .first()
-        )
-        if asset:
-            asset_ids.add(asset.id)
-    for asset_id in asset_ids:
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if asset:
-            record_asset_valuation_from_holdings(db, asset)
+    if sync_holdings:
+        asset_ids = set()
+        from app.models import Asset
+        for platform in seen:
+            asset = (
+                db.query(Asset)
+                .filter(Asset.owner_id == owner_id, Asset.name == platform)
+                .first()
+            )
+            if asset:
+                asset_ids.add(asset.id)
+        for asset_id in asset_ids:
+            asset = db.query(Asset).filter(Asset.id == asset_id).first()
+            if asset:
+                record_asset_valuation_from_holdings(db, asset)
 
     db.commit()
     return {"created": created, "updated": updated, "removed": removed, "errors": errors}
@@ -2084,7 +2336,6 @@ def import_pension(
     ile yazılır, çünkü fon dağılımı eksiksiz dönem verisidir.
     """
     from app.models import Account
-    from app.services.assets import ensure_asset_for_account, record_asset_valuation_from_account
 
     contract = (pension.get("contract_no") or "").strip()
     if not contract:
@@ -2139,9 +2390,6 @@ def import_pension(
     }
     db.commit()
     db.refresh(acc)
-    asset = ensure_asset_for_account(db, acc)
-    if asset:
-        record_asset_valuation_from_account(db, acc)
     db.commit()
 
     inv_rows = [
@@ -2158,7 +2406,7 @@ def import_pension(
         if f.get("name")
     ]
     inv = import_investments(
-        db, owner_id, inv_rows, upsert=True, note="bes_import", replace=True
+        db, owner_id, inv_rows, upsert=True, note="bes_import", replace=True, sync_holdings=False
     )
 
     return {

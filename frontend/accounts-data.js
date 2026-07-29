@@ -44,6 +44,7 @@
     denizbank:   { name: 'DenizBank',          shortName: 'DenizBank',    swift: 'DENITRIS' },
     halkbank:    { name: 'Halkbank',           shortName: 'Halkbank',     swift: 'TRHBTR2A' },
     burgan:      { name: 'Burgan Bank',        shortName: 'Burgan',       swift: 'TEKFTRIS' },
+    odea:        { name: 'Odea Bank',          shortName: 'Odea',         swift: 'ODEATRIS' },
     garantiemek: { name: 'Garanti BBVA Emeklilik', shortName: 'Garanti Emek', swift: '' },
   };
 

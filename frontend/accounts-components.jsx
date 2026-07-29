@@ -11,6 +11,7 @@
     { key: 'checking', label: 'Checking Account' },
     { key: 'deposit', label: 'Deposit Account' },
     { key: 'overnight', label: 'Overnight Account' },
+    { key: 'overdraft', label: 'Overdraft' },
   ];
   function displayNumber(account) {
     return (account.type === 'credit' || account.type === 'debit') ? maskCardNumber(account.number) : account.number;
@@ -333,6 +334,7 @@
     const isCredit = account.type === 'credit';
     const isPrepaid = isCredit && account.isPrepaid;
     const isOverdraft = account.type === 'overdraft';
+    const isBankOverdraft = account.type === 'bank' && account.bankSubtype === 'overdraft';
     const isInvest = account.type === 'invest';
     const isPension = account.type === 'pension';
 
@@ -425,9 +427,9 @@
 
           <div className="modal-body">
             <div className="detail-balance-hero">
-              <span className="detail-bal-label">{isPrepaid ? 'Available Balance' : isCredit ? 'Outstanding Balance' : isOverdraft ? 'Overdraft Balance' : isInvest ? 'Portfolio Value' : isPension ? 'Total Savings' : 'Current Balance'}</span>
+              <span className="detail-bal-label">{isPrepaid ? 'Available Balance' : isCredit ? 'Outstanding Balance' : (isOverdraft || isBankOverdraft) ? 'Overdraft Balance' : isInvest ? 'Portfolio Value' : isPension ? 'Total Savings' : 'Current Balance'}</span>
               <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
-              {(isCredit || isOverdraft) && !isPrepaid && account.limit > 0 &&
+              {(isCredit || isOverdraft || isBankOverdraft) && !isPrepaid && account.limit > 0 &&
               <div style={{ width: '100%', marginTop: 8 }}>
                   <UtilBar used={account.balance} limit={account.limit} />
                 </div>
@@ -449,15 +451,15 @@
                   <span className="detail-info-v">{(BANK_SUBTYPES.find(x => x.key === account.bankSubtype) || BANK_SUBTYPES[0]).label}</span>
                 </div>
               }
-              {account.type === 'bank' && (account.bankSubtype || 'checking') !== 'checking' &&
+              {account.type === 'bank' && (account.bankSubtype || 'checking') !== 'checking' && !isBankOverdraft &&
               <div className="detail-info-item">
                   <span className="detail-info-k">Interest Rate (%)</span>
                   <span className="detail-info-v">{fmtInterestRate(account.interestRate || 0)}</span>
                 </div>
               }
-              {(isCredit || isOverdraft) && account.limit > 0 &&
+              {(isCredit || isOverdraft || isBankOverdraft) && account.limit > 0 &&
               <div className="detail-info-item">
-                  <span className="detail-info-k">{isOverdraft ? 'Overdraft Limit' : 'Credit Limit'}</span>
+                  <span className="detail-info-k">{(isOverdraft || isBankOverdraft) ? 'Overdraft Limit' : 'Credit Limit'}</span>
                   <span className="detail-info-v">{SYM[account.cur]}{grp(account.limit)}</span>
                 </div>
               }
@@ -623,6 +625,7 @@
     // number is digits only.
     const isCard = isCredit || f.type === 'debit';
     const isBank = f.type === 'bank';
+    const isBankOverdraft = isBank && f.bankSubtype === 'overdraft';
     const isCash = f.type === 'cash';
     const isPension = f.type === 'pension';
     // Other credit-card accounts that a supplementary/virtual card can hang off of
@@ -639,8 +642,11 @@
       if (f.type === 'bank' || f.type === 'overdraft') {
         required.push({ key: 'iban', label: 'IBAN', ok: !!cleanBankIban });
       }
-      if (isBank && f.bankSubtype !== 'checking') {
+      if (isBank && f.bankSubtype !== 'checking' && !isBankOverdraft) {
         required.push({ key: 'interestRate', label: 'Interest Rate', ok: parseInterestInput(f.interestRate) !== '' });
+      }
+      if (isBankOverdraft) {
+        required.push({ key: 'limit', label: 'Overdraft Limit', ok: (parseFloat(f.limit) || 0) > 0 });
       }
       if (isCard) {
         required.push({ key: 'number', label: 'Card Number', ok: !!cleanNumber });
@@ -664,7 +670,7 @@
         showInPaymentMethod: f.showInPaymentMethod,
         iban: cleanBankIban || null,
         bankSubtype: isBank ? f.bankSubtype : undefined,
-        interestRate: isBank ? (f.bankSubtype === 'checking' ? 0 : parseFloat(parseInterestInput(f.interestRate)) || 0) : undefined,
+        interestRate: isBank ? ((f.bankSubtype === 'checking' || isBankOverdraft) ? 0 : parseFloat(parseInterestInput(f.interestRate)) || 0) : undefined,
         ccType: f.ccType || 'visa',
         isPrepaid: isCredit ? !!f.isPrepaid : false,
         debitType: f.debitType || 'visa',
@@ -686,7 +692,7 @@
           next_payment_amount: numOrNull(f.pension.next_payment_amount)
         } : undefined
       };
-      if (isCredit || isOverdraft) result.limit = parseFloat(f.limit) || 0;else
+      if (isCredit || isOverdraft || isBankOverdraft) result.limit = parseFloat(f.limit) || 0;else
       delete result.limit;
       onSave(result);
     }
@@ -1014,11 +1020,17 @@
                     if (onClearError) onClearError();
                     if (formErr) { setFormErr(''); setInvalid({}); }
                     const v = e.target.value;
-                    setF((p) => ({ ...p, bankSubtype: v, interestRate: v === 'checking' ? '0' : p.interestRate }));
+                    setF((p) => ({ ...p, bankSubtype: v, interestRate: (v === 'checking' || v === 'overdraft') ? '0' : p.interestRate }));
                   }}>
                     {BANK_SUBTYPES.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
                   </StyledSelect>
                 </div>
+                {f.bankSubtype === 'overdraft' ? (
+                <div className={"form-field" + (invalid.limit ? ' field-invalid' : '')}>
+                  <span className="field-label">Overdraft Limit<span className="field-required-mark">*</span></span>
+                  <CurrencyInput id="acct-form-limit-input" value={f.limit} currency={f.cur} placeholder={f.cur === 'TRY' ? 'örn. 50.000,00' : 'e.g. 50,000.00'} onChange={(v) => set('limit', v)} />
+                </div>
+                ) : (
                 <div className={"form-field" + (invalid.interestRate ? ' field-invalid' : '')}>
                   <span className="field-label">Interest Rate (%){f.bankSubtype !== 'checking' && <span className="field-required-mark">*</span>}</span>
                   <InterestRateInput id="acct-form-interest-rate-input"
@@ -1026,6 +1038,7 @@
                     disabled={f.bankSubtype === 'checking'}
                     onChange={(v) => set('interestRate', v)} />
                 </div>
+                )}
               </div>
               <div className={"form-field full" + (invalid.iban ? ' field-invalid' : '')}>
                 <span className="field-label">IBAN<span className="field-required-mark">*</span></span>

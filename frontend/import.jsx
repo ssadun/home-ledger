@@ -154,6 +154,8 @@
       institution: instName,
       // Closing balance, when the statement prints one (TEB cüzdan does).
       balance: rec.balance != null ? rec.balance : undefined,
+      bankSubtype: rec.bank_subtype || undefined,
+      limit: rec.credit_limit != null ? rec.credit_limit : undefined,
       cardName: isCard ? (rec.holder ? rec.holder.trim() : '') : undefined,
       // Statement's actual last payment date (Son Ödeme Tarihi); the form derives the
       // Statement Cutoff Week from it when no week is otherwise set.
@@ -173,7 +175,7 @@
   // so the Detect/Review steps render identically for real and demo statements.
   function normalizePreview(file, res) {
     const dr = res.date_range || {};
-    // Row tuple: [date, description, amount(signed), currency, etiket, source, category_key]
+    // Row tuple: [date, description, amount(signed), currency, etiket, source, category_key, balance]
     // The API returns a positive `amount` plus a `type` ('income'|'expense');
     // re-apply the sign so the wizard's signed-amount slot is correct.
     // category_key carries the backend's classification (e.g. credit-card-payment
@@ -181,7 +183,7 @@
     // keyword guessing.
     const rows = (res.rows || []).map(r => {
       const signed = (Number(r.amount) || 0) * (r.type === 'expense' ? -1 : 1);
-      return [r.date, r.description || '', signed, r.currency || 'TRY', r.etiket || null, r.source || null, r.category_key || null];
+      return [r.date, r.description || '', signed, r.currency || 'TRY', r.etiket || null, r.source || null, r.category_key || null, r.balance];
     });
     // Distinct source refs (cards/accounts) present in the file.
     const sources = [...new Set(rows.map(r => r[5]).filter(Boolean))];
@@ -205,6 +207,13 @@
       period: (dr.from || '?') + ' → ' + (dr.to || '?'),
       rows,
     };
+  }
+
+  function closingBalanceForAccount(doc, rows, accKey, resolveSource) {
+    const ident = (doc.statementAccounts || []).find(s => resolveSource(s.source) === accKey);
+    if (ident && ident.balance != null) return Number(ident.balance);
+    const row = (rows || []).find(r => r.accId === accKey && r.balance != null);
+    return row ? Number(row.balance) : null;
   }
 
   // ═══════════════ STEP 1 — Choose file ═══════════════
@@ -911,6 +920,7 @@
           cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, bankSources.has(r[5])) || null,
           amount: r[2],
           cur: r[3],
+          balance: r[7],
           accId: resolveSource(r[5]) || accId,
         };
       });
@@ -1088,7 +1098,7 @@
           // The record's period (and therefore its "YYYY.MM - Account Name") is keyed
           // on the LAST movement — a statement is named for the month it closes in.
           const [py, pm] = String(to || from || '').split('-');
-          const ident = (doc.statementAccounts || []).find(s => resolveSource(s.source) === accKey);
+          const closingBalance = closingBalanceForAccount(doc, mine, accKey, resolveSource);
           try {
             const st = await window.HL_STATEMENTS_API.create({
               accountId: acct._dbId,
@@ -1098,7 +1108,7 @@
               cur: mine[0].cur || 'TRY',
               moneyIn: +mine.filter(r => r.amount >= 0).reduce((s, r) => s + r.amount, 0).toFixed(2),
               moneyOut: +mine.filter(r => r.amount < 0).reduce((s, r) => s - r.amount, 0).toFixed(2),
-              closingBalance: ident && ident.balance != null ? ident.balance : null,
+              closingBalance,
               bank: doc.institution || null,
             });
             if (pickedFile) {
@@ -1122,6 +1132,18 @@
         if (!accId || rec.balance == null) return;
         if (!byAcc[accId]) byAcc[accId] = { delta: 0, n: 0 };
         byAcc[accId].closingBalance = rec.balance;
+      });
+      Object.keys(byAcc).forEach(accId => {
+        if (byAcc[accId].closingBalance != null) return;
+        const closingBalance = closingBalanceForAccount(doc, incl, accId, resolveSource);
+        if (closingBalance != null) byAcc[accId].closingBalance = closingBalance;
+      });
+      (doc.statementAccounts || []).forEach(rec => {
+        const accId = resolveSource(rec.source);
+        if (!accId) return;
+        if (!byAcc[accId]) byAcc[accId] = { delta: 0, n: 0 };
+        if (rec.bank_subtype) byAcc[accId].bankSubtype = rec.bank_subtype;
+        if (rec.credit_limit != null) byAcc[accId].limit = rec.credit_limit;
       });
       const perAccount = Object.keys(byAcc).map(id => {
         const a = accounts.find(x => x.id === id);

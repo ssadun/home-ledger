@@ -243,6 +243,7 @@ Top-level navigation:
 |---|---|---|
 | Garanti BBVA bank statements | XLS, XLSX, CSV, PDF | Recognizes Turkish columns and tags |
 | ON Burgan bank statements | XLS, XLSX, CSV | Handles ON-specific column naming |
+| Odea Bank account statements | PDF, XLSX | Handles matching PDF/XLSX account-movement exports |
 | Credit-card statements | PDF and supported spreadsheet formats | Creates `credit_payments` and links spendings by card/window |
 | BES pension statements | PDF | Updates pension account JSON and fund holdings |
 | Generic statements | XLS, XLSX, CSV, text PDF | Heuristic date/description/amount detection |

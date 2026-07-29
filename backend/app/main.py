@@ -51,6 +51,7 @@ try:
     # Backfill institutions added after the initial seed (idempotent).
     ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik", short_name="Garanti Emek")
     ensure_institution(_seed_db, "teb", "TEB Türk Ekonomi Bankası", "TEBUTRIS", short_name="TEB")
+    ensure_institution(_seed_db, "odea", "Odea Bank", "ODEATRIS", short_name="Odea")
     # Heal institution names padded with whitespace, which break the name-based
     # match from accounts.institution and duplicate the entry in the picker.
     normalize_institution_names(_seed_db)

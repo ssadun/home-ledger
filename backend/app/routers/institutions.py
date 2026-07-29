@@ -29,6 +29,7 @@ DEFAULT_INSTITUTIONS = [
     ("halkbank",    "Halkbank",                 "Halkbank",      "TRHBTR2A"),
     ("burgan",      "Burgan Bank",              "Burgan",        "TEKFTRIS"),
     ("teb",         "TEB Türk Ekonomi Bankası",  "TEB",           "TEBUTRIS"),
+    ("odea",        "Odea Bank",                "Odea",          "ODEATRIS"),
     ("garantiemek", "Garanti BBVA Emeklilik",   "Garanti Emek",  ""),
 ]
 

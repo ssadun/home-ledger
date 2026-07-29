@@ -16,10 +16,13 @@ import pytest
 
 GARANTI_CC = "26.01-BonusCardEkstre.pdf"
 ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
+ON_BURGAN_FULL = "ON TL Hesap Hareketleri.pdf"
 MIDAS = "Midas_Ekstre_Mayıs_2026.pdf"
 GARANTI_TL = "garanti-tl-hesaphareketleri.pdf"
 GARANTI_USD = "garanti-usd-hesaphareketleri.pdf"
 QNB_KAZANDIRAN = "qnb_kazandiran_hesap_hareketleri.pdf"
+ODEA_PDF = "odeabank-usd vadeli.pdf"
+ODEA_XLSX = "odebank Hesap Hareketleri Tablo usd vadeli.xlsx"
 
 
 def find_row(rows, needle):
@@ -147,6 +150,27 @@ class TestOnBurganAccount:
         assert all(r["balance"] is not None for r in res["rows"])
 
 
+class TestOnBurganFullAccount:
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def res(parse_sample):
+        return parse_sample(ON_BURGAN_FULL)
+
+    def test_header_balance_is_account_closing_balance(self, res):
+        assert res["bank_detected"] == "on_burgan (hesap hareketleri PDF)"
+        acc = res["accounts"][0]
+        assert acc["iban"] == "TR810012502002025673300377"
+        assert acc["number"] == "300377"
+        assert acc["currency"] == "TRY"
+        assert acc["balance"] == pytest.approx(9623.39)
+
+    def test_totals_and_range(self, res):
+        assert res["total_rows"] == 522
+        assert res["income_total"] == pytest.approx(12367087.73)
+        assert res["expense_total"] == pytest.approx(12369964.34)
+        assert res["date_range"] == {"from": "2025-06-30", "to": "2026-07-09"}
+
+
 class TestStatementMappingFallback:
     def test_comma_separated_mapping_tags_are_alternates(self):
         from app.services import bank_import
@@ -233,6 +257,48 @@ class TestQnbKazandiranAccount:
         assert {r["source"] for r in res["rows"]} == {"TR550011100000000166539691"}
         assert {r["currency"] for r in res["rows"]} == {"TRY"}
         assert {r["category_key"] for r in res["rows"]} == {"wire-transfer"}
+
+
+# --------------------------------------------------------------------------
+# Odea Bank USD time-deposit account — same account in PDF and XLSX
+# --------------------------------------------------------------------------
+
+class TestOdeaUsdTimeDeposit:
+    @staticmethod
+    @pytest.fixture(scope="class", params=[ODEA_PDF, ODEA_XLSX])
+    def res(parse_sample, request):
+        return parse_sample(request.param)
+
+    def test_totals(self, res):
+        assert res["bank_detected"] in {
+            "odea (hesap hareketleri PDF)",
+            "odea",
+        }
+        assert res["total_rows"] == 1
+        assert res["income_total"] == pytest.approx(30000.0)
+        assert res["expense_total"] == pytest.approx(0.0)
+        assert res["date_range"] == {"from": "2026-07-29", "to": "2026-07-29"}
+
+    def test_account_identity_matches_across_formats(self, res):
+        assert len(res["accounts"]) == 1
+        acc = res["accounts"][0]
+        assert acc["type"] == "bank"
+        assert acc["iban"] == "TR430014600000594423600003"
+        assert acc["number"] == "600003"
+        assert acc["holder"] == "SADUN SEVİNGEN"
+        assert acc["currency"] == "USD"
+        assert acc["balance"] == pytest.approx(30000.0)
+        assert acc["institution"] == "odea"
+
+    def test_transaction_row(self, res):
+        row = res["rows"][0]
+        assert row["date"] == "2026-07-29"
+        assert row["description"] == "9990-5944236-353 Vadeli Hesap Açılışı"
+        assert row["amount"] == pytest.approx(30000.0)
+        assert row["type"] == "income"
+        assert row["currency"] == "USD"
+        assert row["balance"] == pytest.approx(30000.0)
+        assert row["source"] == "TR430014600000594423600003"
 
 
 # --------------------------------------------------------------------------
@@ -336,6 +402,31 @@ class TestGarantiAccountTRY:
         assert find_row(res["rows"], "K.Kartı Ödeme")["description"] == (
             "K.Kartı Ödeme 4870 **** **** 1011"
         )
+
+
+class TestGarantiOverdraftExportHeader:
+    def test_real_balance_wins_over_available_balance(self):
+        from app.services.bank_import import _normalize_account_identity, _parse_garanti_export
+
+        rows, accounts = _parse_garanti_export([
+            ["Ad Soyad", "SADUN SEVİNGEN", None, None, None, None],
+            ["Hesap", "440 - 6659945 TL", None, None, None, None],
+            ["IBAN", "TR19 0006 2000 4400 0006 6599 45", None, None, None, None],
+            ["Şube", "İÇERENKÖY", None, None, None, None],
+            ["Bakiye", "33.896,30 TL", None, None, None, None],
+            ["Kullanılabilir Bakiye", "183.896,30 TL", None, None, None, None],
+            ["Tarih", "Açıklama", "Etiket", "Tutar", "Bakiye", "Dekont No"],
+            ["28/07/2026", "MİDAS MENKUL DEĞERLER", "Para Transferi", "-45000", "33896.3", "dekont"],
+        ])
+        _normalize_account_identity(accounts)
+
+        assert len(rows) == 1
+        acc = accounts[0]
+        assert acc["balance"] == pytest.approx(33896.3)
+        assert acc["available_balance"] == pytest.approx(183896.3)
+        assert acc["bank_subtype"] == "overdraft"
+        assert acc["credit_limit"] == pytest.approx(150000.0)
+        assert acc["iban"] == "TR190006200044000006659945"
 
 
 # --------------------------------------------------------------------------

@@ -13,7 +13,7 @@ from app.services.assets import sync_account_domain
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
 
-BANK_SUBTYPES = {"checking", "deposit", "overnight"}
+BANK_SUBTYPES = {"checking", "deposit", "overnight", "overdraft"}
 
 
 # ── Per-type account identity ─────────────────────────────────────────────────
@@ -144,7 +144,19 @@ def _normalize_bank_fields(data: dict, acc_type: str) -> dict:
     data["bank_subtype"] = subtype
     if subtype == "checking":
         data["interest_rate"] = 0.0
+        data["credit_limit"] = None
         return data
+    if subtype == "overdraft":
+        limit = data.get("credit_limit")
+        try:
+            data["credit_limit"] = float(limit)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Overdraft limit is required for this bank account type.")
+        if data["credit_limit"] <= 0:
+            raise HTTPException(400, "Overdraft limit must be greater than zero.")
+        data["interest_rate"] = 0.0
+        return data
+    data["credit_limit"] = None
     rate = data.get("interest_rate")
     if rate is None or rate == "":
         raise HTTPException(400, "Interest rate is required for this bank account type.")
@@ -425,7 +437,7 @@ def update_account(
     _normalize_identity(data, new_type)
     merged_bank = {
         f: data.get(f, getattr(acc, f))
-        for f in ("bank_subtype", "interest_rate")
+        for f in ("bank_subtype", "interest_rate", "credit_limit")
     }
     _normalize_bank_fields(merged_bank, new_type)
     data.update(merged_bank)

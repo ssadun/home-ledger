@@ -305,6 +305,8 @@
               ? Number(summary.closingBalance)
               : a.balance + (Number(summary.delta) || 0);
             const updated = { ...a, balance: +nextBalance.toFixed(2) };
+            if (summary.bankSubtype) updated.bankSubtype = summary.bankSubtype;
+            if (summary.limit != null) updated.limit = Number(summary.limit) || 0;
             return window.HL_ACCOUNTS_API.update(a._dbId, updated);
           }));
         }),
