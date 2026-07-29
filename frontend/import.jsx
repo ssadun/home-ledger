@@ -711,6 +711,7 @@
     const [error, setError] = React.useState(null);
     const [sourceMap, setSourceMap] = React.useState({});     // statement source → chosen account id
     const [createDraft, setCreateDraft] = React.useState(null); // AccountFormModal initial (pre-filled)
+    const [createError, setCreateError] = React.useState(null); // save-time AccountFormModal validation/API error
     const createSrcRef = React.useRef(null);                  // source the draft is being created for
 
     // Hydrate accounts from the backend (the static placeholder is empty).
@@ -760,13 +761,18 @@
     const allResolved = detected.length ? detected.every(rec => !!resolveSource(rec.source)) : !!accId;
 
     const pickSource = (source, id) => setSourceMap(prev => ({ ...prev, [source]: id }));
-    const openCreate = (rec) => { createSrcRef.current = rec.source; setCreateDraft(accountDraftFromRecord(rec)); };
+    const openCreate = (rec) => {
+      createSrcRef.current = rec.source;
+      setCreateError(null);
+      setCreateDraft(accountDraftFromRecord(rec));
+    };
 
     // Persist a brand-new account created from a statement identity, then map its
     // source to it so the row auto-resolves.
     async function saveNewAccount(formResult) {
-      if (!window.HL_ACCOUNTS_API) { setError('Accounts API unavailable - cannot create the account.'); return; }
+      if (!window.HL_ACCOUNTS_API) { setCreateError('Accounts API unavailable - cannot create the account.'); return; }
       setError(null);
+      setCreateError(null);
       try {
         const created = await window.HL_ACCOUNTS_API.create(formResult);
         setAccounts(prev => [...prev, created]);
@@ -774,10 +780,11 @@
         const src = createSrcRef.current;
         if (src) setSourceMap(prev => ({ ...prev, [src]: created.id }));
       } catch (e) {
-        setError(e.message || 'Could not create the account.');
+        setCreateError(e.message || 'Could not create the account.');
         return;
       }
       createSrcRef.current = null;
+      setCreateError(null);
       setCreateDraft(null);
     }
 
@@ -1202,7 +1209,9 @@
 
         {createDraft && window.AccountFormModal &&
           <window.AccountFormModal initial={createDraft} accounts={accounts}
-            onClose={() => { createSrcRef.current = null; setCreateDraft(null); }}
+            error={createError}
+            onClearError={() => setCreateError(null)}
+            onClose={() => { createSrcRef.current = null; setCreateError(null); setCreateDraft(null); }}
             onSave={saveNewAccount} />}
       </div>
     );
