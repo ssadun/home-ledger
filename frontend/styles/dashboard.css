@@ -168,6 +168,7 @@
 .rpt-body > .asset-body .asset-mini-main b{font-size:12.5px;font-weight:700;color:var(--text)}
 .rpt-body > .asset-body .asset-mini-main small{font-size:11px;font-weight:600;color:var(--muted)}
 .rpt-body > .asset-body .asset-mini-val{font-size:12.5px;font-weight:800}
+.rpt-body > .asset-body .asset-usd-val{color:var(--accent)}
 .rpt-body > .asset-body .asset-empty{margin-top:0;min-height:170px;justify-content:center}
 .rpt-body > .asset-body .asset-load-error{margin:0;width:100%;max-width:934px}
 

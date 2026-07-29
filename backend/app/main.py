@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
 from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, local_holidays, push, assets, holdings, net_worth, ui_logs
 from app.services.notify import run_due_date_check
+from app.services.tcmb import refresh_currency_rates_from_previous_tcmb
 
 # SQLite dosyasının yaşadığı klasörü garantile
 Path("/app/data").mkdir(parents=True, exist_ok=True)
@@ -102,9 +104,23 @@ def _run_daily_due_date_check():
         db.close()
 
 
+def _refresh_previous_tcmb_currency_rates():
+    db = SessionLocal()
+    try:
+        asyncio.run(refresh_currency_rates_from_previous_tcmb(db))
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
-def start_scheduler():
+async def start_scheduler():
+    db = SessionLocal()
+    try:
+        await refresh_currency_rates_from_previous_tcmb(db)
+    finally:
+        db.close()
     scheduler.add_job(_run_daily_due_date_check, "cron", hour=8, minute=0, id="due_date_check", replace_existing=True)
+    scheduler.add_job(_refresh_previous_tcmb_currency_rates, "cron", hour=8, minute=10, id="previous_tcmb_currency_rates", replace_existing=True)
     scheduler.start()
 
 

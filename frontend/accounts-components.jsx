@@ -314,32 +314,65 @@
       return () => { alive = false; };
     }, [account.id, showActivity]);
     const activityHref = 'Account Activity.html?account=' + encodeURIComponent(account.id);
+    function profileLang() {
+      const user = window.HL_AUTH && window.HL_AUTH.getUser ? window.HL_AUTH.getUser() : null;
+      return user && user.language === 'tr' ? 'tr' : 'en';
+    }
+    function msg(key) {
+      const texts = {
+        copied: { en: 'IBAN copied to clipboard.', tr: 'IBAN panoya kopyalandı.' },
+        failed: { en: 'Could not copy IBAN.', tr: 'IBAN panoya kopyalanamadı.' },
+      };
+      return (texts[key] && texts[key][profileLang()]) || (texts[key] && texts[key].en) || key;
+    }
+    function copyIban() {
+      const value = account.iban || '';
+      const done = () => window.HL_OP_NOTIFY && window.HL_OP_NOTIFY.show(msg('copied'), { type: 'success', timeout: 1800 });
+      const fail = () => window.HL_OP_NOTIFY && window.HL_OP_NOTIFY.show(msg('failed'), { type: 'error', timeout: 2400 });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(done).catch(fail);
+        return;
+      }
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy') ? done() : fail();
+        document.body.removeChild(ta);
+      } catch (e) {
+        fail();
+      }
+    }
 
     return (
       <div className="backdrop" onMouseDown={(e) => {if (e.target.classList.contains('backdrop')) onClose();}}>
         <div className="modal acct-detail-modal">
           <div className="modal-head">
-            <div className="modal-head-l">
-              <span className="modal-title">
-                {(() => {
-                  const logo = instLogo(account.institution);
-                  return logo ? (
-                    <span className="acct-type-ico acct-inst-logo" style={{ width: 28, height: 28 }}>
-                      <img src={logo} alt={account.institution} />
-                    </span>
-                  ) : (
-                    <span className="acct-type-ico" style={{
-                      color: t.color, width: 28, height: 28,
-                      background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
-                      borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)'
-                    }}>
-                      <Icon name={t.icon} size={14} />
-                    </span>
-                  );
-                })()}
-                {account.name}
+            <div className="modal-head-l acct-detail-head-l">
+              {(() => {
+                const logo = instLogo(account.institution);
+                return logo ? (
+                  <span className="acct-type-ico acct-inst-logo" style={{ width: 32, height: 32 }}>
+                    <img src={logo} alt={account.institution} />
+                  </span>
+                ) : (
+                  <span className="acct-type-ico" style={{
+                    color: t.color, width: 28, height: 28,
+                    background: 'color-mix(in srgb, ' + t.color + ' 13%, transparent)',
+                    borderColor: 'color-mix(in srgb, ' + t.color + ' 40%, transparent)'
+                  }}>
+                    <Icon name={t.icon} size={14} />
+                  </span>
+                );
+              })()}
+              <span className="acct-detail-head-text">
+                <span className="modal-title">{account.name}</span>
+                <span className="modal-sub">{joinMeta(account.institution, displayNumber(account), account.owner)}</span>
               </span>
-              <span className="modal-sub">{joinMeta(account.institution, displayNumber(account), account.owner)}</span>
             </div>
             <button id="acct-detail-close-btn" className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
           </div>
@@ -401,7 +434,12 @@
               {account.iban &&
               <div className="detail-info-item detail-info-full">
                   <span className="detail-info-k">IBAN</span>
-                  <span className="detail-info-v detail-iban">{account.iban}</span>
+                  <span className="detail-iban-row">
+                    <span className="detail-info-v detail-iban">{account.iban}</span>
+                    <button id="acct-detail-copy-iban-btn" type="button" className="detail-copy-btn" title="Copy IBAN" onClick={copyIban}>
+                      <Icon name="copy" size={14} />
+                    </button>
+                  </span>
                 </div>
               }
               {account.cur !== 'TRY' &&
@@ -515,7 +553,7 @@
     const set = (k, v) => { if (onClearError) onClearError(); if (formErr) { setFormErr(''); setInvalid({}); } setF((p) => ({ ...p, [k]: v })); };
     // BES fields live in a nested object (accounts.pension JSON column), so they
     // get their own setter rather than going through `set`.
-    const setPen = (k, v) => setF((p) => ({ ...p, pension: { ...p.pension, [k]: v } }));
+    const setPen = (k, v) => { if (onClearError) onClearError(); if (formErr) { setFormErr(''); setInvalid({}); } setF((p) => ({ ...p, pension: { ...p.pension, [k]: v } })); };
     const isCredit = f.type === 'credit';
     // Prepaid cards hold loaded funds, so their balance stays positive (available) and
     // they have no credit line to spend against.
@@ -531,11 +569,21 @@
     const parentCardOptions = accounts.filter((a) => a.type === 'credit' && a.id !== initial.id);
 
     function submit() {
-      // Cash accounts have no institution — only a name (and owner) are required.
-      const vr = window.HL_FORM.checkRequired([
+      const cleanNumber = isCard ? cleanCardNo(f.number).trim() : cleanAccountNo(f.number);
+      const cleanBankIban = cleanIban(f.iban);
+      const required = [
         { key: 'name', label: 'Name', ok: !!f.name.trim() },
         { key: 'institution', label: 'Institution', ok: isCash || !!f.institution.trim() },
-      ]);
+      ];
+      if (f.type === 'bank' || f.type === 'overdraft') {
+        required.push({ key: 'iban', label: 'IBAN', ok: !!cleanBankIban });
+      }
+      if (isCard) {
+        required.push({ key: 'number', label: 'Card Number', ok: !!cleanNumber });
+      } else if (f.type === 'wallet') {
+        required.push({ key: 'number', label: 'Account Number', ok: !!cleanNumber });
+      }
+      const vr = window.HL_FORM.checkRequired(required);
       setInvalid(vr.keys); setFormErr(vr.message);
       if (!vr.ok) return;
       const bal = parseFloat(f.balance) || 0;
@@ -546,11 +594,11 @@
         type: f.type,
         cur: f.cur,
         balance: (isCredit || isOverdraft) && !isPrepaid && bal > 0 ? -bal : bal,
-        number: (isCard ? cleanCardNo(f.number).trim() : cleanAccountNo(f.number)) || '–',
+        number: cleanNumber || '–',
         institution: f.institution.trim() || '–',
         primary: f.primary,
         showInPaymentMethod: f.showInPaymentMethod,
-        iban: cleanIban(f.iban) || null,
+        iban: cleanBankIban || null,
         ccType: f.ccType || 'visa',
         isPrepaid: isCredit ? !!f.isPrepaid : false,
         debitType: f.debitType || 'visa',
@@ -642,8 +690,8 @@
                   <option value="Shared">Shared</option>
                 </StyledSelect>
               </div>
-              <div className="form-field">
-                <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}</span>
+              <div className={"form-field" + (invalid.number ? ' field-invalid' : '')}>
+                <span className="field-label">{isCredit || f.type === 'debit' ? 'Card Number' : 'Account Number'}{(isCard || f.type === 'wallet') && <span className="field-required-mark">*</span>}</span>
                 <input id="acct-form-number-input" className="field-input"
                   inputMode={isCard ? 'text' : 'numeric'}
                   placeholder={isCard ? 'e.g. ****3847' : 'e.g. 300377'}
@@ -870,8 +918,8 @@
 
             {f.type === 'overdraft' && (
             <React.Fragment>
-              <div className="form-field full">
-                <span className="field-label">IBAN</span>
+              <div className={"form-field full" + (invalid.iban ? ' field-invalid' : '')}>
+                <span className="field-label">IBAN<span className="field-required-mark">*</span></span>
                 {/* No maxLength: it would clip a PASTED spaced IBAN at 26 raw
                     characters (spaces included) before the strip runs, silently
                     dropping digits. cleanIban() caps at 26 after despacing. */}
@@ -893,8 +941,8 @@
 
             {f.type === 'bank' &&
             <React.Fragment>
-              <div className="form-field full">
-                <span className="field-label">IBAN</span>
+              <div className={"form-field full" + (invalid.iban ? ' field-invalid' : '')}>
+                <span className="field-label">IBAN<span className="field-required-mark">*</span></span>
                 {/* No maxLength: it would clip a PASTED spaced IBAN at 26 raw
                     characters (spaces included) before the strip runs, silently
                     dropping digits. cleanIban() caps at 26 after despacing. */}

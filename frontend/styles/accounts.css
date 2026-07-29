@@ -81,6 +81,10 @@
 
 /* ── Account detail modal ── */
 .acct-detail-modal{width:540px}
+.acct-detail-head-l{flex-direction:row;align-items:center;gap:10px;min-width:0}
+.acct-detail-head-text{display:flex;flex-direction:column;gap:0;min-width:0}
+.acct-detail-head-text .modal-title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-detail-head-text .modal-sub{padding-left:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .detail-balance-hero{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius2);text-align:center}
 .detail-bal-label{font-size:var(--fs-label);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
 .detail-balance-hero .bal-lg{font-size:28px}
@@ -92,6 +96,10 @@
 .detail-info-v{font-size:13px;font-weight:600;color:var(--text)}
 .detail-info-full{grid-column:1 / -1}
 .detail-iban{font-family:var(--font-mono, monospace);font-size:13px;letter-spacing:.8px;color:var(--accent)}
+.detail-iban-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.detail-iban-row .detail-iban{min-width:0;overflow-wrap:anywhere}
+.detail-copy-btn{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex:none;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--white);cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.detail-copy-btn:hover{background:var(--bg4);border-color:var(--accent);color:var(--white)}
 
 /* Card/account number field: monospace + tabular figures so digits, spaces and
    masking asterisks all share one width and align uniformly ("4870 75** **** 1011"). */

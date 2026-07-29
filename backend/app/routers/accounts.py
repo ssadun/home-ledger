@@ -13,28 +13,62 @@ from app.services.assets import sync_account_domain
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
 
-# ── Per-type unique identity ──────────────────────────────────────────────────
-# Every account kind that has a real-world identifier is keyed on it, so the same
-# account can't be added twice (typically by re-importing a statement the wizard
-# didn't auto-match). `wallet`, `cash` and `invest` have no stable identifier and
-# are deliberately exempt — a household can hold several.
-UNIQUE_FIELD = {
-    "bank": "iban",
-    "overdraft": "iban",       # a KMH is a bank account with a credit line — same IBAN space
-    "credit": "number",        # card number (masked, e.g. "4870 75** **** 1011")
-    "debit": "number",
-    "pension": "number",       # BES contract number
+# ── Per-type account identity ─────────────────────────────────────────────────
+# Each account kind has the field or field-pair that makes it distinct for this
+# household. The same identity is required and unique on both create and update.
+IDENTITY_RULES = {
+    "bank": {
+        "fields": ("iban",),
+        "types": ("bank", "overdraft"),
+        "label": "IBAN",
+    },
+    "overdraft": {
+        "fields": ("iban",),
+        "types": ("bank", "overdraft"),
+        "label": "IBAN",
+    },
+    "credit": {
+        "fields": ("number",),
+        "types": ("credit", "debit"),
+        "label": "card number",
+    },
+    "debit": {
+        "fields": ("number",),
+        "types": ("credit", "debit"),
+        "label": "card number",
+    },
+    "wallet": {
+        "fields": ("number",),
+        "types": ("wallet",),
+        "label": "account number",
+    },
+    "cash": {
+        "fields": ("name",),
+        "types": ("cash",),
+        "label": "account name",
+    },
+    "invest": {
+        "fields": ("name", "institution"),
+        "types": ("invest",),
+        "label": "account name and institution",
+    },
+    "pension": {
+        "fields": ("name", "institution"),
+        "types": ("pension",),
+        "label": "account name and institution",
+    },
 }
 
-_FIELD_LABEL = {"iban": "IBAN", "number": "account/card number"}
-
-# Uniqueness is scoped to the IDENTIFIER, not to the type: an IBAN is unique in the
-# real world whether a `bank` or an `overdraft` row claims it, and one card number
-# cannot be both a credit and a debit card. Checking per-type would let the same
-# IBAN in twice under two different types.
-_TYPES_BY_FIELD = {}
-for _t, _f in UNIQUE_FIELD.items():
-    _TYPES_BY_FIELD.setdefault(_f, []).append(_t)
+_TYPE_LABEL = {
+    "bank": "Bank Account",
+    "overdraft": "Overdraft Account",
+    "credit": "Credit Card",
+    "debit": "Debit Card",
+    "wallet": "Digital Wallet",
+    "cash": "Cash",
+    "invest": "Investment",
+    "pension": "Retirement Plan",
+}
 
 
 def _ident(value) -> str:
@@ -45,6 +79,18 @@ def _ident(value) -> str:
     duplicate it is meant to catch.
     """
     return "".join(ch for ch in str(value or "") if ch.isalnum()).upper()
+
+
+def _text_ident(value) -> str:
+    return " ".join(str(value or "").strip().split()).casefold()
+
+
+def _identity_value(field: str, value) -> str:
+    if field in {"name", "institution"}:
+        return _text_ident(value)
+    if value == _UNKNOWN:
+        return ""
+    return _ident(value)
 
 
 # ── Identifier normalization ──────────────────────────────────────────────────
@@ -84,31 +130,41 @@ def _normalize_identity(data: dict, acc_type: str) -> dict:
     return data
 
 
-def _assert_unique_identity(db: Session, owner_id: int, acc_type: str, payload_values: dict, exclude_id: int = None):
-    """409 if another account sharing this identifier's space already carries it.
+def _assert_required_identity(acc_type: str, values: dict):
+    """400 if the account type's identifying fields are blank."""
+    rule = IDENTITY_RULES.get(acc_type or "")
+    if not rule:
+        return
+    missing = [f for f in rule["fields"] if not _identity_value(f, values.get(f))]
+    if missing:
+        label = rule["label"] if rule["label"].isupper() else rule["label"].capitalize()
+        raise HTTPException(
+            400,
+            f"{label} is required for {_TYPE_LABEL.get(acc_type, 'Account')}.",
+        )
 
-    A blank identifier is not compared: the field is a unique key, not a required
-    one, so an account may be created before its IBAN/number is known. That also
-    exempts the "–" placeholder the UI writes for an unknown number.
-    """
-    field = UNIQUE_FIELD.get(acc_type or "")
-    if not field:
+
+def _assert_unique_identity(db: Session, owner_id: int, acc_type: str, payload_values: dict, exclude_id: int = None):
+    """409 if another account in the same identity space already carries it."""
+    rule = IDENTITY_RULES.get(acc_type or "")
+    if not rule:
         return
-    ident = _ident(payload_values.get(field))
-    if not ident:
+    wanted = {
+        field: _identity_value(field, payload_values.get(field))
+        for field in rule["fields"]
+    }
+    if not all(wanted.values()):
         return
-    q = db.query(Account).filter(
-        Account.owner_id == owner_id, Account.type.in_(_TYPES_BY_FIELD[field])
-    )
+    q = db.query(Account).filter(Account.owner_id == owner_id, Account.type.in_(rule["types"]))
     if exclude_id is not None:
         q = q.filter(Account.id != exclude_id)
     for other in q.all():
-        if _ident(getattr(other, field)) == ident:
+        if all(_identity_value(field, getattr(other, field)) == ident for field, ident in wanted.items()):
             # English on purpose: this detail is rendered verbatim in the (English)
             # Accounts UI, unlike the Turkish strings the routers use for 404s.
             raise HTTPException(
                 409,
-                f"This {_FIELD_LABEL[field]} is already used by \"{other.name}\".",
+                f"This {rule['label']} is already used by \"{other.name}\".",
             )
 
 
@@ -293,6 +349,7 @@ def create_account(
     current_user: User = Depends(get_current_user),
 ):
     data = _normalize_identity(payload.model_dump(), payload.type)
+    _assert_required_identity(data.get("type"), data)
     _assert_unique_identity(db, current_user.id, data.get("type"), data)
     acc = Account(**data, owner_id=current_user.id)
     db.add(acc)
@@ -322,7 +379,8 @@ def update_account(
     # changing in this same request, and an unsent field keeps its current value.
     new_type = data.get("type", acc.type)
     _normalize_identity(data, new_type)
-    merged = {f: data.get(f, getattr(acc, f)) for f in ("iban", "number")}
+    merged = {f: data.get(f, getattr(acc, f)) for f in ("name", "institution", "iban", "number")}
+    _assert_required_identity(new_type, merged)
     _assert_unique_identity(db, current_user.id, new_type, merged, exclude_id=acc.id)
     for field, value in data.items():
         setattr(acc, field, value)
