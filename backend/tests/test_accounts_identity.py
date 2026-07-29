@@ -106,3 +106,40 @@ def test_account_identity_is_unique(api, first, second):
     duplicate = client.post("/api/accounts/", json={**BASE, **second})
     assert duplicate.status_code == 409
     assert "already used" in duplicate.json()["detail"]
+
+
+def test_bank_account_subtype_controls_interest_rate(api):
+    client = api
+    checking = client.post("/api/accounts/", json={
+        **BASE,
+        "type": "bank",
+        "name": "Checking",
+        "iban": "TR650006200000000000000101",
+        "bank_subtype": "checking",
+        "interest_rate": 18.5,
+    })
+    assert checking.status_code == 201
+    assert checking.json()["bank_subtype"] == "checking"
+    assert checking.json()["interest_rate"] == pytest.approx(0)
+
+    missing_rate = client.post("/api/accounts/", json={
+        **BASE,
+        "type": "bank",
+        "name": "Deposit",
+        "iban": "TR650006200000000000000102",
+        "bank_subtype": "deposit",
+    })
+    assert missing_rate.status_code == 400
+    assert "Interest rate is required" in missing_rate.json()["detail"]
+
+    deposit = client.post("/api/accounts/", json={
+        **BASE,
+        "type": "bank",
+        "name": "Deposit",
+        "iban": "TR650006200000000000000103",
+        "bank_subtype": "deposit",
+        "interest_rate": 42.25,
+    })
+    assert deposit.status_code == 201
+    assert deposit.json()["bank_subtype"] == "deposit"
+    assert deposit.json()["interest_rate"] == pytest.approx(42.25)

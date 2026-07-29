@@ -7,6 +7,11 @@
   const DateInput = window.DateInput;
   const { ACCOUNT_TYPES, CC_TYPES, DEBIT_TYPES, FINANCIAL_INSTITUTIONS, FX } = window.ACCOUNTS_DATA;
   const { maskCardNumber, cleanIban, cleanAccountNo, cleanCardNo } = window.HL_ACCOUNTS_API;
+  const BANK_SUBTYPES = [
+    { key: 'checking', label: 'Checking Account' },
+    { key: 'deposit', label: 'Deposit Account' },
+    { key: 'overnight', label: 'Overnight Account' },
+  ];
   function displayNumber(account) {
     return (account.type === 'credit' || account.type === 'debit') ? maskCardNumber(account.number) : account.number;
   }
@@ -162,6 +167,47 @@
       value={focused ? raw : fmtCurrency(value, currency)}
       onFocus={handleFocus} onChange={handleChange} onBlur={handleBlur} />);
 
+  }
+
+  function parseInterestInput(raw) {
+    if (raw === '' || raw == null) return '';
+    const text = String(raw).trim();
+    const cleaned = text.includes(',')
+      ? text.replace(/\./g, '').replace(',', '.')
+      : text;
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? '' : String(num);
+  }
+
+  function fmtInterestRate(value) {
+    const parsed = parseInterestInput(value);
+    const num = parsed === '' ? 0 : parseFloat(parsed);
+    return num.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  function InterestRateInput({ id, value, disabled, onChange }) {
+    const [focused, setFocused] = React.useState(false);
+    const [raw, setRaw] = React.useState(value || '');
+    React.useEffect(() => { if (!focused) setRaw(value || ''); }, [value, focused]);
+    function handleChange(e) {
+      setRaw(e.target.value);
+      onChange(parseInterestInput(e.target.value));
+    }
+    function handleBlur() {
+      setFocused(false);
+      const parsed = parseInterestInput(raw);
+      setRaw(parsed);
+      onChange(parsed);
+    }
+    return (
+      <input id={id} className="field-input" type="text" inputMode="decimal"
+        placeholder="0,0"
+        value={disabled ? fmtInterestRate(0) : (focused ? raw : fmtInterestRate(value))}
+        disabled={disabled}
+        onFocus={() => { setFocused(true); setRaw(value || ''); }}
+        onChange={handleChange}
+        onBlur={handleBlur} />
+    );
   }
 
   function CurrencyAmountField({ id, value, currency, onAmount, onCurrency }) {
@@ -397,6 +443,18 @@
                 <span className="detail-info-k">Currency</span>
                 <span className="detail-info-v">{account.cur}</span>
               </div>
+              {account.type === 'bank' &&
+              <div className="detail-info-item">
+                  <span className="detail-info-k">Bank Account Type</span>
+                  <span className="detail-info-v">{(BANK_SUBTYPES.find(x => x.key === account.bankSubtype) || BANK_SUBTYPES[0]).label}</span>
+                </div>
+              }
+              {account.type === 'bank' && (account.bankSubtype || 'checking') !== 'checking' &&
+              <div className="detail-info-item">
+                  <span className="detail-info-k">Interest Rate (%)</span>
+                  <span className="detail-info-v">{fmtInterestRate(account.interestRate || 0)}</span>
+                </div>
+              }
               {(isCredit || isOverdraft) && account.limit > 0 &&
               <div className="detail-info-item">
                   <span className="detail-info-k">{isOverdraft ? 'Overdraft Limit' : 'Credit Limit'}</span>
@@ -534,6 +592,8 @@
       showInPaymentMethod: initial.showInPaymentMethod || false,
       limit: initial.limit != null ? String(initial.limit) : '',
       iban: cleanIban(initial.iban),   // a legacy spaced IBAN normalizes on open
+      bankSubtype: initial.bankSubtype || 'checking',
+      interestRate: initial.interestRate != null ? String(initial.interestRate) : '',
       ccType: initial.ccType || (ccOptions[0] && ccOptions[0].key) || 'visa',
       isPrepaid: initial.isPrepaid || false,
       debitType: initial.debitType || (debitOptions[0] && debitOptions[0].key) || 'electron',
@@ -562,6 +622,7 @@
     // Cards keep their masked number ("4870 **** **** 1011"); every other type's
     // number is digits only.
     const isCard = isCredit || f.type === 'debit';
+    const isBank = f.type === 'bank';
     const isCash = f.type === 'cash';
     const isPension = f.type === 'pension';
     // Other credit-card accounts that a supplementary/virtual card can hang off of
@@ -577,6 +638,9 @@
       ];
       if (f.type === 'bank' || f.type === 'overdraft') {
         required.push({ key: 'iban', label: 'IBAN', ok: !!cleanBankIban });
+      }
+      if (isBank && f.bankSubtype !== 'checking') {
+        required.push({ key: 'interestRate', label: 'Interest Rate', ok: parseInterestInput(f.interestRate) !== '' });
       }
       if (isCard) {
         required.push({ key: 'number', label: 'Card Number', ok: !!cleanNumber });
@@ -599,6 +663,8 @@
         primary: f.primary,
         showInPaymentMethod: f.showInPaymentMethod,
         iban: cleanBankIban || null,
+        bankSubtype: isBank ? f.bankSubtype : undefined,
+        interestRate: isBank ? (f.bankSubtype === 'checking' ? 0 : parseFloat(parseInterestInput(f.interestRate)) || 0) : undefined,
         ccType: f.ccType || 'visa',
         isPrepaid: isCredit ? !!f.isPrepaid : false,
         debitType: f.debitType || 'visa',
@@ -941,6 +1007,26 @@
 
             {f.type === 'bank' &&
             <React.Fragment>
+              <div className="form-grid">
+                <div className="form-field">
+                  <span className="field-label">Bank Account Type</span>
+                  <StyledSelect id="acct-form-bank-subtype-select" className="field-input" value={f.bankSubtype} onChange={(e) => {
+                    if (onClearError) onClearError();
+                    if (formErr) { setFormErr(''); setInvalid({}); }
+                    const v = e.target.value;
+                    setF((p) => ({ ...p, bankSubtype: v, interestRate: v === 'checking' ? '0' : p.interestRate }));
+                  }}>
+                    {BANK_SUBTYPES.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
+                  </StyledSelect>
+                </div>
+                <div className={"form-field" + (invalid.interestRate ? ' field-invalid' : '')}>
+                  <span className="field-label">Interest Rate (%){f.bankSubtype !== 'checking' && <span className="field-required-mark">*</span>}</span>
+                  <InterestRateInput id="acct-form-interest-rate-input"
+                    value={f.bankSubtype === 'checking' ? '0' : f.interestRate}
+                    disabled={f.bankSubtype === 'checking'}
+                    onChange={(v) => set('interestRate', v)} />
+                </div>
+              </div>
               <div className={"form-field full" + (invalid.iban ? ' field-invalid' : '')}>
                 <span className="field-label">IBAN<span className="field-required-mark">*</span></span>
                 {/* No maxLength: it would clip a PASTED spaced IBAN at 26 raw

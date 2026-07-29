@@ -534,6 +534,8 @@ class AccountCreate(BaseModel):
     credit_limit: Optional[float] = None
     iban: Optional[str] = None
     linked_key: Optional[str] = None
+    bank_subtype: Optional[str] = None
+    interest_rate: Optional[float] = None
     cc_type: Optional[str] = None
     is_prepaid: bool = False
     debit_type: Optional[str] = None
@@ -558,6 +560,8 @@ class AccountUpdate(BaseModel):
     credit_limit: Optional[float] = None
     iban: Optional[str] = None
     linked_key: Optional[str] = None
+    bank_subtype: Optional[str] = None
+    interest_rate: Optional[float] = None
     cc_type: Optional[str] = None
     is_prepaid: Optional[bool] = None
     debit_type: Optional[str] = None

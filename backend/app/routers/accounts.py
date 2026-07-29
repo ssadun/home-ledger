@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Account, Asset, AssetValuation, CreditPayment, Investment, InvestmentHolding, Statement, Transaction, User
@@ -11,6 +11,9 @@ from app.services.auth import get_current_user
 from app.services.assets import sync_account_domain
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
+
+
+BANK_SUBTYPES = {"checking", "deposit", "overnight"}
 
 
 # ── Per-type account identity ─────────────────────────────────────────────────
@@ -128,6 +131,46 @@ def _normalize_identity(data: dict, acc_type: str) -> dict:
     if "number" in data:
         data["number"] = _clean_number(data["number"], acc_type)
     return data
+
+
+def _normalize_bank_fields(data: dict, acc_type: str) -> dict:
+    if (acc_type or "") != "bank":
+        data["bank_subtype"] = None
+        data["interest_rate"] = None
+        return data
+    subtype = (data.get("bank_subtype") or "checking").strip().lower()
+    if subtype not in BANK_SUBTYPES:
+        raise HTTPException(400, "Unsupported bank account type.")
+    data["bank_subtype"] = subtype
+    if subtype == "checking":
+        data["interest_rate"] = 0.0
+        return data
+    rate = data.get("interest_rate")
+    if rate is None or rate == "":
+        raise HTTPException(400, "Interest rate is required for this bank account type.")
+    try:
+        data["interest_rate"] = float(rate)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Interest rate must be a number.")
+    if data["interest_rate"] < 0:
+        raise HTTPException(400, "Interest rate cannot be negative.")
+    return data
+
+
+def ensure_account_bank_columns(db: Session) -> None:
+    """Existing SQLite DBs need new account-bank fields added explicitly."""
+    cols = {row[1] for row in db.execute(text("PRAGMA table_info(accounts)")).fetchall()}
+    changed = False
+    if "bank_subtype" not in cols:
+        db.execute(text("ALTER TABLE accounts ADD COLUMN bank_subtype VARCHAR DEFAULT 'checking'"))
+        changed = True
+    if "interest_rate" not in cols:
+        db.execute(text("ALTER TABLE accounts ADD COLUMN interest_rate FLOAT DEFAULT 0"))
+        changed = True
+    if changed:
+        db.execute(text("UPDATE accounts SET bank_subtype = 'checking' WHERE type = 'bank' AND (bank_subtype IS NULL OR bank_subtype = '')"))
+        db.execute(text("UPDATE accounts SET interest_rate = 0 WHERE type = 'bank' AND interest_rate IS NULL"))
+        db.commit()
 
 
 def _assert_required_identity(acc_type: str, values: dict):
@@ -349,6 +392,7 @@ def create_account(
     current_user: User = Depends(get_current_user),
 ):
     data = _normalize_identity(payload.model_dump(), payload.type)
+    _normalize_bank_fields(data, data.get("type"))
     _assert_required_identity(data.get("type"), data)
     _assert_unique_identity(db, current_user.id, data.get("type"), data)
     acc = Account(**data, owner_id=current_user.id)
@@ -379,6 +423,12 @@ def update_account(
     # changing in this same request, and an unsent field keeps its current value.
     new_type = data.get("type", acc.type)
     _normalize_identity(data, new_type)
+    merged_bank = {
+        f: data.get(f, getattr(acc, f))
+        for f in ("bank_subtype", "interest_rate")
+    }
+    _normalize_bank_fields(merged_bank, new_type)
+    data.update(merged_bank)
     merged = {f: data.get(f, getattr(acc, f)) for f in ("name", "institution", "iban", "number")}
     _assert_required_identity(new_type, merged)
     _assert_unique_identity(db, current_user.id, new_type, merged, exclude_id=acc.id)

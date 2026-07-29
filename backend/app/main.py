@@ -30,6 +30,7 @@ from app.routers.institutions import (
 from app.services.assets import backfill_asset_domain
 _seed_db = SessionLocal()
 try:
+    accounts.ensure_account_bank_columns(_seed_db)
     ensure_show_in_recurring_column(_seed_db)
     seed_default_categories(_seed_db)
     # Backfill categories added after the initial seed (idempotent on existing DBs).

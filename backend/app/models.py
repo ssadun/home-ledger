@@ -338,6 +338,10 @@ class Account(Base):
     iban = Column(String)
     linked_key = Column(String)                 # account_key of a linked account (debit→bank, overdraft→bank)
 
+    # Bank-account-specific
+    bank_subtype = Column(String, default="checking")  # checking | deposit | overnight
+    interest_rate = Column(Float, default=0.0)         # annual percent, 0 for checking
+
     # Card-specific (credit / debit)
     cc_type = Column(String)                    # visa | mastercard | troy
     # Prepaid card: loaded with funds rather than backed by a credit line, so `balance`

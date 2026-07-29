@@ -23,6 +23,8 @@
 .holdings-empty{margin-top:20px}
 @media (max-width:660px){
   .page-title{font-size:18px;letter-spacing:0}
+  .page-head:has(.holdings-filter-bar) .page-head-top{flex-wrap:nowrap;align-items:center}
+  .page-head:has(.holdings-filter-bar) .cfg-detail-head-left{flex:1;min-width:0}
   .holdings-filter-bar .export-tools{display:flex}
   .holdings-card-row{grid-template-columns:34px minmax(0,1fr) max-content}
   .holdings-card-end{align-items:flex-end}

@@ -67,6 +67,8 @@
       limit: row.credit_limit != null ? row.credit_limit : undefined,
       iban: cleanIban(row.iban) || null,   // legacy rows may still carry spacing
       linked: row.linked_key || undefined,
+      bankSubtype: row.bank_subtype || (row.type === 'bank' ? 'checking' : undefined),
+      interestRate: row.interest_rate != null ? row.interest_rate : undefined,
       ccType: row.cc_type || undefined,
       isPrepaid: !!row.is_prepaid,
       debitType: row.debit_type || undefined,
@@ -94,6 +96,8 @@
       credit_limit: item.limit ? Number(item.limit) : null,   // empty/0 → null, never a stray 0
       iban: cleanIban(item.iban) || null,
       linked_key: item.linked || null,
+      bank_subtype: item.type === 'bank' ? (item.bankSubtype || 'checking') : null,
+      interest_rate: item.type === 'bank' ? Number(item.interestRate || 0) : null,
       cc_type: item.ccType || null,
       is_prepaid: !!item.isPrepaid,
       debit_type: item.debitType || null,

@@ -179,6 +179,7 @@
   .cfg-table.resizable td[data-label="Role"],
   .cfg-table.resizable td[data-label="Rate → TRY"],
   .cfg-table.resizable td[data-label="Kind"],
+  .cfg-table.resizable td[data-label="Side"],
   .cfg-table.resizable td[data-label="Color"],
   .cfg-table.resizable td[data-label="Category"]{grid-column:3 / 5;grid-row:1;justify-content:flex-end;font-weight:600}
   .cfg-table.resizable td[data-label="Color"]{min-width:18px}
@@ -202,6 +203,10 @@
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Status"]{grid-column:3}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Payer Visibility"]{grid-column:4}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Kind"]) td[data-label="Color"]{display:none}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Kind"]) td[data-label="Recurring"]{
+           grid-column:3 / 5;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Side"]) td[data-label="Color"]{
+           display:flex;grid-column:3 / 5;grid-row:2;justify-content:flex-end}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Username"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Date"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="SWIFT / BIC"],
@@ -220,6 +225,14 @@
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Kind"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Color"]{
            grid-row:1;align-self:center}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Recurring"]) td[data-label="Icon"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Recurring"]) td[data-label="Label"]{
+           grid-row:1 / span 2;align-self:center}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Icon"],
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Label"]{
+           grid-row:1 / span 2;align-self:center}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Color"]{
+           display:flex;grid-column:3 / 5;grid-row:2;justify-content:flex-end}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
            grid-template-rows:auto}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Statement Tag"],
@@ -248,6 +261,7 @@
   .cfg-table.resizable.selectable td[data-label="Role"],
   .cfg-table.resizable.selectable td[data-label="Rate → TRY"],
   .cfg-table.resizable.selectable td[data-label="Kind"],
+  .cfg-table.resizable.selectable td[data-label="Side"],
   .cfg-table.resizable.selectable td[data-label="Color"],
   .cfg-table.resizable.selectable td[data-label="Category"]{grid-column:4 / 6}
   .cfg-table.resizable.selectable td[data-label="Username"],
@@ -270,6 +284,16 @@
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Kind"],
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):not(:has(td[data-label="Username"])) td[data-label="Color"]{
            grid-row:1;align-self:center}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Recurring"]) td.td-select,
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Recurring"]) td[data-label="Icon"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Recurring"]) td[data-label="Label"]{
+           grid-row:1 / span 2;align-self:center}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td.td-select,
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Icon"],
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Label"]{
+           grid-row:1 / span 2;align-self:center}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Color"]{
+           display:flex;grid-column:4 / 6;grid-row:2;justify-content:flex-end}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
            grid-template-rows:auto}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td.td-select,
@@ -278,6 +302,10 @@
            grid-row:1;align-self:center}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Status"]{grid-column:4;grid-row:2}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Payer Visibility"]) td[data-label="Payer Visibility"]{grid-column:5;grid-row:2}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Kind"]) td[data-label="Recurring"]{
+           grid-column:4 / 6;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Side"]) td[data-label="Color"]{
+           display:flex;grid-column:4 / 6;grid-row:2;justify-content:flex-end}
   .cfg-table.selectable tbody tr.cfg-row.row-selected{
            border-color:color-mix(in srgb, var(--accent) 60%, var(--border));
            background:color-mix(in srgb, var(--accent) 10%, var(--bg2))}
