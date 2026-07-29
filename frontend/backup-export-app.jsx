@@ -3,7 +3,7 @@
 // A system-wide export hub living in the Configuration submenu. Lets the user:
 //   • tick which tables to include (per-table checkboxes + Select All)
 //   • scope the transaction tables to All Time / a Year / a Date Range
-//   • download one CSV per selected table, OR a single JSON backup snapshot
+//   • download one CSV per selected table, OR a single JSON backup file
 // Reuses window.HL_EXPORT (CSV helper) + the shared dark-theme component classes.
 (function () {
   const Icon = window.Icon;

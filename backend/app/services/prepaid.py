@@ -96,7 +96,7 @@ def charge_in_card_currency(
     return _convert(db, amount, currency, card_cur)
 
 
-def snapshot(tx) -> SimpleNamespace:
+def transaction_state(tx) -> SimpleNamespace:
     """Copy the fields that determine a transaction's prepaid charge, so an update can
     undo the pre-image after the transaction has already been mutated in place."""
     return SimpleNamespace(
@@ -112,7 +112,7 @@ def snapshot(tx) -> SimpleNamespace:
 def apply_transaction(db: Session, owner_id: int, tx, direction: int = 1) -> Optional[Account]:
     """Fold a transaction's effect into its prepaid card's balance; pass
     ``direction=-1`` to undo it. No-op when the payment method isn't a prepaid card.
-    Accepts a ``Transaction`` or a :func:`snapshot` of one. The caller commits."""
+    Accepts a ``Transaction`` or a :func:`transaction_state` of one. The caller commits."""
     account = find_prepaid_account(db, owner_id, tx.payment_method)
     if account is None:
         return None

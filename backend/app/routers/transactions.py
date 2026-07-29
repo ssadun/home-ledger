@@ -9,7 +9,7 @@ from app.models import Transaction, ExchangeRate, User
 from app.schemas import TransactionCreate, TransactionOut, TransactionUpdate
 from app.services.auth import get_current_user
 from app.services.ocr import save_upload, extract_text_from_image, parse_receipt
-from app.services.prepaid import apply_transaction as apply_prepaid, snapshot as prepaid_snapshot
+from app.services.prepaid import apply_transaction as apply_prepaid, transaction_state as prepaid_transaction_state
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -115,7 +115,7 @@ def update_transaction(
     # Capture the pre-image before the in-place mutation: the card, amount, currency or
     # direction may all change, so the old prepaid effect has to be undone from the old
     # values and the new one applied from the new ones.
-    before = prepaid_snapshot(tx)
+    before = prepaid_transaction_state(tx)
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(tx, field, value)
     _apply_rates(tx, db)

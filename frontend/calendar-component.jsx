@@ -21,7 +21,7 @@
   // Combined balance across every account (bank, credit, debit, cash, wallet,
   // investment) converted to TRY. Credit-card balances arrive negative
   // (negative balances), so the sum nets to the household's current total worth.
-  // Snapshot of live balances — not tied to the visible calendar month.
+  // Live balances — not tied to the visible calendar month.
   function accountsTotalTRY() {
     return accountsList().reduce((sum, a) => {
       const fx = FX && FX[a.cur];
