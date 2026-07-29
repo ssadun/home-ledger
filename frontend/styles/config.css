@@ -206,7 +206,9 @@
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Kind"]) td[data-label="Recurring"]{
            grid-column:3 / 5;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Side"]) td[data-label="Color"]{
-           display:flex;grid-column:3 / 5;grid-row:2;justify-content:flex-end}
+           display:flex;grid-column:3 / 5;grid-row:1;justify-content:flex-end}
+  .cfg-table.resizable tr.cfg-row:has(td[data-label="Side"]) td[data-label="Side"]{
+           grid-column:3 / 5;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Username"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="Date"],
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]) td[data-label="SWIFT / BIC"],
@@ -232,7 +234,7 @@
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Label"]{
            grid-row:1 / span 2;align-self:center}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Color"]{
-           display:flex;grid-column:3 / 5;grid-row:2;justify-content:flex-end}
+           display:flex;grid-column:3 / 5;grid-row:1;justify-content:flex-end}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
            grid-template-rows:auto}
   .cfg-table.resizable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Statement Tag"],
@@ -293,7 +295,7 @@
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Label"]{
            grid-row:1 / span 2;align-self:center}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Icon"]):has(td[data-label="Side"]) td[data-label="Color"]{
-           display:flex;grid-column:4 / 6;grid-row:2;justify-content:flex-end}
+           display:flex;grid-column:4 / 6;grid-row:1;justify-content:flex-end}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
            grid-template-rows:auto}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td.td-select,
@@ -305,7 +307,9 @@
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Kind"]) td[data-label="Recurring"]{
            grid-column:4 / 6;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Side"]) td[data-label="Color"]{
-           display:flex;grid-column:4 / 6;grid-row:2;justify-content:flex-end}
+           display:flex;grid-column:4 / 6;grid-row:1;justify-content:flex-end}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Side"]) td[data-label="Side"]{
+           grid-column:4 / 6;grid-row:2;justify-content:flex-end;font-size:11px;color:var(--muted)}
   .cfg-table.selectable tbody tr.cfg-row.row-selected{
            border-color:color-mix(in srgb, var(--accent) 60%, var(--border));
            background:color-mix(in srgb, var(--accent) 10%, var(--bg2))}

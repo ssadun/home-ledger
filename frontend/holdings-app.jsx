@@ -151,7 +151,7 @@
               <div className="page-title-wrap cfg-detail-title-wrap">
                 <div className="cfg-title-col">
                   <h1 className="page-title">Holdings</h1>
-                  <p className="page-subtitle">Stocks, funds, cash positions, and pension funds by investment account</p>
+                  <p className="page-subtitle">Holdings by investment account</p>
                 </div>
               </div>
             </div>
