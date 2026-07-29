@@ -295,12 +295,12 @@
   function DashboardAssetMiniRow({ item }) {
     const metaMap = ASSET_DOMAIN ? ASSET_DOMAIN.ASSET_TYPES : {};
     const m = assetDomainMeta(metaMap, item.type);
-    const snap = item.latest;
+    const latest = item.latest;
     return (
       <div className="asset-mini-row">
         <span className="asset-card-icon" style={{ '--asset-color': m.color }}><Icon name={m.icon} size={14} /></span>
         <span className="asset-mini-main"><b>{item.name}</b><small>{m.label}{item.institution ? ' - ' + item.institution : ''}</small></span>
-        <span className="asset-mini-val income">{snap ? assetDomainMoney(snap.tryValue, 'TRY') : 'No snapshot'}</span>
+        <span className="asset-mini-val income">{latest ? assetDomainMoney(latest.tryValue, 'TRY') : 'No value'}</span>
       </div>
     );
   }
@@ -309,8 +309,8 @@
     const assetValue = assets.reduce((s, a) => s + (a.latest ? a.latest.tryValue * (a.ownership || 100) / 100 : 0), 0);
     const cards = [
       { label: 'Assets', icon: 'trending-up', cls: 'income', val: assetDomainMoney(summary?.assets_try ?? assetValue, 'TRY'), sub: (summary?.assets_count ?? assets.length) + ' records' },
-      { label: 'Net Worth', icon: 'scale', cls: 'net', val: assetDomainMoney(summary?.net_worth_try ?? assetValue, 'TRY'), sub: 'Included snapshots' },
-      { label: 'Needs Update', icon: 'alert-triangle', cls: (summary?.missing_asset_valuations || 0) ? 'expense' : 'count', val: String(summary?.missing_asset_valuations || 0), sub: 'missing snapshots' },
+      { label: 'Net Worth', icon: 'scale', cls: 'net', val: assetDomainMoney(summary?.net_worth_try ?? assetValue, 'TRY'), sub: 'Included values' },
+      { label: 'Needs Update', icon: 'alert-triangle', cls: (summary?.missing_asset_valuations || 0) ? 'expense' : 'count', val: String(summary?.missing_asset_valuations || 0), sub: 'missing values' },
     ];
     const valuedAssets = assets.filter(a => a.latest).sort((a, b) => b.latest.tryValue - a.latest.tryValue).slice(0, 8);
     const staleAssets = assets.filter(a => !a.latest).slice(0, 6);

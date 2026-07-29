@@ -1970,12 +1970,12 @@ def import_investments(
     içe aktarıldığında portföy çift kayıt üretmez.
 
     replace=True ise, bu platformun listede OLMAYAN kayıtları silinir. BES fon
-    dağılımı eksiksiz bir anlık görüntüdür: bir sonraki ekstrede kaldırılan bir fon
+    dağılımı eksiksiz dönem verisidir: bir sonraki ekstrede kaldırılan bir fon
     ortalıkta kalırsa fonların toplamı hesap bakiyesini tutmaz. Midas yolu bunu
     kullanmaz (varsayılan False) — orada ekstre tüm portföyü içermeyebilir.
     """
     from app.models import Investment as Inv
-    from app.services.assets import delete_investment_holding, snapshot_asset_from_holdings, sync_investment_holding
+    from app.services.assets import delete_investment_holding, record_asset_valuation_from_holdings, sync_investment_holding
 
     created = 0
     updated = 0
@@ -2063,7 +2063,7 @@ def import_investments(
     for asset_id in asset_ids:
         asset = db.query(Asset).filter(Asset.id == asset_id).first()
         if asset:
-            snapshot_asset_from_holdings(db, asset)
+            record_asset_valuation_from_holdings(db, asset)
 
     db.commit()
     return {"created": created, "updated": updated, "removed": removed, "errors": errors}
@@ -2081,10 +2081,10 @@ def import_pension(
     Hesap, sözleşme numarasıyla eşleştirilir (aynı sözleşmenin her ay yeniden içe
     aktarılması yeni hesap açmaz, mevcut olanı günceller). Fonlar platform ==
     hesap adı ile bağlanır — Midas holdings ile aynı mekanizma — ve replace=True
-    ile yazılır, çünkü fon dağılımı eksiksiz bir anlık görüntüdür.
+    ile yazılır, çünkü fon dağılımı eksiksiz dönem verisidir.
     """
     from app.models import Account
-    from app.services.assets import ensure_asset_for_account, snapshot_asset_from_account
+    from app.services.assets import ensure_asset_for_account, record_asset_valuation_from_account
 
     contract = (pension.get("contract_no") or "").strip()
     if not contract:
@@ -2141,7 +2141,7 @@ def import_pension(
     db.refresh(acc)
     asset = ensure_asset_for_account(db, acc)
     if asset:
-        snapshot_asset_from_account(db, acc)
+        record_asset_valuation_from_account(db, acc)
     db.commit()
 
     inv_rows = [

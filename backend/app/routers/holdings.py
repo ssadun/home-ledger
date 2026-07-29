@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Account, Asset, Investment, InvestmentHolding, User
 from app.schemas import InvestmentHoldingCreate, InvestmentHoldingOut, InvestmentHoldingUpdate
-from app.services.assets import snapshot_asset_from_holdings
+from app.services.assets import record_asset_valuation_from_holdings
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/holdings", tags=["holdings"])
@@ -74,7 +74,7 @@ def create_holding(payload: InvestmentHoldingCreate, db: Session = Depends(get_d
     row = InvestmentHolding(**payload.model_dump(), owner_id=current_user.id)
     db.add(row)
     db.flush()
-    snapshot_asset_from_holdings(db, db.query(Asset).filter(Asset.id == row.asset_id).first())
+    record_asset_valuation_from_holdings(db, db.query(Asset).filter(Asset.id == row.asset_id).first())
     db.commit()
     db.refresh(row)
     return row
@@ -97,7 +97,7 @@ def update_holding(holding_id: int, payload: InvestmentHoldingUpdate, db: Sessio
     for aid in {old_asset_id, row.asset_id}:
         asset = db.query(Asset).filter(Asset.id == aid, Asset.owner_id == current_user.id).first()
         if asset:
-            snapshot_asset_from_holdings(db, asset)
+            record_asset_valuation_from_holdings(db, asset)
     db.commit()
     db.refresh(row)
     return row
@@ -111,5 +111,5 @@ def delete_holding(holding_id: int, db: Session = Depends(get_db), current_user:
     db.flush()
     asset = db.query(Asset).filter(Asset.id == asset_id, Asset.owner_id == current_user.id).first()
     if asset:
-        snapshot_asset_from_holdings(db, asset)
+        record_asset_valuation_from_holdings(db, asset)
     db.commit()

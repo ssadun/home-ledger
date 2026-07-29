@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Account, Asset, AssetValuation, InvestmentHolding, User
 from app.schemas import AssetCreate, AssetOut, AssetUpdate, AssetValuationCreate, AssetValuationOut, AssetWithLatest
-from app.services.assets import amount_to_try, latest_asset_valuation, rate_to_try, snapshot_asset_from_holdings
+from app.services.assets import amount_to_try, latest_asset_valuation, normalize_asset_type, rate_to_try, record_asset_valuation_from_holdings
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
@@ -36,16 +36,101 @@ def _with_latest(db: Session, asset: Asset) -> Asset:
     return asset
 
 
+def _physical_asset(db: Session, asset_id: int, owner_id: int) -> Asset:
+    asset = (
+        db.query(Asset)
+        .filter(
+            Asset.id == asset_id,
+            Asset.owner_id == owner_id,
+            Asset.type == "physical",
+            Asset.account_id.is_(None),
+        )
+        .first()
+    )
+    if not asset:
+        raise HTTPException(404, "Physical asset not found")
+    return asset
+
+
+def _physical_data(data: dict) -> dict:
+    if data.get("account_id") is not None:
+        raise HTTPException(422, "Physical assets cannot be linked to an account")
+    data["account_id"] = None
+    data["type"] = "physical"
+    data["valuation_mode"] = "manual"
+    return data
+
+
 @router.get("/", response_model=List[AssetWithLatest])
 def list_assets(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(Asset).filter(Asset.owner_id == current_user.id).order_by(Asset.name).all()
     return [_with_latest(db, row) for row in rows]
 
 
+@router.get("/physical", response_model=List[AssetWithLatest])
+def list_physical_assets(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rows = (
+        db.query(Asset)
+        .filter(
+            Asset.owner_id == current_user.id,
+            Asset.type == "physical",
+            Asset.account_id.is_(None),
+        )
+        .order_by(Asset.name)
+        .all()
+    )
+    return [_with_latest(db, row) for row in rows]
+
+
+@router.post("/physical", response_model=AssetOut, status_code=201)
+def create_physical_asset(payload: AssetCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    asset = Asset(**_physical_data(payload.model_dump()), owner_id=current_user.id)
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+@router.patch("/physical/{asset_id}", response_model=AssetOut)
+def update_physical_asset(asset_id: int, payload: AssetUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    asset = _physical_asset(db, asset_id, current_user.id)
+    data = _physical_data(payload.model_dump(exclude_unset=True))
+    for field, value in data.items():
+        setattr(asset, field, value)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+@router.delete("/physical/{asset_id}", status_code=204)
+def delete_physical_asset(asset_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    asset = _physical_asset(db, asset_id, current_user.id)
+    db.query(AssetValuation).filter(AssetValuation.asset_id == asset.id).delete(synchronize_session=False)
+    db.delete(asset)
+    db.commit()
+
+
+@router.post("/physical/{asset_id}/valuations", response_model=AssetValuationOut, status_code=201)
+def create_physical_valuation(asset_id: int, payload: AssetValuationCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    _physical_asset(db, asset_id, current_user.id)
+    data = payload.model_dump()
+    if data.get("exchange_rate_to_try") is None:
+        data["exchange_rate_to_try"] = rate_to_try(db, data["currency"], data["valued_at"])
+    if data.get("value_try") is None:
+        data["value_try"] = amount_to_try(db, data["value"], data["currency"], data["valued_at"])
+    row = AssetValuation(asset_id=asset_id, **data)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
 @router.post("/", response_model=AssetOut, status_code=201)
 def create_asset(payload: AssetCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     _validate_account(db, payload.account_id, current_user.id)
-    asset = Asset(**payload.model_dump(), owner_id=current_user.id)
+    data = payload.model_dump()
+    data["type"] = normalize_asset_type(data.get("type"))
+    asset = Asset(**data, owner_id=current_user.id)
     db.add(asset)
     db.commit()
     db.refresh(asset)
@@ -58,6 +143,8 @@ def update_asset(asset_id: int, payload: AssetUpdate, db: Session = Depends(get_
     data = payload.model_dump(exclude_unset=True)
     if "account_id" in data:
         _validate_account(db, data.get("account_id"), current_user.id, exclude_asset_id=asset.id)
+    if "type" in data:
+        data["type"] = normalize_asset_type(data.get("type"))
     for field, value in data.items():
         setattr(asset, field, value)
     db.commit()
@@ -100,9 +187,9 @@ def create_valuation(asset_id: int, payload: AssetValuationCreate, db: Session =
     return row
 
 
-@router.post("/{asset_id}/snapshot-holdings", response_model=AssetWithLatest)
-def snapshot_holdings(asset_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.post("/{asset_id}/refresh-holdings", response_model=AssetWithLatest)
+def refresh_holdings_valuation(asset_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     asset = _owned_asset(db, asset_id, current_user.id)
-    snapshot_asset_from_holdings(db, asset)
+    record_asset_valuation_from_holdings(db, asset)
     db.commit()
     return _with_latest(db, asset)

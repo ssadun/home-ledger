@@ -15,10 +15,29 @@ from app.models import (
 
 
 ASSET_ACCOUNT_TYPES = {"bank", "wallet", "cash", "invest", "pension"}
+LEGACY_ASSET_TYPE_MAP = {
+    "cash": "liquid",
+    "bank_account": "liquid",
+    "real_estate": "physical",
+    "vehicle": "physical",
+    "gold": "physical",
+    "precious_metals": "physical",
+    "collectible": "physical",
+    "crypto": "investment",
+    "business": "other",
+}
+ASSET_TYPES = {"liquid", "physical", "investment", "retirement", "other"}
 
 
 def _code(value) -> str:
     return getattr(value, "value", value) or "TRY"
+
+
+def normalize_asset_type(value: str | None) -> str:
+    key = (value or "").strip()
+    if key in ASSET_TYPES:
+        return key
+    return LEGACY_ASSET_TYPE_MAP.get(key, "other")
 
 
 def rate_to_try(db: Session, currency, as_of: date | None = None) -> float:
@@ -48,9 +67,9 @@ def amount_to_try(db: Session, amount: float, currency, as_of: date | None = Non
 
 def account_asset_type(acc: Account) -> str:
     return {
-        "bank": "bank_account",
-        "wallet": "cash",
-        "cash": "cash",
+        "bank": "liquid",
+        "wallet": "liquid",
+        "cash": "liquid",
         "invest": "investment",
         "pension": "retirement",
     }.get(acc.type or "", "other")
@@ -96,7 +115,7 @@ def ensure_asset_for_account(db: Session, acc: Account) -> Asset | None:
         db.add(asset)
         db.flush()
     asset.name = acc.name
-    asset.type = account_asset_type(acc)
+    asset.type = normalize_asset_type(account_asset_type(acc))
     asset.currency = acc.currency
     asset.institution = acc.institution
     asset.valuation_mode = account_valuation_mode(acc)
@@ -144,7 +163,7 @@ def ensure_asset_for_platform(db: Session, owner_id: int, platform: str | None) 
     return asset
 
 
-def snapshot_asset_from_account(db: Session, acc: Account, as_of: date | None = None) -> None:
+def record_asset_valuation_from_account(db: Session, acc: Account, as_of: date | None = None) -> None:
     asset = ensure_asset_for_account(db, acc)
     if not asset or asset.valuation_mode != "account_balance":
         return
@@ -167,7 +186,7 @@ def snapshot_asset_from_account(db: Session, acc: Account, as_of: date | None = 
 def sync_account_domain(db: Session, acc: Account) -> None:
     if (acc.type or "") in ASSET_ACCOUNT_TYPES:
         ensure_asset_for_account(db, acc)
-        snapshot_asset_from_account(db, acc)
+        record_asset_valuation_from_account(db, acc)
 
 
 def symbol_from_name(name: str | None) -> str | None:
@@ -214,7 +233,7 @@ def sync_investment_holding(db: Session, inv: Investment) -> InvestmentHolding:
     return holding
 
 
-def snapshot_asset_from_holdings(db: Session, asset: Asset, source: str = "holdings") -> None:
+def record_asset_valuation_from_holdings(db: Session, asset: Asset, source: str = "holdings") -> None:
     holdings = (
         db.query(InvestmentHolding)
         .filter(InvestmentHolding.asset_id == asset.id, InvestmentHolding.is_active == True)
@@ -261,5 +280,5 @@ def backfill_asset_domain(db: Session) -> None:
     for asset_id in asset_ids:
         asset = db.query(Asset).filter(Asset.id == asset_id).first()
         if asset:
-            snapshot_asset_from_holdings(db, asset)
+            record_asset_valuation_from_holdings(db, asset)
     db.commit()

@@ -64,7 +64,9 @@ def test_asset_crud_owner_scope_and_summary(api):
         "valuation_mode": "manual",
     })
     assert res.status_code == 201
-    asset_id = res.json()["id"]
+    body = res.json()
+    asset_id = body["id"]
+    assert body["type"] == "physical"
 
     res = client.post(f"/api/assets/{asset_id}/valuations", json={
         "value": 1000000,
@@ -110,6 +112,46 @@ def test_investments_dual_write_to_holdings(api):
     assert db.query(InvestmentHolding).filter(InvestmentHolding.legacy_investment_id == inv_id).first() is None
 
 
+def test_physical_assets_are_manual_and_not_investment_linked(api):
+    client, db, current, user1, user2 = api
+    investment = client.post("/api/investments/", json={
+        "name": "Midas Portfolio",
+        "platform": "Midas",
+        "asset_type": "stock",
+        "currency": "TRY",
+        "amount": 1000,
+    })
+    assert investment.status_code == 201
+    assert client.get("/api/assets/physical").json() == []
+
+    linked = client.post("/api/assets/physical", json={
+        "name": "Linked asset",
+        "account_id": 1,
+    })
+    assert linked.status_code == 422
+
+    physical = client.post("/api/assets/physical", json={
+        "name": "Kadikoy Flat",
+        "type": "investment",
+        "subtype": "house",
+        "currency": "TRY",
+    })
+    assert physical.status_code == 201
+    body = physical.json()
+    assert body["type"] == "physical"
+    assert body["account_id"] is None
+    assert body["valuation_mode"] == "manual"
+
+    valuation = client.post(f"/api/assets/physical/{body['id']}/valuations", json={
+        "value": 1000000,
+        "currency": "TRY",
+        "valued_at": "2026-07-29",
+        "source": "appraisal",
+    })
+    assert valuation.status_code == 201
+    assert client.get("/api/assets/physical").json()[0]["name"] == "Kadikoy Flat"
+
+
 def test_backfill_asset_domain_is_idempotent(api):
     client, db, current, user1, user2 = api
     acc = Account(
@@ -128,3 +170,4 @@ def test_backfill_asset_domain_is_idempotent(api):
 
     assert db.query(Asset).filter(Asset.account_id == acc.id).count() == 1
     assert db.query(AssetValuation).join(Asset).filter(Asset.account_id == acc.id).count() == 1
+    assert db.query(Asset).filter(Asset.account_id == acc.id).first().type == "liquid"
