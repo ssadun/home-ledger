@@ -359,7 +359,7 @@ def _statement_mapping_category(etiket: str = "", description: str = "") -> Opti
             matched = bool(re.search(
                 rf"(?:^|\s){re.escape(rule_words)}(?:$|\s)", desc_words
             ))
-        elif len(key) <= 3:
+        elif len(key) <= 4:
             matched = key in desc_tokens
         else:
             # Long keys may sit inside one gateway-prefixed token, but must not
@@ -380,10 +380,13 @@ def _normalize_row(date: str, description: str, amount: float, balance=None, raw
     # description. Only sets the category; direction still follows the amount sign.
     if category_override is None:
         category_override = _statement_mapping_category(etiket, description)
-    # BANK-ACCOUNT statements only: a "Diğer"/"Other" line item is a miscellaneous
-    # transfer → Transfer (category wire-transfer). Scoped to account_type == "bank"
-    # because on CARD statements "Diğer" is a legitimate spending tag (tolls, etc.).
+    # Non-card statements default to Wire Transfer only after special rules and
+    # Statement Value Mapping have failed. Card statements keep their own fallback:
+    # unknown credit/debit expenses become Shopping below, while card income stays
+    # unclassified.
     if category_override is None and account_type == "bank" and _DIGER_RE.search(_fold(description)):
+        category_override = "wire-transfer"
+    if category_override is None and account_type and account_type not in {"credit", "debit"}:
         category_override = "wire-transfer"
     # Ordinary credit/debit-card expenses use Shopping only after special rules,
     # exact statement tags, and description keywords have all failed.
@@ -2349,6 +2352,12 @@ def import_transactions(
                 and account_type_by_ref.get(payment_method) in {"credit", "debit"}
             ):
                 category_key = "shopping"
+            if (
+                not category_key
+                and payment_method
+                and account_type_by_ref.get(payment_method) not in {None, "credit", "debit"}
+            ):
+                category_key = "wire-transfer"
 
             dedupe_key = (tx_date, round(amount, 2), tx_type)
             if skip_duplicates and dedupe_key in existing_keys:

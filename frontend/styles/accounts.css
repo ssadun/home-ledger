@@ -105,6 +105,11 @@
    masking asterisks all share one width and align uniformly ("4870 75** **** 1011"). */
 #acct-form-number-input{font-family:var(--font-mono, monospace);font-variant-numeric:tabular-nums;letter-spacing:.5px}
 
+/* Overnight bank accounts keep Bank Account Type, Interest Rate, and Tax Rate on
+   one row. This is intentionally scoped to Accounts because the shared .form-grid
+   is two-column everywhere else. */
+.acct-form-modal .form-grid.acct-bank-rate-grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:var(--form-control-row-w)}
+
 /* ── Activity list ── */
 .detail-activity{display:flex;flex-direction:column;gap:8px}
 .detail-activity-head{display:flex;align-items:center;justify-content:space-between;gap:12px}

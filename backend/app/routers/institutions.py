@@ -1,3 +1,5 @@
+import base64
+from pathlib import Path
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import inspect, text
@@ -37,6 +39,7 @@ DEFAULT_INSTITUTIONS = [
 # load ships the whole table to the browser. ~256 KB of base64 ≈ a 190 KB image,
 # far above what a 34px chip needs.
 MAX_LOGO_CHARS = 262_144
+_PLACEHOLDER_LOGO_PREFIX = "data:image/svg+xml;base64,PHN2Zy"
 
 
 def seed_default_institutions(db: Session) -> None:
@@ -63,6 +66,29 @@ def ensure_institution(db: Session, key: str, name: str, swift: str = None, shor
         swift=swift or None,
         is_default=True,
     ))
+    db.commit()
+
+
+def ensure_institution_logo_from_file(db: Session, key: str, relative_path: str, mime: str) -> None:
+    """Replace only missing/known placeholder logos with a bundled default image."""
+    row = db.query(FinancialInstitution).filter(FinancialInstitution.key == key).first()
+    if not row:
+        return
+    current = row.logo or ""
+    # Preserve user-uploaded logos. The old broken Garanti logo is a tiny inline
+    # SVG placeholder; restrict this repair to blank logos or that legacy shape.
+    if current and not (current.startswith(_PLACEHOLDER_LOGO_PREFIX) and len(current) <= 512):
+        return
+    here = Path(__file__).resolve()
+    logo_path = next(
+        (parent / relative_path for parent in here.parents if (parent / relative_path).exists()),
+        None,
+    )
+    if not logo_path:
+        return
+    data_uri = f"data:{mime};base64," + base64.b64encode(logo_path.read_bytes()).decode("ascii")
+    _check_logo(data_uri)
+    row.logo = data_uri
     db.commit()
 
 

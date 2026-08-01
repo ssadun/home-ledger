@@ -345,6 +345,31 @@ class TestStatementMappingFallback:
         assert bank_import._statement_mapping_category(description="MOBİL:SBX İST") == "dining"
         assert bank_import._statement_mapping_category(description="ASBXSHOP") is None
 
+    def test_four_letter_keyword_requires_token_boundary(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "unlu", "category_key": "bakery",
+             "match_scope": "description", "priority": 200, "mapping_id": 1},
+        ])
+        assert bank_import._statement_mapping_category(description="UNLU MAMULLER") == "bakery"
+        assert bank_import._statement_mapping_category(description="KAZANDIRAN GÜNLÜK HESAP") is None
+
+    def test_non_card_unmatched_statement_defaults_to_wire_transfer(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "unlu", "category_key": "bakery",
+             "match_scope": "description", "priority": 200, "mapping_id": 1},
+        ])
+        row = bank_import._normalize_row(
+            "2026-07-26",
+            "Transfer İşlemleri - Kazandıran Günlük Hesap Vadeli Hesaba Giden",
+            -100,
+            account_type="bank",
+        )
+        assert row["category_key"] == "wire-transfer"
+
     @pytest.mark.parametrize("account_type", ["credit", "debit"])
     def test_unmatched_card_expense_defaults_to_shopping(self, monkeypatch, account_type):
         from app.services import bank_import
@@ -551,10 +576,10 @@ class TestGarantiAccountTRY:
         assert row["etiket"] == etiket
         assert row["category_key"] == category_key
 
-    def test_para_cekme_is_intentionally_unmapped(self, res):
+    def test_para_cekme_falls_back_to_wire_transfer(self, res):
         row = find_row(res["rows"], "ATM PARA ÇEKME")
         assert row["etiket"] == "Para Çekme"
-        assert row["category_key"] is None
+        assert row["category_key"] == "wire-transfer"
         assert row["type"] == "expense"
 
     def test_direction_still_follows_the_sign(self, res):

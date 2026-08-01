@@ -139,7 +139,42 @@ def test_bank_account_subtype_controls_interest_rate(api):
         "iban": "TR650006200000000000000103",
         "bank_subtype": "deposit",
         "interest_rate": 42.25,
+        "withholding_tax_rate": 15,
     })
     assert deposit.status_code == 201
     assert deposit.json()["bank_subtype"] == "deposit"
     assert deposit.json()["interest_rate"] == pytest.approx(42.25)
+    assert deposit.json()["withholding_tax_rate"] == pytest.approx(0)
+
+    missing_tax = client.post("/api/accounts/", json={
+        **BASE,
+        "type": "bank",
+        "name": "Overnight",
+        "iban": "TR650006200000000000000104",
+        "bank_subtype": "overnight",
+        "interest_rate": 41.5,
+    })
+    assert missing_tax.status_code == 400
+    assert "Withholding tax rate is required" in missing_tax.json()["detail"]
+
+    overnight = client.post("/api/accounts/", json={
+        **BASE,
+        "type": "bank",
+        "name": "Overnight",
+        "iban": "TR650006200000000000000105",
+        "bank_subtype": "overnight",
+        "interest_rate": 41.5,
+        "withholding_tax_rate": 15,
+    })
+    assert overnight.status_code == 201
+    assert overnight.json()["bank_subtype"] == "overnight"
+    assert overnight.json()["interest_rate"] == pytest.approx(41.5)
+    assert overnight.json()["withholding_tax_rate"] == pytest.approx(15)
+
+    updated = client.patch(f"/api/accounts/{overnight.json()['id']}", json={
+        "interest_rate": 43.0,
+        "withholding_tax_rate": 17.5,
+    })
+    assert updated.status_code == 200
+    assert updated.json()["interest_rate"] == pytest.approx(43.0)
+    assert updated.json()["withholding_tax_rate"] == pytest.approx(17.5)

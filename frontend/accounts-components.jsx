@@ -252,11 +252,18 @@
 
   }
 
+  function visibleAccountBalance(account) {
+    return window.HL_ACCOUNTS_API && window.HL_ACCOUNTS_API.effectiveBalance
+      ? window.HL_ACCOUNTS_API.effectiveBalance(account)
+      : Number(account && account.balance) || 0;
+  }
+
   // ── Account card ──
   function AccountCard({ account, onClick, flash }) {
     const t = ACCOUNT_TYPES[account.type];
     const isCredit = account.type === 'credit';
     const isPrepaid = isCredit && account.isPrepaid;
+    const displayBalance = visibleAccountBalance(account);
     return (
       <button id={'acct-card-' + account.id} className={'acct-card' + (isCredit ? ' is-credit' : '') + (flash ? ' acct-flash' : '')} onClick={() => onClick(account)}>
         <div className="acct-card-row">
@@ -285,10 +292,10 @@
           <div className="acct-card-end">
             {account.primary && <span className="acct-primary-tag"><Icon name="star" size={10} />Primary</span>}
             {isPrepaid && <span className="acct-prepaid-tag"><Icon name="wallet" size={10} />Prepaid</span>}
-            <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
+            <BalanceDisplay balance={displayBalance} cur={account.cur} size="large" />
           </div>
         </div>
-        {isCredit && !isPrepaid && account.limit > 0 && <UtilBar used={account.balance} limit={account.limit} />}
+        {isCredit && !isPrepaid && account.limit > 0 && <UtilBar used={displayBalance} limit={account.limit} />}
         {isCredit && !isPrepaid && (account.statementCutoff || account.paymentDue) && (() => {
           const dates = account.statementCutoff ? getCCDates(account.statementCutoff) : null;
           // Prefer the actual statement date (Son Ödeme Tarihi) when stored; else computed.
@@ -337,6 +344,7 @@
     const isBankOverdraft = account.type === 'bank' && account.bankSubtype === 'overdraft';
     const isInvest = account.type === 'invest';
     const isPension = account.type === 'pension';
+    const displayBalance = visibleAccountBalance(account);
 
     // Recent imported bank-account movements for this account (real data, across
     // all months). Credit-card activity lives on Credit Payments, not Account
@@ -428,10 +436,10 @@
           <div className="modal-body">
             <div className="detail-balance-hero">
               <span className="detail-bal-label">{isPrepaid ? 'Available Balance' : isCredit ? 'Outstanding Balance' : (isOverdraft || isBankOverdraft) ? 'Overdraft Balance' : isInvest ? 'Portfolio Value' : isPension ? 'Total Savings' : 'Current Balance'}</span>
-              <BalanceDisplay balance={account.balance} cur={account.cur} size="large" />
+              <BalanceDisplay balance={displayBalance} cur={account.cur} size="large" />
               {(isCredit || isOverdraft || isBankOverdraft) && !isPrepaid && account.limit > 0 &&
               <div style={{ width: '100%', marginTop: 8 }}>
-                  <UtilBar used={account.balance} limit={account.limit} />
+                  <UtilBar used={displayBalance} limit={account.limit} />
                 </div>
               }
             </div>
@@ -455,6 +463,12 @@
               <div className="detail-info-item">
                   <span className="detail-info-k">Interest Rate (%)</span>
                   <span className="detail-info-v">{fmtInterestRate(account.interestRate || 0)}</span>
+                </div>
+              }
+              {account.type === 'bank' && account.bankSubtype === 'overnight' &&
+              <div className="detail-info-item">
+                  <span className="detail-info-k">Tax Rate (%)</span>
+                  <span className="detail-info-v">{fmtInterestRate(account.withholdingTaxRate || 0)}</span>
                 </div>
               }
               {(isCredit || isOverdraft || isBankOverdraft) && account.limit > 0 &&
@@ -505,7 +519,7 @@
               {account.cur !== 'TRY' &&
               <div className="detail-info-item">
                   <span className="detail-info-k">TRY Equivalent</span>
-                  <span className="detail-info-v">₺{grp(account.balance * FX[account.cur].toTRY)}</span>
+                  <span className="detail-info-v">₺{grp(displayBalance * FX[account.cur].toTRY)}</span>
                 </div>
               }
             </div>
@@ -596,6 +610,7 @@
       iban: cleanIban(initial.iban),   // a legacy spaced IBAN normalizes on open
       bankSubtype: initial.bankSubtype || 'checking',
       interestRate: initial.interestRate != null ? String(initial.interestRate) : '',
+      withholdingTaxRate: initial.withholdingTaxRate != null ? String(initial.withholdingTaxRate) : '',
       ccType: initial.ccType || (ccOptions[0] && ccOptions[0].key) || 'visa',
       isPrepaid: initial.isPrepaid || false,
       debitType: initial.debitType || (debitOptions[0] && debitOptions[0].key) || 'electron',
@@ -645,6 +660,9 @@
       if (isBank && f.bankSubtype !== 'checking' && !isBankOverdraft) {
         required.push({ key: 'interestRate', label: 'Interest Rate', ok: parseInterestInput(f.interestRate) !== '' });
       }
+      if (isBank && f.bankSubtype === 'overnight') {
+        required.push({ key: 'withholdingTaxRate', label: 'Withholding Tax Rate', ok: parseInterestInput(f.withholdingTaxRate) !== '' });
+      }
       if (isBankOverdraft) {
         required.push({ key: 'limit', label: 'Overdraft Limit', ok: (parseFloat(f.limit) || 0) > 0 });
       }
@@ -671,6 +689,7 @@
         iban: cleanBankIban || null,
         bankSubtype: isBank ? f.bankSubtype : undefined,
         interestRate: isBank ? ((f.bankSubtype === 'checking' || isBankOverdraft) ? 0 : parseFloat(parseInterestInput(f.interestRate)) || 0) : undefined,
+        withholdingTaxRate: isBank && f.bankSubtype === 'overnight' ? parseFloat(parseInterestInput(f.withholdingTaxRate)) || 0 : undefined,
         ccType: f.ccType || 'visa',
         isPrepaid: isCredit ? !!f.isPrepaid : false,
         debitType: f.debitType || 'visa',
@@ -1013,14 +1032,19 @@
 
             {f.type === 'bank' &&
             <React.Fragment>
-              <div className="form-grid">
+              <div className={"form-grid" + (f.bankSubtype === 'overnight' ? ' acct-bank-rate-grid' : '')}>
                 <div className="form-field">
                   <span className="field-label">Bank Account Type</span>
                   <StyledSelect id="acct-form-bank-subtype-select" className="field-input" value={f.bankSubtype} onChange={(e) => {
                     if (onClearError) onClearError();
                     if (formErr) { setFormErr(''); setInvalid({}); }
                     const v = e.target.value;
-                    setF((p) => ({ ...p, bankSubtype: v, interestRate: (v === 'checking' || v === 'overdraft') ? '0' : p.interestRate }));
+                    setF((p) => ({
+                      ...p,
+                      bankSubtype: v,
+                      interestRate: (v === 'checking' || v === 'overdraft') ? '0' : p.interestRate,
+                      withholdingTaxRate: v === 'overnight' ? p.withholdingTaxRate : '0',
+                    }));
                   }}>
                     {BANK_SUBTYPES.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
                   </StyledSelect>
@@ -1030,6 +1054,21 @@
                   <span className="field-label">Overdraft Limit<span className="field-required-mark">*</span></span>
                   <CurrencyInput id="acct-form-limit-input" value={f.limit} currency={f.cur} placeholder={f.cur === 'TRY' ? 'örn. 50.000,00' : 'e.g. 50,000.00'} onChange={(v) => set('limit', v)} />
                 </div>
+                ) : f.bankSubtype === 'overnight' ? (
+                <React.Fragment>
+                <div className={"form-field" + (invalid.interestRate ? ' field-invalid' : '')}>
+                  <span className="field-label">Interest Rate (%)<span className="field-required-mark">*</span></span>
+                  <InterestRateInput id="acct-form-interest-rate-input"
+                    value={f.interestRate}
+                    onChange={(v) => set('interestRate', v)} />
+                </div>
+                <div className={"form-field" + (invalid.withholdingTaxRate ? ' field-invalid' : '')}>
+                  <span className="field-label">Tax Rate (%)<span className="field-required-mark">*</span></span>
+                  <InterestRateInput id="acct-form-withholding-tax-rate-input"
+                    value={f.withholdingTaxRate}
+                    onChange={(v) => set('withholdingTaxRate', v)} />
+                </div>
+                </React.Fragment>
                 ) : (
                 <div className={"form-field" + (invalid.interestRate ? ' field-invalid' : '')}>
                   <span className="field-label">Interest Rate (%){f.bankSubtype !== 'checking' && <span className="field-required-mark">*</span>}</span>
@@ -1184,7 +1223,10 @@
   function AccountsSummary({ accounts }) {
     let assets = 0,negativeBalances = 0;
     accounts.forEach((a) => {
-      const tryV = a.balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
+      const balance = window.HL_ACCOUNTS_API && window.HL_ACCOUNTS_API.effectiveBalance
+        ? window.HL_ACCOUNTS_API.effectiveBalance(a)
+        : a.balance;
+      const tryV = balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
       if (tryV >= 0) assets += tryV;else negativeBalances += Math.abs(tryV);
     });
     const net = assets - negativeBalances;

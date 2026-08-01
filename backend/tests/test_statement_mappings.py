@@ -106,7 +106,7 @@ def test_bonus_alias_backfill_groups_tags_and_separates_description_rules():
     db.close()
 
 
-def test_confirm_defaults_unmatched_owned_credit_and_debit_expenses_to_shopping():
+def test_confirm_defaults_unmatched_rows_by_account_type():
     _, db = _memory_session()
     user = User(email="cards@example.com", username="cards", hashed_password="x")
     db.add(user)
@@ -115,6 +115,7 @@ def test_confirm_defaults_unmatched_owned_credit_and_debit_expenses_to_shopping(
     db.add_all([
         Account(owner_id=user.id, account_key="credit-1", name="Bonus", type="credit", currency="TRY"),
         Account(owner_id=user.id, account_key="debit-1", name="Debit", type="debit", currency="TRY"),
+        Account(owner_id=user.id, account_key="bank-1", name="Checking", type="bank", currency="TRY"),
     ])
     db.commit()
 
@@ -125,11 +126,17 @@ def test_confirm_defaults_unmatched_owned_credit_and_debit_expenses_to_shopping(
          "type": "expense", "currency": "TRY", "payment_method": "debit-1"},
         {"date": "2026-07-03", "description": "UNKNOWN CARD REFUND", "amount": 30,
          "type": "income", "currency": "TRY", "payment_method": "credit-1"},
+        {"date": "2026-07-04", "description": "UNKNOWN BANK MOVEMENT", "amount": 40,
+         "type": "expense", "currency": "TRY", "payment_method": "bank-1"},
+        {"date": "2026-07-05", "description": "UNKNOWN BANK INCOME", "amount": 50,
+         "type": "income", "currency": "TRY", "payment_method": "bank-1"},
     ], skip_duplicates=False)
 
-    assert result["imported"] == 3
+    assert result["imported"] == 5
     rows = {row.description: row for row in db.query(Transaction).all()}
     assert rows["UNKNOWN CREDIT MERCHANT"].category_key == "shopping"
     assert rows["UNKNOWN DEBIT MERCHANT"].category_key == "shopping"
     assert rows["UNKNOWN CARD REFUND"].category_key is None
+    assert rows["UNKNOWN BANK MOVEMENT"].category_key == "wire-transfer"
+    assert rows["UNKNOWN BANK INCOME"].category_key == "wire-transfer"
     db.close()

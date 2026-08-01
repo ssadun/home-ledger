@@ -29,6 +29,7 @@ from app.routers.local_holidays import seed_default_local_holidays
 from app.routers.institutions import (
     seed_default_institutions,
     ensure_institution,
+    ensure_institution_logo_from_file,
     ensure_short_name_column,
     normalize_institution_names,
 )
@@ -58,6 +59,7 @@ try:
     ensure_institution(_seed_db, "garantiemek", "Garanti BBVA Emeklilik", short_name="Garanti Emek")
     ensure_institution(_seed_db, "teb", "TEB Türk Ekonomi Bankası", "TEBUTRIS", short_name="TEB")
     ensure_institution(_seed_db, "odea", "Odea Bank", "ODEATRIS", short_name="Odea")
+    ensure_institution_logo_from_file(_seed_db, "garanti", "import/banklogos/garanti.jpg", "image/jpeg")
     # Heal institution names padded with whitespace, which break the name-based
     # match from accounts.institution and duplicate the entry in the picker.
     normalize_institution_names(_seed_db)

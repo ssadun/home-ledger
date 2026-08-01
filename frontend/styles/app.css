@@ -517,7 +517,6 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
   .sp-head-actions .ha-overflow,.sub-head-actions .ha-overflow,.rec-head-actions .ha-overflow,
   .acct-head-actions .ha-overflow,.bgt-head-actions .ha-overflow,.dash-head-actions .ha-overflow,
   .cp-head-actions .ha-overflow,.st-head-actions .ha-overflow{display:none}
-  .page-head-top:has(.st-head-actions):has(#topbar-profile-host.hl-inflow){flex-wrap:wrap}
   /* App logo (lucide "pyramid") in place of the removed page-header-icon — mobile only.
      Anchored on every page title so it stays consistent throughout the app. Painted via
      mask + background-color so it follows --accent in both themes. */

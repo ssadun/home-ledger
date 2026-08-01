@@ -136,6 +136,7 @@ def _normalize_bank_fields(data: dict, acc_type: str) -> dict:
     if (acc_type or "") != "bank":
         data["bank_subtype"] = None
         data["interest_rate"] = None
+        data["withholding_tax_rate"] = None
         return data
     subtype = (data.get("bank_subtype") or "checking").strip().lower()
     if subtype not in BANK_SUBTYPES:
@@ -143,6 +144,7 @@ def _normalize_bank_fields(data: dict, acc_type: str) -> dict:
     data["bank_subtype"] = subtype
     if subtype == "checking":
         data["interest_rate"] = 0.0
+        data["withholding_tax_rate"] = 0.0
         data["credit_limit"] = None
         return data
     if subtype == "overdraft":
@@ -154,6 +156,7 @@ def _normalize_bank_fields(data: dict, acc_type: str) -> dict:
         if data["credit_limit"] <= 0:
             raise HTTPException(400, "Overdraft limit must be greater than zero.")
         data["interest_rate"] = 0.0
+        data["withholding_tax_rate"] = 0.0
         return data
     data["credit_limit"] = None
     rate = data.get("interest_rate")
@@ -165,6 +168,18 @@ def _normalize_bank_fields(data: dict, acc_type: str) -> dict:
         raise HTTPException(400, "Interest rate must be a number.")
     if data["interest_rate"] < 0:
         raise HTTPException(400, "Interest rate cannot be negative.")
+    tax = data.get("withholding_tax_rate")
+    if subtype == "overnight":
+        if tax is None or tax == "":
+            raise HTTPException(400, "Withholding tax rate is required for overnight accounts.")
+        try:
+            data["withholding_tax_rate"] = float(tax)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Withholding tax rate must be a number.")
+        if data["withholding_tax_rate"] < 0:
+            raise HTTPException(400, "Withholding tax rate cannot be negative.")
+    else:
+        data["withholding_tax_rate"] = 0.0
     return data
 
 
@@ -178,9 +193,13 @@ def ensure_account_bank_columns(db: Session) -> None:
     if "interest_rate" not in cols:
         db.execute(text("ALTER TABLE accounts ADD COLUMN interest_rate FLOAT DEFAULT 0"))
         changed = True
+    if "withholding_tax_rate" not in cols:
+        db.execute(text("ALTER TABLE accounts ADD COLUMN withholding_tax_rate FLOAT DEFAULT 0"))
+        changed = True
     if changed:
         db.execute(text("UPDATE accounts SET bank_subtype = 'checking' WHERE type = 'bank' AND (bank_subtype IS NULL OR bank_subtype = '')"))
         db.execute(text("UPDATE accounts SET interest_rate = 0 WHERE type = 'bank' AND interest_rate IS NULL"))
+        db.execute(text("UPDATE accounts SET withholding_tax_rate = 0 WHERE type = 'bank' AND withholding_tax_rate IS NULL"))
         db.commit()
 
 
@@ -433,7 +452,7 @@ def update_account(
     _normalize_identity(data, new_type)
     merged_bank = {
         f: data.get(f, getattr(acc, f))
-        for f in ("bank_subtype", "interest_rate", "credit_limit")
+        for f in ("bank_subtype", "interest_rate", "withholding_tax_rate", "credit_limit")
     }
     _normalize_bank_fields(merged_bank, new_type)
     data.update(merged_bank)

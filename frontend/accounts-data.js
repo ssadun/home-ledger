@@ -70,6 +70,7 @@
       linked: row.linked_key || undefined,
       bankSubtype: row.bank_subtype || (row.type === 'bank' ? 'checking' : undefined),
       interestRate: row.interest_rate != null ? row.interest_rate : undefined,
+      withholdingTaxRate: row.withholding_tax_rate != null ? row.withholding_tax_rate : undefined,
       ccType: row.cc_type || undefined,
       isPrepaid: !!row.is_prepaid,
       debitType: row.debit_type || undefined,
@@ -99,6 +100,7 @@
       linked_key: item.linked || null,
       bank_subtype: item.type === 'bank' ? (item.bankSubtype || 'checking') : null,
       interest_rate: item.type === 'bank' ? Number(item.interestRate || 0) : null,
+      withholding_tax_rate: item.type === 'bank' ? Number(item.withholdingTaxRate || 0) : null,
       cc_type: item.ccType || null,
       is_prepaid: !!item.isPrepaid,
       debit_type: item.debitType || null,
@@ -110,6 +112,30 @@
       payment_due: item.paymentDue || null,
       pension: item.pension || null,
     };
+  }
+
+  function parseIsoDate(value) {
+    if (!value || typeof value !== 'string') return null;
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function oneMonthAgo(today = new Date()) {
+    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    d.setMonth(d.getMonth() - 1);
+    return d;
+  }
+
+  function isCreditDebtStale(item, today = new Date()) {
+    if (!item || item.type !== 'credit' || item.isPrepaid) return false;
+    const due = parseIsoDate(item.paymentDue);
+    return !!due && due < oneMonthAgo(today);
+  }
+
+  function effectiveBalance(item, today = new Date()) {
+    return isCreditDebtStale(item, today) ? 0 : Number(item && item.balance) || 0;
   }
 
   async function list() {
@@ -299,6 +325,7 @@
   window.HL_ACCOUNTS_API = {
     list, create, update, remove, related, listOrphans, purgeOrphans,
     fromApi, toApi, maskCardNumber,
+    isCreditDebtStale, effectiveBalance,
     cleanIban, cleanAccountNo, cleanCardNo, accountNoFromIban,
   };
 })();

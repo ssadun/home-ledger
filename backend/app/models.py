@@ -344,6 +344,7 @@ class Account(Base):
     # Bank-account-specific
     bank_subtype = Column(String, default="checking")  # checking | deposit | overnight
     interest_rate = Column(Float, default=0.0)         # annual percent, 0 for checking
+    withholding_tax_rate = Column(Float, default=0.0)  # percent, overnight accounts only
 
     # Card-specific (credit / debit)
     cc_type = Column(String)                    # visa | mastercard | troy

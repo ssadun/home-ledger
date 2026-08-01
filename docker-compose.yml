@@ -21,6 +21,7 @@ services:
     volumes:
       - /volume1/docker/resolv.conf:/etc/resolv.conf:ro
       - ./data:/app/data
+      - ./import:/app/import:ro
       - ./logs:/app/logs
       - ./uploads:/app/uploads
     network_mode: nas

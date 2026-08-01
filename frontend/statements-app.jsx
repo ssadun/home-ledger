@@ -148,6 +148,7 @@
     const [search, setSearch] = React.useState('');
     function yearStep(d) { setYear(y => y + d); }
     const rz = useResizableColumns({ columns: ST_COLS, storageKey: 'hl-statements-colwidths' });
+    const openImport = () => setImportWiz({ preAccId: null });
 
     // Rows after filtering; records without a statement year always pass the year check.
     const visible = React.useMemo(() => records.filter(r => {
@@ -333,7 +334,7 @@
                 </div>
               </div>
               <div className="head-actions st-head-actions">
-                <button id="st-import-btn" className="action-modal-btn scan" onClick={() => setImportWiz({ preAccId: null })}><Icon name="file-down" size={14} />Import Statement</button>
+                <button id="st-import-btn" className="action-modal-btn scan ha-overflow" onClick={openImport}><Icon name="file-down" size={14} />Import Statement</button>
               </div>
             </div>
             <StatementFilterBar
@@ -348,7 +349,8 @@
                   <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
                   <window.FitColumnsButton onClick={rz.resetSizes} />
                   <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
-                </React.Fragment>} />} />
+                </React.Fragment>} />}
+              popActions={<button id="st-import-fp-btn" className="action-modal-btn scan" onClick={openImport}><Icon name="file-down" size={14} />Import Statement</button>} />
           </header>
 
           <div className="st-body table-card">

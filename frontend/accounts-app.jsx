@@ -127,10 +127,14 @@
   }
 
   function accountTryValue(a) {
-    return a.balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
+    const balance = window.HL_ACCOUNTS_API && window.HL_ACCOUNTS_API.effectiveBalance
+      ? window.HL_ACCOUNTS_API.effectiveBalance(a)
+      : a.balance;
+    return balance * (FX[a.cur] ? FX[a.cur].toTRY : 1);
   }
 
   function accountBalanceSide(a) {
+    if (window.HL_ACCOUNTS_API && window.HL_ACCOUNTS_API.isCreditDebtStale && window.HL_ACCOUNTS_API.isCreditDebtStale(a)) return 'neutral';
     const type = ACCOUNT_TYPES[a.type] || {};
     if (type.balanceSide === 'liability' || type.balanceSide === 'asset') return type.balanceSide;
     return accountTryValue(a) < 0 ? 'liability' : 'asset';

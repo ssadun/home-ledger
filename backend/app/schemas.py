@@ -545,6 +545,7 @@ class AccountCreate(BaseModel):
     linked_key: Optional[str] = None
     bank_subtype: Optional[str] = None
     interest_rate: Optional[float] = None
+    withholding_tax_rate: Optional[float] = None
     cc_type: Optional[str] = None
     is_prepaid: bool = False
     debit_type: Optional[str] = None
@@ -571,6 +572,7 @@ class AccountUpdate(BaseModel):
     linked_key: Optional[str] = None
     bank_subtype: Optional[str] = None
     interest_rate: Optional[float] = None
+    withholding_tax_rate: Optional[float] = None
     cc_type: Optional[str] = None
     is_prepaid: Optional[bool] = None
     debit_type: Optional[str] = None
