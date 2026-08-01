@@ -25,10 +25,13 @@
   const { CalendarWidget } = window;
   const ExportData = window.ExportData;
   const ASSET_DOMAIN = window.HL_ASSET_DOMAIN || null;
+  const CURRENCIES_API = window.HL_CURRENCIES_API || null;
 
   const TWEAK_DEFAULTS = { accent: 'var(--theme-accent)', layout: '2-col' };
   const CURRENT_YEAR = window.LEDGER.CURRENT_YEAR;
   const CURRENT_MONTH = window.LEDGER.CURRENT_MONTH; // 0-indexed: Jan=0, Jun=5, etc.
+  const CURRENCY_SYMBOLS = { TRY: '\u20ba', USD: '$', EUR: '\u20ac', GBP: '\u00a3' };
+  const CURRENCY_COLORS = { TRY: 'var(--gold)', USD: 'var(--emerald)', EUR: 'var(--sky)' };
 
   const { Sidebar } = window.HL_NAV;
   const DASH_VIEW_KEY = 'hl-dashboard-view';
@@ -52,7 +55,7 @@
 
   const TABS = [
     { key: 'calendar',   label: 'Calendar',           icon: 'calendar' },
-    { key: 'assets-overview', label: 'Assets Overview', icon: 'scale' },
+    { key: 'assets-overview', label: 'Asset Overview', icon: 'scale' },
     { key: 'networth',   label: 'Net Worth Trend',    icon: 'line-chart' },
     { key: 'kpis',       label: 'KPIs',               icon: 'gauge' },
     { key: 'investments',label: 'Investments',       icon: 'chart-no-axes-combined' },
@@ -62,6 +65,142 @@
     { key: 'budget',     label: 'Budget Analysis',   icon: 'target' },
     { key: 'trends',     label: 'Trends',            icon: 'trending-up' },
   ];
+
+  function parseFxAmount(raw) {
+    const s = String(raw || '').trim().replace(/\s/g, '');
+    if (!s) return 0;
+    const hasComma = s.includes(',');
+    const hasDot = s.includes('.');
+    let normalized = s;
+    if (hasComma && hasDot) {
+      normalized = s.lastIndexOf(',') > s.lastIndexOf('.')
+        ? s.replace(/\./g, '').replace(',', '.')
+        : s.replace(/,/g, '');
+    } else if (hasComma) {
+      normalized = s.replace(',', '.');
+    }
+    const n = Number(normalized.replace(/[^\d.-]/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function fxNumber(value, digits = 2) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '0.00';
+    return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  }
+
+  function fxMoney(value, code) {
+    const sym = CURRENCY_SYMBOLS[code] || (code + ' ');
+    return sym + fxNumber(value, 2);
+  }
+
+  function fxRateText(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    return fxNumber(n, 2);
+  }
+
+  function normalizeCurrencyRows(rows) {
+    const base = Array.isArray(rows) ? rows.slice() : [];
+    if (!base.some(r => String(r.code).toUpperCase() === 'TRY')) {
+      base.unshift({ code: 'TRY', toTRY: 1, toUSD: null, asOf: null, source: null });
+    }
+    return base
+      .map(r => ({
+        ...r,
+        code: String(r.code || '').trim().toUpperCase(),
+        toTRY: Number(r.toTRY),
+      }))
+      .filter(r => r.code && Number.isFinite(r.toTRY) && r.toTRY > 0)
+      .sort((a, b) => {
+        const order = { TRY: 0, USD: 1, EUR: 2 };
+        const ao = order[a.code] == null ? 10 : order[a.code];
+        const bo = order[b.code] == null ? 10 : order[b.code];
+        return ao === bo ? a.code.localeCompare(b.code) : ao - bo;
+      });
+  }
+
+  function DashboardCalculator() {
+    const [currencies, setCurrencies] = React.useState([]);
+    const [amountRaw, setAmountRaw] = React.useState('1,000.00');
+    const [from, setFrom] = React.useState('TRY');
+    const [to, setTo] = React.useState('USD');
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState('');
+
+    React.useEffect(() => {
+      let mounted = true;
+      setLoading(true);
+      setError('');
+      if (!CURRENCIES_API || !CURRENCIES_API.list) {
+        setCurrencies(normalizeCurrencyRows(Object.entries((window.LEDGER && window.LEDGER.FX) || {}).map(([code, v]) => ({ code, toTRY: v.toTRY, toUSD: v.toUSD }))));
+        setLoading(false);
+        return () => { mounted = false; };
+      }
+      CURRENCIES_API.list()
+        .then(rows => {
+          if (!mounted) return;
+          const next = normalizeCurrencyRows(rows);
+          setCurrencies(next);
+          if (!next.some(c => c.code === from)) setFrom(next[0] ? next[0].code : 'TRY');
+          if (!next.some(c => c.code === to)) setTo((next[1] || next[0] || { code: 'USD' }).code);
+        })
+        .catch(e => mounted && setError((e && e.message) || 'Failed to load currencies'))
+        .finally(() => mounted && setLoading(false));
+      return () => { mounted = false; };
+    }, []);
+
+    const amount = React.useMemo(() => parseFxAmount(amountRaw), [amountRaw]);
+    const byCode = React.useMemo(() => Object.fromEntries(currencies.map(c => [c.code, c])), [currencies]);
+    const fromRate = byCode[from];
+    const toRate = byCode[to];
+    const converted = fromRate && toRate ? amount * toRate.toTRY / fromRate.toTRY : 0;
+    const directRate = fromRate && toRate ? toRate.toTRY / fromRate.toTRY : null;
+    const reverseRate = fromRate && toRate ? fromRate.toTRY / toRate.toTRY : null;
+    function swap() {
+      setFrom(to);
+      setTo(from);
+    }
+
+    return (
+      <div className="dash-calc-body">
+        {error && <div className="rpt-source-alert" role="status"><Icon name="alert-triangle" size={14} /><span>{error}</span></div>}
+        <section className="dash-calc-panel">
+          <div className="dash-calc-main">
+            <div className="dash-calc-pair">
+              <div className="dash-calc-field dash-calc-amount dash-calc-converted">
+                <span className="field-label">From</span>
+                <div className="amount-input-wrap">
+                  <input id="dash-calc-result-value" className="field-input" value={loading ? 'Loading...' : fxNumber(converted, 2)} readOnly tabIndex={-1} />
+                  <StyledSelect id="dash-calc-from-select" className="field-input" value={from} onChange={e => setFrom(e.target.value)} searchable searchPlaceholder="Search currency..." dropdownWidth={95}>
+                    {currencies.map(c => <option key={c.code} value={c.code} data-icon="circle-dollar-sign" data-color={CURRENCY_COLORS[c.code] || 'var(--accent)'}>{c.code}</option>)}
+                  </StyledSelect>
+                </div>
+              </div>
+              <button id="dash-calc-swap-btn" className="dash-calc-swap" title="Swap currencies" aria-label="Swap currencies" onClick={swap}>
+                <Icon name="arrow-left-right" size={16} />
+              </button>
+              <div className="dash-calc-field dash-calc-amount">
+                <span className="field-label">To</span>
+                <div className="amount-input-wrap">
+                  <input id="dash-calc-amount-input" className="field-input" inputMode="decimal" value={amountRaw}
+                    onChange={e => setAmountRaw(e.target.value)} onBlur={() => setAmountRaw(fxNumber(amount, 2))} placeholder="0.00" />
+                  <StyledSelect id="dash-calc-to-select" className="field-input" value={to} onChange={e => setTo(e.target.value)} searchable searchPlaceholder="Search currency..." dropdownWidth={95}>
+                    {currencies.map(c => <option key={c.code} value={c.code} data-icon="circle-dollar-sign" data-color={CURRENCY_COLORS[c.code] || 'var(--accent)'}>{c.code}</option>)}
+                  </StyledSelect>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="dash-calc-rate-grid">
+            <div className="dash-calc-rate"><span>Rate</span><strong>1 {to} = {fxRateText(directRate)} {from}</strong></div>
+            <div className="dash-calc-rate"><span>Reverse</span><strong>1 {from} = {fxRateText(reverseRate)} {to}</strong></div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   function invTryValue(h) {
     return h && h.tryValue != null ? Number(h.tryValue) || 0 : 0;
@@ -292,28 +431,98 @@
     return sym + grp(value || 0, digits == null ? 0 : digits);
   }
 
-  function DashboardAssetMiniRow({ item }) {
+  function assetTryToUsd(value) {
+    const tryFx = FX.TRY || {};
+    const usdFx = FX.USD || {};
+    if (tryFx.toUSD != null) return Number(value || 0) * Number(tryFx.toUSD || 0);
+    if (usdFx.toTRY) return Number(value || 0) / Number(usdFx.toTRY);
+    return 0;
+  }
+
+  function ownedAssetTryValue(asset) {
+    if (!asset || !asset.latest) return 0;
+    return (Number(asset.latest.tryValue) || 0) * ((Number(asset.ownership) || 100) / 100);
+  }
+
+  function accountBalanceTry(a) {
+    return (Number(a.balance) || 0) * (FX[a.cur] ? FX[a.cur].toTRY : 1);
+  }
+
+  function accountBalanceRows(accounts) {
+    return (accounts || [])
+      .map(a => {
+      const meta = window.ACCOUNTS_DATA.ACCOUNT_TYPES[a.type] || {};
+      const tryValue = accountBalanceTry(a);
+      return {
+        key: 'account-' + (a._dbId || a.id || a.name),
+        name: a.name || 'Unnamed Account',
+        institution: a.institution && a.institution !== '–' ? a.institution : '',
+        typeLabel: meta.label || a.type || 'Account',
+        icon: meta.icon || 'wallet',
+        color: meta.color || 'var(--accent)',
+        tryValue,
+        usdValue: assetTryToUsd(tryValue),
+        assetCount: 1,
+        latestDate: '',
+        href: 'Accounts.html?balance=assets',
+      };
+    })
+      .filter(row => row.tryValue > 0.005)
+      .sort((a, b) => b.tryValue - a.tryValue);
+  }
+
+  function physicalAssetRows(assets) {
     const metaMap = ASSET_DOMAIN ? ASSET_DOMAIN.ASSET_TYPES : {};
-    const m = assetDomainMeta(metaMap, item.type);
-    const latest = item.latest;
+    return (assets || [])
+      .filter(asset => asset.latest)
+      .map(asset => {
+        const m = assetDomainMeta(metaMap, asset.type);
+        const tryValue = ownedAssetTryValue(asset);
+        return {
+          key: 'manual-' + asset.id,
+          name: asset.name || 'Unnamed Asset',
+          institution: asset.institution || '',
+          typeLabel: m.label || asset.type || 'Asset',
+          icon: m.icon || 'box',
+          color: m.color || 'var(--steel)',
+          tryValue,
+          usdValue: assetTryToUsd(tryValue),
+          assetCount: 1,
+          latestDate: asset.latest.date || '',
+          href: 'Assets.html',
+        };
+      })
+      .sort((a, b) => b.tryValue - a.tryValue);
+  }
+
+  function DashboardAssetValueRow({ row }) {
     return (
-      <div className="asset-mini-row">
-        <span className="asset-card-icon" style={{ '--asset-color': m.color }}><Icon name={m.icon} size={14} /></span>
-        <span className="asset-mini-main"><b>{item.name}</b><small>{m.label}{item.institution ? ' - ' + item.institution : ''}</small></span>
-        <span className="asset-mini-val income">{latest ? assetDomainMoney(latest.tryValue, 'TRY') : 'No value'}</span>
-      </div>
+      <a className="asset-account-row" href={row.href}>
+        <span className="asset-card-icon" style={{ '--asset-color': row.color }}><Icon name={row.icon} size={14} /></span>
+        <span className="asset-mini-main">
+          <b>{row.name}</b>
+          <small>{row.typeLabel}{row.institution ? ' - ' + row.institution : ''}</small>
+        </span>
+        <span className="asset-account-values">
+          <span className="asset-mini-val income">{assetDomainMoney(row.tryValue, 'TRY')}</span>
+          <span className="asset-mini-val asset-usd-val">{assetDomainMoney(row.usdValue, 'USD')}</span>
+        </span>
+      </a>
     );
   }
 
   function DashboardAssetsOverview({ summary, assets, loading, error }) {
-    const assetValue = assets.reduce((s, a) => s + (a.latest ? a.latest.tryValue * (a.ownership || 100) / 100 : 0), 0);
+    const accountRows = accountBalanceRows(ACCOUNTS);
+    const physicalRows = physicalAssetRows(assets);
+    const accountTry = accountRows.reduce((s, r) => s + r.tryValue, 0);
+    const physicalTry = physicalRows.reduce((s, r) => s + r.tryValue, 0);
+    const totalTry = accountTry + physicalTry;
+    const totalUsd = assetTryToUsd(totalTry);
     const cards = [
-      { label: 'Assets', icon: 'trending-up', cls: 'income', val: assetDomainMoney(summary?.assets_try ?? assetValue, 'TRY'), sub: (summary?.assets_count ?? assets.length) + ' records' },
-      { label: 'Net Worth', icon: 'scale', cls: 'net', val: assetDomainMoney(summary?.net_worth_try ?? assetValue, 'TRY'), sub: 'Included values' },
-      { label: 'Needs Update', icon: 'alert-triangle', cls: (summary?.missing_asset_valuations || 0) ? 'expense' : 'count', val: String(summary?.missing_asset_valuations || 0), sub: 'missing values' },
+      { label: 'Total Asset Value', icon: 'scale', cls: 'income', val: assetDomainMoney(totalTry, 'TRY'), sub: assetDomainMoney(totalUsd, 'USD') },
+      { label: 'Account-Based Assets', icon: 'landmark', cls: 'net', val: assetDomainMoney(accountTry, 'TRY'), sub: accountRows.length + ' accounts' },
+      { label: 'Physical Assets', icon: 'home', cls: 'count', val: assetDomainMoney(physicalTry, 'TRY'), sub: physicalRows.length + ' records' },
     ];
-    const valuedAssets = assets.filter(a => a.latest).sort((a, b) => b.latest.tryValue - a.latest.tryValue).slice(0, 8);
-    const staleAssets = assets.filter(a => !a.latest).slice(0, 6);
     return (
       <main className="asset-body">
         {error && <div className="rpt-source-alert asset-load-error" role="status"><Icon name="alert-triangle" size={14} /><span>{error}</span></div>}
@@ -325,14 +534,18 @@
             </div>
             <div className="asset-overview-grid">
               <section className="asset-panel">
-                <div className="asset-panel-head"><span><Icon name="wallet" size={14} />Largest Assets</span><a href="Assets.html">Open Assets</a></div>
-                {valuedAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} />)}
-                {!assets.length && <div className="detail-empty asset-empty"><Icon name="wallet" size={24} /><span>No assets yet.</span></div>}
+                <div className="asset-panel-head"><span><Icon name="landmark" size={14} />Account-Based Asset Totals</span><a href="Accounts.html?balance=assets">Open Accounts</a></div>
+                <div className="asset-account-list">
+                  {accountRows.map(row => <DashboardAssetValueRow key={row.key} row={row} />)}
+                </div>
+                {!accountRows.length && <div className="detail-empty asset-empty"><Icon name="wallet" size={24} /><span>No account-based assets found.</span></div>}
               </section>
-              <section className="asset-panel asset-panel-wide">
-                <div className="asset-panel-head"><span><Icon name="alert-triangle" size={14} />Needs Valuation</span><a href="Assets.html">Open Assets</a></div>
-                {staleAssets.map(a => <DashboardAssetMiniRow key={a.id} item={a} />)}
-                {!staleAssets.length && <div className="detail-empty asset-empty"><Icon name="check-circle" size={24} /><span>Every included asset has a valuation.</span></div>}
+              <section className="asset-panel">
+                <div className="asset-panel-head"><span><Icon name="home" size={14} />Physical Assets</span><a href="Assets.html">Open Assets</a></div>
+                <div className="asset-account-list">
+                  {physicalRows.slice(0, 8).map(row => <DashboardAssetValueRow key={row.key} row={row} />)}
+                </div>
+                {!physicalRows.length && <div className="detail-empty asset-empty"><Icon name="home" size={24} /><span>No physical assets found.</span></div>}
               </section>
             </div>
           </React.Fragment>
@@ -354,6 +567,7 @@
         return DEFAULT_TAB;
       }
     });
+    const [calcOpen, setCalcOpen] = React.useState(false);
     const [modal, setModal] = React.useState(null);
     const [del, setDel]     = React.useState(null);
     // Bumped after every tx mutation; threaded into the aggregation memos below
@@ -383,11 +597,8 @@
       }
       setAssetOverview(s => ({ ...s, loading: true, error: '' }));
       try {
-        const [assets, summary] = await Promise.all([
-          ASSET_DOMAIN.listAssets(),
-          ASSET_DOMAIN.summary(),
-        ]);
-        setAssetOverview({ assets, summary, loading: false, loaded: true, error: '' });
+        const assets = await ASSET_DOMAIN.listPhysicalAssets();
+        setAssetOverview({ assets, summary: null, loading: false, loaded: true, error: '' });
       } catch (e) {
         setAssetOverview(s => ({ ...s, loading: false, loaded: true, error: 'Could not load assets overview: ' + ((e && e.message) || e) }));
       }
@@ -557,6 +768,13 @@
                   <h1 className="page-title">Dashboard</h1>
                   <p className="page-subtitle">At-a-glance view of household finances</p>
                 </div>
+              </div>
+              <div className="head-actions dash-head-actions">
+                <button id="dash-header-calculator-btn" type="button"
+                  className={'dash-calc-profile-btn' + (calcOpen ? ' active' : '')}
+                  title="Calculator" aria-label="Calculator" onClick={() => setCalcOpen(true)}>
+                  <Icon name="calculator" size={17} />
+                </button>
               </div>
             </div>
 
@@ -894,6 +1112,21 @@
 
         {modal && <TxModal initial={modal.tx} scan={modal.scan} onClose={() => setModal(null)} onSave={saveTx} onDelete={(tx) => { setModal(null); setDel(tx); }} />}
         {del   && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDelete} />}
+        {calcOpen && (
+          <div className="backdrop" onMouseDown={e => { if (e.target.classList.contains('backdrop')) setCalcOpen(false); }}>
+            <div className="modal dash-calc-modal">
+              <div className="modal-head">
+                <div className="modal-head-l">
+                  <div className="modal-title"><Icon name="calculator" size={16} />Rate Exchange</div>
+                </div>
+                <button id="dash-calc-modal-close-btn" className="m-close" onClick={() => setCalcOpen(false)}><Icon name="x" size={17} /></button>
+              </div>
+              <div className="modal-body">
+                <DashboardCalculator />
+              </div>
+            </div>
+          </div>
+        )}
 
         <TweaksPanel title="Tweaks">
           <TweakSection label="Appearance" />

@@ -61,7 +61,7 @@
     return '';
   }
 
-  function StyledSelect({ id, className, value, onChange, children, style, disabled, placeholder, title, searchable, searchPlaceholder }) {
+  function StyledSelect({ id, className, value, onChange, children, style, disabled, placeholder, title, searchable, searchPlaceholder, dropdownWidth }) {
     const [open, setOpen] = React.useState(false);
     const [query, setQuery] = React.useState('');
     const [menu, setMenu] = React.useState(null);   // fixed-position box {left,width,top,bottom,up}
@@ -158,17 +158,18 @@
 
     function toggle() {
       if (disabled) return;
-      if (!open && btnRef.current) {
-        // Anchor a position:fixed menu to the trigger's viewport rect. Being fixed,
+      if (!open && (wrapRef.current || btnRef.current)) {
+        // Anchor a position:fixed menu to the outer control rect. Being fixed,
         // it is clipped by nothing (no transform ancestor here — the modal's open
         // animation ends at transform:none), so it renders above the modal body /
         // scroll list / sibling rows. Flip up when there's more room above.
-        const r = btnRef.current.getBoundingClientRect();
+        const r = (wrapRef.current || btnRef.current).getBoundingClientRect();
         const below = window.innerHeight - r.bottom;
         const up = below < 260 && r.top > below;
+        const menuWidth = Number(dropdownWidth) || Math.round(r.width);
         setMenu({
           left: Math.round(r.left),
-          width: Math.round(r.width),
+          width: menuWidth,
           top: up ? 'auto' : Math.round(r.bottom + 4),
           bottom: up ? Math.round(window.innerHeight - r.top + 4) : 'auto',
           up,
