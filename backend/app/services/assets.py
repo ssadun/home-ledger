@@ -268,17 +268,4 @@ def delete_investment_holding(db: Session, inv: Investment) -> None:
 
 
 def backfill_asset_domain(db: Session) -> None:
-    for acc in db.query(Account).all():
-        sync_account_domain(db, acc)
-    db.flush()
-    for inv in db.query(Investment).all():
-        sync_investment_holding(db, inv)
-    db.flush()
-    asset_ids = {
-        h.asset_id for h in db.query(InvestmentHolding.asset_id).distinct().all()
-    }
-    for asset_id in asset_ids:
-        asset = db.query(Asset).filter(Asset.id == asset_id).first()
-        if asset:
-            record_asset_valuation_from_holdings(db, asset)
     db.commit()

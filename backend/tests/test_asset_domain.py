@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import get_db
-from app.models import Account, Asset, AssetValuation, Base, InvestmentHolding, User
+from app.models import Account, Asset, AssetValuation, Base, Investment, InvestmentHolding, User
 from app.routers import assets, holdings, investments, net_worth
 from app.services.assets import backfill_asset_domain
 from app.services.auth import get_current_user
@@ -85,7 +85,7 @@ def test_asset_crud_owner_scope_and_summary(api):
     assert client.patch(f"/api/assets/{asset_id}", json={"name": "Other"}).status_code == 404
 
 
-def test_investments_dual_write_to_holdings(api):
+def test_investments_do_not_create_asset_mirrors(api):
     client, db, current, user1, user2 = api
     res = client.post("/api/investments/", json={
         "name": "ALTIN.S1 - Darphane Sertifikasi",
@@ -97,19 +97,20 @@ def test_investments_dual_write_to_holdings(api):
     })
     assert res.status_code == 201
     inv_id = res.json()["id"]
-    holding = db.query(InvestmentHolding).filter(InvestmentHolding.legacy_investment_id == inv_id).first()
-    assert holding is not None
-    assert holding.name == "ALTIN.S1 - Darphane Sertifikasi"
-    assert holding.asset_class == "gold"
-    assert holding.quantity == pytest.approx(10)
+    inv = db.query(Investment).filter(Investment.id == inv_id).first()
+    assert inv is not None
+    assert inv.amount == pytest.approx(10)
+    assert db.query(InvestmentHolding).filter(InvestmentHolding.legacy_investment_id == inv_id).first() is None
+    assert db.query(Asset).filter(Asset.name == "Midas").first() is None
 
     assert client.patch(f"/api/investments/{inv_id}", json={"amount": 12, "purchase_price": 110}).status_code == 200
-    db.refresh(holding)
-    assert holding.quantity == pytest.approx(12)
-    assert holding.average_cost == pytest.approx(110)
+    db.refresh(inv)
+    assert inv.amount == pytest.approx(12)
+    assert inv.purchase_price == pytest.approx(110)
+    assert db.query(InvestmentHolding).filter(InvestmentHolding.legacy_investment_id == inv_id).first() is None
 
     assert client.delete(f"/api/investments/{inv_id}").status_code == 204
-    assert db.query(InvestmentHolding).filter(InvestmentHolding.legacy_investment_id == inv_id).first() is None
+    assert db.query(Investment).filter(Investment.id == inv_id).first() is None
 
 
 def test_physical_assets_are_manual_and_not_investment_linked(api):
@@ -168,6 +169,5 @@ def test_backfill_asset_domain_is_idempotent(api):
     backfill_asset_domain(db)
     backfill_asset_domain(db)
 
-    assert db.query(Asset).filter(Asset.account_id == acc.id).count() == 1
-    assert db.query(AssetValuation).join(Asset).filter(Asset.account_id == acc.id).count() == 1
-    assert db.query(Asset).filter(Asset.account_id == acc.id).first().type == "liquid"
+    assert db.query(Asset).filter(Asset.account_id == acc.id).count() == 0
+    assert db.query(AssetValuation).join(Asset).filter(Asset.account_id == acc.id).count() == 0

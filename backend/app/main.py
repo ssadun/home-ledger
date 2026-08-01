@@ -27,7 +27,6 @@ from app.routers.institutions import (
     ensure_short_name_column,
     normalize_institution_names,
 )
-from app.services.assets import backfill_asset_domain
 _seed_db = SessionLocal()
 try:
     accounts.ensure_account_bank_columns(_seed_db)
@@ -55,7 +54,6 @@ try:
     # Heal institution names padded with whitespace, which break the name-based
     # match from accounts.institution and duplicate the entry in the picker.
     normalize_institution_names(_seed_db)
-    backfill_asset_domain(_seed_db)
 finally:
     _seed_db.close()
 

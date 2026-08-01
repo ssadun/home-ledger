@@ -8,7 +8,6 @@ from app.database import get_db
 from app.models import Account, Asset, AssetValuation, CreditPayment, Investment, InvestmentHolding, Statement, Transaction, User
 from app.schemas import AccountCreate, AccountUpdate, AccountOut
 from app.services.auth import get_current_user
-from app.services.assets import sync_account_domain
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
@@ -416,9 +415,6 @@ def create_account(
         acc.account_key = f"acc-{acc.id}"
         db.commit()
         db.refresh(acc)
-    sync_account_domain(db, acc)
-    db.commit()
-    db.refresh(acc)
     return acc
 
 
@@ -446,9 +442,6 @@ def update_account(
     _assert_unique_identity(db, current_user.id, new_type, merged, exclude_id=acc.id)
     for field, value in data.items():
         setattr(acc, field, value)
-    db.commit()
-    db.refresh(acc)
-    sync_account_domain(db, acc)
     db.commit()
     db.refresh(acc)
     return acc
