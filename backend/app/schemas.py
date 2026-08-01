@@ -1,5 +1,5 @@
 from pydantic import AliasChoices, BaseModel, EmailStr, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import date, datetime
 from app.models import TransactionType, Currency
 
@@ -131,6 +131,9 @@ class StatementMappingOut(BaseModel):
     lang: Optional[str]
     etiket: str
     category_key: str
+    match_scope: str = "both"
+    priority: int = 100
+    is_active: bool = True
     is_default: Optional[bool] = None
     model_config = {"from_attributes": True}
 
@@ -138,11 +141,17 @@ class StatementMappingCreate(BaseModel):
     lang: str = "tr"
     etiket: str
     category_key: str
+    match_scope: Literal["tag", "description", "both"] = "both"
+    priority: int = 100
+    is_active: bool = True
 
 class StatementMappingUpdate(BaseModel):
     lang: Optional[str] = None
     etiket: Optional[str] = None
     category_key: Optional[str] = None
+    match_scope: Optional[Literal["tag", "description", "both"]] = None
+    priority: Optional[int] = None
+    is_active: Optional[bool] = None
 
 
 # ── Financial Institution (bank / provider + logo) ────────────────────────────

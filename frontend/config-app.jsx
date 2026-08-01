@@ -546,14 +546,25 @@
       id: 'statement-mappings', label: 'Statement Value Mapping', icon: 'file-symlink', color: 'var(--sky)', addLabel: 'Add Mapping',
       desc: 'Map bank-statement tags to categories',
       columns: [
+        { key: 'id', label: 'No.', num: true, size: 70, minSize: 56, maxSize: 90, render: v => <span className="cfg-mapping-no">#{v}</span> },
         { key: 'lang',   label: 'Lang', render: v => <span className={'cfg-badge'}>{String(v || 'tr').toUpperCase()}</span> },
         { key: 'etiket', label: 'Statement Tag' },
         { key: 'category_key', label: 'Category' },
+        { key: 'match_scope', label: 'Applies To', render: v => <span className="cfg-badge">{v === 'description' ? 'Description' : v === 'tag' ? 'Tag' : 'Both'}</span> },
+        { key: 'priority', label: 'Priority' },
+        { key: 'is_active', label: 'Status', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Active' : 'Inactive'}</span>; } },
       ],
       fields: [
         { key: 'lang',   label: 'Language', type: 'select', required: true, options: LANG_OPTIONS, hint: 'Language of the statement this tag comes from' },
-        { key: 'etiket', label: 'Statement Tag (Etiket)', type: 'text', required: true, placeholder: 'e.g. Para Transferi, EFT', hint: 'Enter one or more tags separated by commas - spacing and diacritics are ignored when matching' },
+        { key: 'etiket', label: 'Statement Tag / Keywords', type: 'text', required: true, placeholder: 'e.g. Para Transferi, EFT', hint: 'Enter aliases separated by commas. Turkish I/İ/ı/i, case, spacing, punctuation, and diacritics are normalized when matching.' },
         { key: 'category_key', label: 'Category', type: 'select', required: true, options: [], hint: 'Matching statement lines are booked to this category' },
+        { key: 'match_scope', label: 'Applies To', type: 'select', required: true, default: 'both', options: [
+          { value: 'both', label: 'Tag and Description' },
+          { value: 'tag', label: 'Statement Tag only' },
+          { value: 'description', label: 'Description keyword only' },
+        ], hint: 'Exact matching is used for tags; descriptions use controlled contains matching.' },
+        { key: 'priority', label: 'Priority', type: 'number', required: true, default: 100, placeholder: '100', hint: 'Higher priority wins; equal priorities prefer the longer keyword.' },
+        { key: 'is_active', label: 'Status', type: 'checkbox', default: true, checkboxLabel: 'Active' },
       ],
     },
     {
@@ -611,7 +622,9 @@
     const FormError = window.HL_FORM && window.HL_FORM.FormError;
     const editing = !!item;
     const blank = {};
-    section.fields.forEach(f => { blank[f.key] = f.type === 'checkbox' ? (f.default ?? false) : ''; });
+    section.fields.forEach(f => {
+      blank[f.key] = f.default !== undefined ? f.default : (f.type === 'checkbox' ? false : '');
+    });
     const initial = editing ? { ...item } : blank;
     // Date fields flagged lockToday default to today's date for new entries, but stay editable.
     if (!editing) section.fields.forEach(fd => { if (fd.lockToday) initial[fd.key] = todayYMD(); });
@@ -723,7 +736,8 @@
                             className={'cfg-icon-swatch' + (f[fd.key] === name ? ' selected' : '')}
                             title={name}
                             onClick={() => set(fd.key, name)}>
-                            <Icon name={name} size={18} />
+                            <Icon name={name} size={18}
+                              color={f[fd.key] === name ? (f.color || 'var(--accent)') : undefined} />
                           </button>
                         ))}
                       </div>
@@ -731,7 +745,7 @@
                         <input className="field-input" id={'cfg-field-' + fd.key} type="text"
                           placeholder={fd.placeholder || 'or type any Lucide icon name'}
                           value={f[fd.key] || ''} onChange={e => set(fd.key, e.target.value)} />
-                        {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color="var(--accent)" /></span>}
+                        {f[fd.key] && <span className="cfg-icon-field-preview"><Icon name={f[fd.key]} size={18} color={f.color || 'var(--accent)'} /></span>}
                       </div>
                     </div>
                   ) : fd.type === 'image' ? (
@@ -957,7 +971,9 @@
       key: c.key, label: c.label, render: c.render, num: c.num,
       size: c.size || 180, minSize: c.minSize || 90, maxSize: c.maxSize || 520,
     })), [section]);
-    const rz = useResizableColumns({ columns: cols, storageKey: 'hl-cfg-' + section.id + '-colcfg' });
+    const columnStorageKey = 'hl-cfg-' + section.id + '-colcfg'
+      + (section.id === 'statement-mappings' ? '-v2' : '');
+    const rz = useResizableColumns({ columns: cols, storageKey: columnStorageKey });
 
     // ── Search + facet filters (mirrors the Spending filter bar) ──
     // Facet selects are derived from the section's own `select` fields, so each
@@ -1328,10 +1344,17 @@
       () => categoryOptionsFromRows(sectionData.categories),
       [sectionData.categories]
     );
-    const categoryLabels = React.useMemo(() => {
-      const labels = {};
-      (sectionData.categories || []).forEach(c => { if (c && c.key) labels[c.key] = c.label || c.key; });
-      return labels;
+    const categoryMeta = React.useMemo(() => {
+      const meta = {};
+      (sectionData.categories || []).forEach(c => {
+        if (!c || !c.key) return;
+        meta[c.key] = {
+          label: c.label || c.key,
+          icon: c.icon || 'tag',
+          color: c.color || 'var(--muted)',
+        };
+      });
+      return meta;
     }, [sectionData.categories]);
     const section = React.useMemo(() => {
       const base = view ? SECTIONS.find(s => s.id === view) : null;
@@ -1339,13 +1362,18 @@
       return {
         ...base,
         columns: base.columns.map(c => c.key === 'category_key'
-          ? { ...c, render: v => categoryLabels[v] || v }
+          ? { ...c, render: v => {
+              const category = categoryMeta[v];
+              return category
+                ? <span className="cfg-category-cell"><Icon name={category.icon} size={14} color={category.color} /><span className="cfg-category-label">{category.label}</span></span>
+                : v;
+            } }
           : c),
         fields: base.fields.map(f => f.key === 'category_key'
           ? { ...f, options: categoryOptions }
           : f),
       };
-    }, [view, categoryOptions, categoryLabels]);
+    }, [view, categoryOptions, categoryMeta]);
     const items = view ? (sectionData[view] || []) : [];
 
     function sectionLabel(fallback) {

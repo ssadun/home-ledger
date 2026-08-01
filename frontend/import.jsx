@@ -710,7 +710,7 @@
   }
 
   // ═══════════════ Wizard shell ═══════════════
-  function ImportWizard({ preAccId, onClose, onCommit }) {
+  function ImportWizard({ preAccId, onClose, onCommit, accountType, excludeAccountType }) {
     const [step, setStep] = React.useState('choose');
     const [format, setFormat] = React.useState('csv');
     const [selected, setSelected] = React.useState(null);     // sample doc id
@@ -735,12 +735,18 @@
 
     // Hydrate accounts from the backend (the static placeholder is empty).
     const seed = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
-    const [accounts, setAccounts] = React.useState(seed);
+    const acceptsAccount = React.useCallback(
+      (account) => (!accountType || account.type === accountType) && account.type !== excludeAccountType,
+      [accountType, excludeAccountType]
+    );
+    const [accounts, setAccounts] = React.useState(() => seed.filter(acceptsAccount));
     React.useEffect(() => {
       if (window.HL_ACCOUNTS_API) {
-        window.HL_ACCOUNTS_API.list().then(setAccounts).catch(() => {});
+        window.HL_ACCOUNTS_API.list()
+          .then(list => setAccounts(list.filter(acceptsAccount)))
+          .catch(() => {});
       }
-    }, []);
+    }, [acceptsAccount]);
 
     const ownerOf = (id) => { const a = accounts.find(x => x.id === id); return a ? a.owner : null; };
     const canContinue = !!pickedFile || !!selected;
@@ -813,6 +819,26 @@
         setBusy(true);
         try {
           const res = await window.HL_IMPORT_API.preview(pickedFile, 'auto');
+          if (accountType) {
+            const detectedAccounts = (res.accounts || []).filter(a => a && a.source);
+            if (!detectedAccounts.length || detectedAccounts.some(a => a.type !== accountType)) {
+              setError(accountType === 'credit'
+                ? 'Only credit-card statements can be imported from Card Payments.'
+                : 'This statement does not match the required account type.');
+              setBusy(false);
+              return;
+            }
+          }
+          if (excludeAccountType) {
+            const detectedAccounts = (res.accounts || []).filter(a => a && a.source);
+            if (detectedAccounts.some(a => a.type === excludeAccountType)) {
+              setError(excludeAccountType === 'credit'
+                ? 'Credit-card statements must be imported from Card Payments.'
+                : 'This statement type cannot be imported from this screen.');
+              setBusy(false);
+              return;
+            }
+          }
           // BES birikim özeti → a "pension" Account + its fund split. Like the
           // broker path, the statement identifies its own account (by contract
           // number), so the account-detection step is skipped.
@@ -901,6 +927,10 @@
         }
         setBusy(false);
       } else {
+        if (accountType) {
+          setError('Please upload a credit-card statement file.');
+          return;
+        }
         const d = DOCUMENTS.find(x => x.id === selected);
         setDoc(d);
         const matched = findByNumber(accounts, d.accountNumber);
@@ -922,16 +952,21 @@
         (doc.statementAccounts || []).filter(a => a.type === 'bank').map(a => a.source));
       const built = doc.rows.map((r, i) => {
         const etiket = r[4];
+        const rowAccId = resolveSource(r[5]) || accId;
+        const linkedAccount = accounts.find(a => a.id === rowAccId);
+        const detectedAccount = (doc.statementAccounts || []).find(a => a.source === r[5]);
+        const accountType = (linkedAccount && linkedAccount.type) || (detectedAccount && detectedAccount.type) || null;
+        const isBank = accountType === 'bank' || accountType === 'overdraft' || bankSources.has(r[5]);
         return {
           key: 'r' + i,
           include: true,
           date: r[0],
           desc: r[1],
-          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, bankSources.has(r[5])) || null,
+          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, isBank, accountType) || null,
           amount: r[2],
           cur: r[3],
           balance: r[7],
-          accId: resolveSource(r[5]) || accId,
+          accId: rowAccId,
         };
       });
       setRows(built);
@@ -1095,10 +1130,11 @@
         } catch (e) { /* non-fatal: purchases already imported, just no CP record */ }
       }
 
-      // Bank-account statements are archived as Statement records with the uploaded
-      // file attached — the bank twin of the Credit Payment above. Card accounts are
-      // deliberately skipped: their ekstre already produced a Credit Payment and must
-      // not be archived twice. Non-fatal: the movements are already saved.
+      // Non-credit account statements are archived as Statement records with the
+      // uploaded file attached — the account twin of the Credit Payment above. Credit
+      // cards are deliberately skipped because their ekstre already produced a Credit
+      // Payment; debit cards have no due date and are archived here. Non-fatal: the
+      // movements are already saved.
       const createdStatements = [];
       if (window.HL_STATEMENTS_API) {
         const ARCHIVE_TYPES = window.HL_STATEMENTS_API.STATEMENT_TYPES;

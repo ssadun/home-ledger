@@ -11,6 +11,13 @@
 .cfg-title-icon svg{width:34px;height:34px}
 .cfg-title-col{display:flex;flex-direction:column;gap:3px;min-width:0}
 
+/* Keep the search clear glyph inside the input. The shared `.search-wrap svg`
+   rule positions the leading search icon; without this narrower reset it also
+   offsets the clear glyph from its right-anchored button and pushes it outside. */
+.cfg-filter-wrap .search-input{padding-right:32px}
+.cfg-filter-wrap .search-clear{right:5px;width:21px;height:21px;padding:0;justify-content:center}
+.cfg-filter-wrap .search-clear svg{position:static;left:auto;width:13px;height:13px}
+
 /* ── Table ──
    Core table look (thead, th, td, row borders, hover, sticky header) comes
    from styles/tables.css — cfg tables carry class "ledger-table cfg-table".
@@ -47,6 +54,10 @@
 
 /* ── Cell helpers ── */
 .cfg-icon-preview{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--slate)}
+.cfg-category-cell{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.cfg-category-cell svg{flex:0 0 auto}
+.cfg-category-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cfg-mapping-no{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--slate);font-size:12px}
 /* Institution logo cell + modal image picker */
 .cfg-logo-cell{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--border2);border-radius:6px;background:var(--bg4);overflow:hidden;flex-shrink:0}
 .cfg-logo-cell img{width:100%;height:100%;object-fit:contain}
@@ -77,7 +88,7 @@
 
 /* ── Modal ── */
 .cfg-modal{width:552px}
-.cfg-modal-body{display:flex;flex-direction:column;gap:14px;padding:20px}.field-hint{font-size:10px;color:var(--muted);letter-spacing:.2px;margin-top:1px}
+.cfg-modal-body{display:flex;flex-direction:column;gap:14px;padding:20px;overflow-y:auto;flex:1 1 auto;min-height:0}.field-hint{font-size:10px;color:var(--muted);letter-spacing:.2px;margin-top:1px}
 
 /* ── Color swatch grid ── */
 .cfg-color-grid{display:flex;flex-wrap:wrap;gap:7px;padding:4px 0}
@@ -88,14 +99,16 @@
 /* ── Icon picker: grid panel + custom-name input ── */
 .cfg-icon-picker{display:flex;flex-direction:column;gap:10px}
 .cfg-icon-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;padding:4px 2px;max-height:180px;overflow-y:auto}
-.cfg-icon-swatch{display:inline-flex;align-items:center;justify-content:center;aspect-ratio:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--slate);cursor:pointer;transition:all .15s}
+.cfg-icon-swatch{display:inline-flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;padding:0;line-height:0;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--slate);cursor:pointer;transition:all .15s}
+.cfg-icon-swatch .lc{width:18px;height:18px;display:flex}
+.cfg-icon-swatch svg{display:block}
 .cfg-icon-swatch:hover{background:var(--card-hover-bg);border-color:var(--border-emphasis);color:var(--white)}
 .cfg-icon-swatch.selected{border-color:var(--accent);color:var(--accent);background:rgba(79,142,247,.12)}
 
 /* ── Icon input with preview ── */
 .cfg-icon-field{position:relative;display:flex;align-items:center}
 .cfg-icon-field .field-input{flex:1;padding-right:38px}
-.cfg-icon-field-preview{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none}
+.cfg-icon-field-preview{position:absolute;right:10px;top:50%;transform:translateY(-50%);padding-top:5px;pointer-events:none}
 
 /* ── Confirm delete modal ── */
 .cfg-confirm{width:400px}
@@ -298,6 +311,12 @@
            display:flex;grid-column:4 / 6;grid-row:1;justify-content:flex-end}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]){
            grid-template-rows:auto}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]) td[data-label="No."]{
+           grid-column:2;grid-row:2;justify-content:flex-start;font-size:11px;color:var(--muted)}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]) td[data-label="Applies To"]{
+           grid-column:3;grid-row:2;justify-content:flex-start;font-size:11px;color:var(--muted)}
+  .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]) td[data-label="Priority"]{
+           grid-column:4;grid-row:2;justify-content:flex-start;font-size:11px;color:var(--muted)}
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td.td-select,
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Statement Tag"],
   .cfg-table.resizable.selectable tr.cfg-row:has(td[data-label="Statement Tag"]):has(td[data-label="Category"]) td[data-label="Category"]{

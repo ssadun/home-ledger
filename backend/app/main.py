@@ -19,7 +19,12 @@ Base.metadata.create_all(bind=engine)
 # Seed shared default categories + currencies on first run
 from app.routers.categories import seed_default_categories, ensure_category, ensure_unique_key_index, ensure_show_in_recurring_column
 from app.routers.currencies import seed_default_currencies
-from app.routers.statement_mappings import seed_default_statement_mappings, ensure_statement_mapping
+from app.routers.statement_mappings import (
+    seed_default_statement_mappings,
+    ensure_statement_mapping,
+    ensure_statement_mapping_aliases,
+    ensure_statement_mapping_columns,
+)
 from app.routers.local_holidays import seed_default_local_holidays
 from app.routers.institutions import (
     seed_default_institutions,
@@ -41,10 +46,12 @@ try:
     # Enforce category.key uniqueness on existing DBs (create_all only does new tables).
     ensure_unique_key_index(_seed_db)
     seed_default_currencies(_seed_db)
+    ensure_statement_mapping_columns(_seed_db)
     seed_default_statement_mappings(_seed_db)
     seed_default_local_holidays(_seed_db)
     # Backfill mappings added after the initial seed (idempotent on existing DBs).
     ensure_statement_mapping(_seed_db, "tr", "Emeklilik / Sigorta", "insurance")
+    ensure_statement_mapping_aliases(_seed_db)
     ensure_short_name_column(_seed_db)
     seed_default_institutions(_seed_db)
     # Backfill institutions added after the initial seed (idempotent).

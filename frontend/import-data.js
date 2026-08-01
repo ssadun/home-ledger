@@ -95,30 +95,46 @@
   // is intentionally unmapped — on bank statements it falls to the Diğer transfer
   // rule below, on card statements it stays a plain expense. Other unmapped tags
   // (Emeklilik/Sigorta, Kurum Ödemesi …) fall through to the keyword guesser.
+  function statementKey(value, keepSpaces) {
+    const folded = String(value || '')
+      .replace(/[Iİıi]/g, 'i')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    return keepSpaces
+      ? folded.replace(/[^a-z0-9]+/g, ' ').trim()
+      : folded.replace(/[^a-z0-9]/g, '');
+  }
+
   const ETIKET_MAP = {
-    'Maaş': 'salary',
-    'Para Transferi': 'wire-transfer',
-    'Kart Ödemesi': 'credit-card-payment',
-    'Faiz / Komisyon': 'interest',
-    'Telekomünikasyon': 'utilities',
-    'Döviz Al / Sat': 'wire-transfer',
-    'Market': 'groceries',
-    'Yeme / İçme': 'dining',
-    'Akaryakıt': 'transport',
-    'Ulaşım': 'transport',
-    'Giyim / Aksesuar': 'shopping',
-    'Eğlence / Hobi': 'entertainment',
-    'Sağlık / Bakım': 'health',
-    'Elektronik': 'shopping',
-    'Ev / Dekorasyon': 'shopping',
-    'Kişisel Hizmet': 'shopping',
+    maas: 'salary',
+    paratransferi: 'wire-transfer',
+    kartodemesi: 'credit-card-payment',
+    faizkomisyon: 'interest',
+    telekomunikasyon: 'utilities',
+    dovizalsat: 'wire-transfer',
+    market: 'groceries',
+    supermarket: 'groceries',
+    yemeicme: 'dining',
+    caferestaurant: 'dining',
+    fastfood: 'dining',
+    pastane: 'dining',
+    akaryakit: 'transport',
+    ulasim: 'transport',
+    giyimaksesuar: 'shopping',
+    eglencehobi: 'entertainment',
+    eglence: 'entertainment',
+    saglikbakim: 'health',
+    elektronik: 'shopping',
+    bilgisayar: 'shopping',
+    evdekorasyon: 'shopping',
+    kisiselhizmet: 'shopping',
     // Covers both pension contributions and ordinary insurance premiums, so it
     // maps to the safer of the two; real BES payments are caught above by the
     // "G.E. <sözleşme no>" description rule.
-    'Emeklilik / Sigorta': 'insurance',
+    emekliliksigorta: 'insurance',
   };
 
-  function guessCategory(desc, isIncome, etiket, isBank) {
+  function guessCategory(desc, isIncome, etiket, isBank, accountType) {
     // "Virman" (internal account transfer) is ALWAYS a Transfer — this overrides
     // any Etiket tag and the income/expense fallback. Valid for every import.
     if (/virman/i.test(desc)) return 'wire-transfer';
@@ -135,8 +151,11 @@
     // card tags this "Emeklilik / Sigorta", but so are ordinary insurance premiums
     // ("HEPİYİ SİGORTA"), so only the description shape means a pension payment.
     if (/^g\.?\s?e\.?\s+\d{6,}\b/i.test(desc)) return 'retirement';
-    if (etiket && ETIKET_MAP[etiket]) return ETIKET_MAP[etiket];
-    for (const [re, key] of RULES) if (re.test(desc)) return key;
+    const tagKey = statementKey(etiket);
+    if (tagKey && ETIKET_MAP[tagKey]) return ETIKET_MAP[tagKey];
+    const searchDesc = statementKey(desc, true);
+    for (const [re, key] of RULES) if (re.test(searchDesc)) return key;
+    if (!isIncome && (accountType === 'credit' || accountType === 'debit')) return 'shopping';
     return 'wire-transfer';
   }
 

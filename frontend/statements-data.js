@@ -1,14 +1,14 @@
 // statements-data.js — Account Statements API client.
 // Talks to /api/statements and maps between the backend row shape and the frontend
 // record shape used across the Statements UI. Credit-card ekstre files are
-// archived as Credit Payments instead, so the account picker excludes card accounts.
+// archived as Credit Payments instead, so the account picker excludes credit cards.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
-  // Account types whose statements live on this page. Credit/debit cards belong to
-  // Credit Payments. Investment/retirement imports archive their source documents
-  // here even when they produce holdings rather than movement rows.
-  const STATEMENT_TYPES = ['bank', 'overdraft', 'wallet', 'cash', 'invest', 'pension'];
+  // Account types whose statements live on this page. Credit cards belong to
+  // Card Payments because they have cutover/payment dates; debit cards have no due
+  // date and therefore remain ordinary account statements here.
+  const STATEMENT_TYPES = ['bank', 'overdraft', 'debit', 'wallet', 'cash', 'invest', 'pension'];
 
   // Backend row → frontend record object.
   function fromApi(row) {

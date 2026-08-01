@@ -15,6 +15,16 @@ Run them inside the backend image (pdfplumber/pandas live there):
 import pytest
 
 GARANTI_CC = "26.01-BonusCardEkstre.pdf"
+GARANTI_CC_MONTHS = {
+    "26.01-BonusCardEkstre.pdf": (114, 41423.37, 137609.04),
+    "26.02-BonusCardEkstre.pdf": (73, 77643.41, 119696.32),
+    "26.03-BonusCardEkstre.pdf": (53, 156104.99, 61240.01),
+    "26.04-BonusCardEkstre.pdf": (100, 53948.50, 108639.06),
+    "26.05-BonusCardEkstre.pdf": (82, 106512.18, 100530.90),
+    "26.06-BonusCardEkstre.pdf": (107, 249396.93, 233352.38),
+}
+GARANTI_DONEMICI = "26.07-Donemici Islemler - TL.pdf"
+GARANTI_DONEMICI_BONUS = "garanti-bonus-Donemici Islemler - TL.pdf"
 ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
 ON_BURGAN_FULL = "ON TL Hesap Hareketleri.pdf"
 MIDAS = "Midas_Ekstre_Mayıs_2026.pdf"
@@ -91,6 +101,41 @@ class TestGarantiCreditCard:
     def test_every_row_is_tagged_with_the_card(self, res):
         assert {r["source"] for r in res["rows"]} == {"4870 75** **** 1011"}
         assert {r["currency"] for r in res["rows"]} == {"TRY"}
+
+    @pytest.mark.parametrize("needle,etiket,category_key", [
+        ("DM PETROL", "Akaryakıt", "transport"),
+        ("SBX İST ALLIANZ", "Cafe & Restaurant", "dining"),
+        ("PARIBUCINEVERSE", "DİĞER HARCAMALARINIZ", "entertainment"),
+        ("PASSO", "Eğlence", "entertainment"),
+    ])
+    def test_section_tag_and_description_mapping(self, res, needle, etiket, category_key):
+        row = find_row(res["rows"], needle)
+        assert row["etiket"] == etiket
+        assert row["category_key"] == category_key
+
+    def test_description_keyword_can_classify_before_card_default(self, res):
+        row = find_row(res["rows"], "ARÇELİK PAZA")
+        assert row["category_key"] == "shopping"
+
+
+@pytest.mark.parametrize("filename,expected", GARANTI_CC_MONTHS.items())
+def test_all_bonus_statement_totals_remain_golden(parse_sample, filename, expected):
+    rows, income, expense = expected
+    result = parse_sample(filename)
+    assert result["total_rows"] == rows
+    assert result["income_total"] == pytest.approx(income)
+    assert result["expense_total"] == pytest.approx(expense)
+
+
+@pytest.mark.parametrize("filename,rows,income,expense", [
+    (GARANTI_DONEMICI, 49, 173483.36, 114855.15),
+    (GARANTI_DONEMICI_BONUS, 30, 0.0, 71571.59),
+])
+def test_all_bonus_interim_totals_remain_golden(parse_sample, filename, rows, income, expense):
+    result = parse_sample(filename)
+    assert result["total_rows"] == rows
+    assert result["income_total"] == pytest.approx(income)
+    assert result["expense_total"] == pytest.approx(expense)
 
 
 # --------------------------------------------------------------------------
@@ -177,10 +222,27 @@ class TestStatementMappingFallback:
         from app.services import bank_import
 
         assert bank_import._etiket_keys("Market, Yeme / İçme,  EFT ") == [
-            "MARKET",
-            "YEMEICME",
-            "EFT",
+            "market",
+            "yemeicme",
+            "eft",
         ]
+
+    @pytest.mark.parametrize("value", ["I", "İ", "ı", "i"])
+    def test_all_turkish_i_forms_share_one_lowercase_key(self, value):
+        from app.services import bank_import
+
+        assert bank_import._etiket_key(value) == "i"
+
+    @pytest.mark.parametrize("value,expected", [
+        ("Eğlence / Hobi", "eglencehobi"),
+        ("SAĞLIK / BAKIM", "saglikbakim"),
+        ("Kişisel Hizmet", "kisiselhizmet"),
+        ("DİĞER HARCAMALARINIZ", "digerharcamalariniz"),
+    ])
+    def test_mapping_keys_are_turkish_safe_lowercase(self, value, expected):
+        from app.services import bank_import
+
+        assert bank_import._etiket_key(value) == expected
 
     def test_structured_etiket_wins_over_description(self, monkeypatch):
         from app.services import bank_import
@@ -203,9 +265,11 @@ class TestStatementMappingFallback:
     def test_description_is_used_when_etiket_is_missing(self, monkeypatch):
         from app.services import bank_import
 
-        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", {
-            "PARACEKME": "withdrawal",
-        })
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [{
+            "key": "paracekme", "words": "para cekme",
+            "category_key": "withdrawal", "match_scope": "both",
+            "priority": 100, "mapping_id": 1,
+        }])
 
         row = bank_import._normalize_row(
             "2026-07-26",
@@ -216,6 +280,89 @@ class TestStatementMappingFallback:
 
         assert row["etiket"] is None
         assert row["category_key"] == "withdrawal"
+
+    def test_description_is_used_when_etiket_has_no_exact_mapping(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "paribucineverse", "category_key": "entertainment",
+             "match_scope": "description", "priority": 200, "mapping_id": 1},
+        ])
+        row = bank_import._normalize_row(
+            "2026-07-26", "IYZICO/PARIBUCINEVERSE.", -100,
+            etiket="Diğer", account_type="credit",
+        )
+        assert row["category_key"] == "entertainment"
+
+    def test_higher_priority_description_overrides_broad_etiket(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "caferestaurant", "category_key": "dining",
+             "match_scope": "both", "priority": 100, "mapping_id": 1},
+            {"key": "sbx", "category_key": "coffee",
+             "match_scope": "description", "priority": 200, "mapping_id": 2},
+        ])
+        assert bank_import._statement_mapping_category(
+            etiket="Cafe & Restaurant", description="SBX İST ALLIANZ TOWER"
+        ) == "coffee"
+
+    def test_higher_priority_etiket_still_wins_over_description(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "caferestaurant", "category_key": "dining",
+             "match_scope": "both", "priority": 100, "mapping_id": 1},
+            {"key": "sbx", "category_key": "coffee",
+             "match_scope": "description", "priority": 50, "mapping_id": 2},
+        ])
+        assert bank_import._statement_mapping_category(
+            etiket="Cafe & Restaurant", description="SBX İST ALLIANZ TOWER"
+        ) == "dining"
+
+    def test_priority_then_longest_keyword_is_deterministic(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "passo", "category_key": "entertainment",
+             "match_scope": "description", "priority": 200, "mapping_id": 2},
+            {"key": "kolaypasso", "category_key": "shopping",
+             "match_scope": "description", "priority": 200, "mapping_id": 3},
+            {"key": "paynkolay", "category_key": "dining",
+             "match_scope": "description", "priority": 100, "mapping_id": 1},
+        ])
+        assert bank_import._statement_mapping_category(
+            description="PAYNKOLAY/PASSO ETKINLIK"
+        ) == "entertainment"
+
+    def test_short_keyword_requires_token_boundary(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [
+            {"key": "sbx", "category_key": "dining",
+             "match_scope": "description", "priority": 200, "mapping_id": 1},
+        ])
+        assert bank_import._statement_mapping_category(description="MOBİL:SBX İST") == "dining"
+        assert bank_import._statement_mapping_category(description="ASBXSHOP") is None
+
+    @pytest.mark.parametrize("account_type", ["credit", "debit"])
+    def test_unmatched_card_expense_defaults_to_shopping(self, monkeypatch, account_type):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [])
+        row = bank_import._normalize_row(
+            "2026-07-26", "UNKNOWN MERCHANT", -100, account_type=account_type,
+        )
+        assert row["category_key"] == "shopping"
+
+    def test_card_income_does_not_default_to_shopping(self, monkeypatch):
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [])
+        row = bank_import._normalize_row(
+            "2026-07-26", "UNKNOWN REFUND", 100, account_type="credit",
+        )
+        assert row["category_key"] is None
 
 
 # --------------------------------------------------------------------------

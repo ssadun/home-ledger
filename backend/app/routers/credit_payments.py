@@ -177,11 +177,12 @@ def update_credit_payment(
 @router.delete("/{cp_id}", status_code=204)
 def delete_credit_payment(cp_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rec = _get_owned(db, cp_id, current_user)
-    # Detach linked spendings (keep the transactions themselves).
+    # Card statement rows belong to the statement record. Deleting the Card
+    # Payment removes those imported spendings instead of leaving orphaned rows.
     db.query(Transaction).filter(
         Transaction.owner_id == current_user.id,
         Transaction.credit_payment_id == rec.id,
-    ).update({Transaction.credit_payment_id: None}, synchronize_session=False)
+    ).delete(synchronize_session=False)
     # Remove the stored statement file.
     if rec.statement_path:
         try:

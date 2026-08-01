@@ -222,8 +222,9 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .backdrop{position:fixed;inset:0;background:var(--backdrop);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn .15s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes modalIn{from{transform:scale(.97);opacity:.6}to{transform:none;opacity:1}}
-.modal{--form-control-row-w:510px;--form-control-col-w:248.5px;--form-control-gap:13px;--form-control-h:35.5px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-modal);width:552px;max-width:96vw;box-shadow:var(--shadow-modal);animation:modalIn .15s ease both;display:flex;flex-direction:column;overflow:hidden;max-height:92vh}
-.modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.modal{--form-control-row-w:510px;--form-control-col-w:248.5px;--form-control-gap:13px;--form-control-h:35.5px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-modal);width:552px;max-width:96vw;box-shadow:var(--shadow-modal);animation:modalIn .15s ease both;display:flex;flex-direction:column;overflow:hidden;max-height:92vh;min-height:0}
+.modal>form{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--bg3);flex:0 0 auto}
 .modal-head-l{display:flex;flex-direction:column;gap:2px}
 .modal-title{font-size:15px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:9px}
 .modal-title svg{width:16px;height:16px}
@@ -231,7 +232,7 @@ body.sidebar-expanded .main{margin-left:var(--hl-sidebar-w,180px)}
 .m-close{background:none;border:none;color:var(--muted);cursor:pointer;display:flex;padding:5px;border-radius:var(--radius-sm);transition:var(--transition)}
 .m-close:hover{color:var(--text);background:var(--bg4)}
 .m-close svg{width:17px;height:17px}
-.modal-body{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
+.modal-body{padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;flex:1 1 auto;min-height:0}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,var(--form-control-col-w)));gap:var(--form-control-gap);width:100%;max-width:var(--form-control-row-w)}
 /* min-width:0 — a grid item's automatic minimum is its CONTENT width, so a long
    option label (e.g. "TEB Türk Ekonomi Bankası (TEBUTRIS)") would widen its own
@@ -360,7 +361,7 @@ input[type="date"]::-webkit-datetime-edit-year-field:focus{
 .conv-preview .cp{display:flex;flex-direction:column;gap:2px}
 .conv-preview .cp-k{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
 .conv-preview .cp-v{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
-.modal-foot{display:flex;gap:9px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg3)}
+.modal-foot{display:flex;gap:9px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg3);flex:0 0 auto}
 .amb{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--border2);border-radius:var(--radius);padding:8px 15px;cursor:pointer;font-size:13px;font-weight:600;transition:var(--transition)}
 .amb svg{width:14px;height:14px}
 .amb:disabled{opacity:.4;cursor:not-allowed}

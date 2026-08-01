@@ -91,6 +91,34 @@ def _backfill_account_key(db: Session, rec: Statement, owner_id: int) -> None:
             rec.account_key = acc.account_key
 
 
+def _validate_statement_account(
+    db: Session,
+    owner_id: int,
+    account_id: Optional[int],
+    account_key: Optional[str],
+) -> None:
+    """Allow Statements for owned accounts except credit cards.
+
+    Credit-card statements belong to Card Payments because they carry cutover and
+    payment due dates. Debit cards have no due date and remain valid Statements.
+    """
+    if account_id is None and not account_key:
+        return
+    owned = db.query(Account).filter(Account.owner_id == owner_id)
+    account = (
+        owned.filter(Account.id == account_id).first()
+        if account_id is not None
+        else owned.filter(Account.account_key == account_key).first()
+    )
+    if not account:
+        raise HTTPException(404, "Hesap bulunamadı")
+    if account.type == "credit":
+        raise HTTPException(
+            400,
+            "Credit card statements must be entered through Card Payments.",
+        )
+
+
 # ── CRUD ────────────────────────────────────────────────────────────────────────
 
 @router.get("/", response_model=List[StatementOut])
@@ -119,6 +147,9 @@ def create_statement(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _validate_statement_account(
+        db, current_user.id, payload.account_id, payload.account_key
+    )
     rec = Statement(**payload.model_dump(), owner_id=current_user.id)
     _backfill_account_key(db, rec, current_user.id)
     rec.name = _compute_name(db, rec)
@@ -139,6 +170,12 @@ def update_statement(
 ):
     rec = _get_owned(db, st_id, current_user)
     data = payload.model_dump(exclude_none=True)
+    _validate_statement_account(
+        db,
+        current_user.id,
+        data.get("account_id", rec.account_id),
+        data.get("account_key", rec.account_key),
+    )
     for field, value in data.items():
         setattr(rec, field, value)
     if "account_id" in data and not payload.account_key:

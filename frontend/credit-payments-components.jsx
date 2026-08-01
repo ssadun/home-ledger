@@ -334,7 +334,7 @@
               {batch
                 ? <>Delete <b>{count}</b> selected credit {count === 1 ? 'payment' : 'payments'}?</>
                 : <>Delete <b>{record.name}</b>?</>}
-              <span className="warn">⚠ Linked spendings stay, but lose their statement link. This cannot be undone.</span>
+              <span className="warn">⚠ Linked spendings will be deleted with the statement. This cannot be undone.</span>
             </div>
           </div>
           <div className="modal-foot">

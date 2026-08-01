@@ -4,6 +4,7 @@
   const StyledSelect = window.StyledSelect;
   const { Sidebar } = window.HL_NAV;
   const { CURRENT_YEAR } = window.LEDGER;
+  const ImportWizard = window.ImportWizard;
   const CP_API = window.HL_CREDIT_PAYMENTS_API;
   const { CreditPaymentTable, CreditPaymentFormModal, CreditPaymentDetail, DeleteCreditPaymentConfirm, Pagination } = window;
 
@@ -100,6 +101,10 @@
     const [detail, setDetail] = React.useState(null);       // record obj
     const [formModal, setFormModal] = React.useState(null);  // {mode, record}
     const [del, setDel] = React.useState(null);              // record to delete
+    const [importWiz, setImportWiz] = React.useState(() => {
+      const q = new URLSearchParams(window.location.search);
+      return q.get('import') ? { preAccId: q.get('account') || null } : null;
+    });
     // Mass-delete: ids of checkbox-selected rows + the batch-confirm dialog toggle.
     const [selected, setSelected] = React.useState(() => new Set());
     const [batchDel, setBatchDel] = React.useState(false);
@@ -212,9 +217,17 @@
         .catch(err => setLoadError(err.message));
     }
 
-    // Hydrate cards first (for the picker + labels), then records.
+    // Hydrate shared category/institution data for the import wizard, then cards
+    // (for the picker + labels), then records.
     React.useEffect(() => {
-      CP_API.creditCards()
+      const cats = window.HL_CATEGORIES_API
+        ? window.HL_CATEGORIES_API.hydrateLedgerCats().catch(() => {})
+        : Promise.resolve();
+      const insts = window.HL_INSTITUTIONS_API
+        ? window.HL_INSTITUTIONS_API.hydrate().catch(() => {})
+        : Promise.resolve();
+      Promise.all([cats, insts])
+        .then(() => CP_API.creditCards())
         .then(cardList => { setCards(cardList); return reload(cardList); })
         .catch(err => setLoadError(err.message));
     }, []); // eslint-disable-line
@@ -297,6 +310,33 @@
     function openEdit(record) { setDetail(null); setFormModal({ mode: 'edit', record }); }
     function openDeleteFromDetail(record) { setDetail(null); setDel(record); }
 
+    // Keep the balance behavior identical to imports started from Statements, then
+    // refresh this page so the Credit Payment created by the wizard appears at once.
+    function handleImport(rows, byAcc) {
+      window.HL_OP_NOTIFY.promise(
+        window.HL_ACCOUNTS_API.list().then(fresh => {
+          const affected = fresh.filter(a => byAcc && byAcc[a.id]);
+          return Promise.all(affected.map(a => {
+            const summary = byAcc[a.id] || {};
+            const nextBalance = summary.closingBalance != null
+              ? Number(summary.closingBalance)
+              : a.balance + (Number(summary.delta) || 0);
+            return window.HL_ACCOUNTS_API.update(a._dbId, {
+              ...a,
+              balance: +nextBalance.toFixed(2),
+            });
+          }));
+        }),
+        { pending: 'Updating card balances...', success: 'Card balances updated.', error: false }
+      )
+        .then(() => CP_API.creditCards())
+        .then(cardList => { setCards(cardList); return reload(cardList); })
+        .catch(err => {
+          setLoadError(err.message);
+          window.HL_OP_NOTIFY.show('Could not refresh card payments: ' + err.message, { type: 'error', timeout: 4200 });
+        });
+    }
+
     return (
       <div className="app">
         <Sidebar active="credit-payments" />
@@ -310,6 +350,7 @@
                 </div>
               </div>
               <div className="head-actions cp-head-actions" ref={headActionsRef}>
+                <button id="cp-import-btn" className="action-modal-btn scan" onClick={() => setImportWiz({ preAccId: null })}><Icon name="file-down" size={14} />Import Statement</button>
                 <button id="cp-add-btn" ref={addBtnRef} className={'action-modal-btn ok ha-overflow' + (addInMore ? ' cp-add-overflowed' : '')} onClick={() => setFormModal({ mode: 'add', record: {} })} aria-hidden={addInMore} tabIndex={addInMore ? -1 : undefined}><Icon name="plus" size={14} />Add Statement</button>
               </div>
             </div>
@@ -353,6 +394,8 @@
           onClose={() => setDel(null)} onConfirm={handleDelete} />}
         {batchDel && <DeleteCreditPaymentConfirm count={selectedIds.length}
           onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
+        {importWiz && <ImportWizard preAccId={importWiz.preAccId} accountType="credit"
+          onClose={() => setImportWiz(null)} onCommit={handleImport} />}
       </div>
     );
   }

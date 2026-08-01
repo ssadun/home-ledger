@@ -73,6 +73,9 @@ class StatementMapping(Base):
     lang = Column(String, default="tr")            # statement language, e.g. "tr"
     etiket = Column(String, nullable=False)        # tag text as printed on the statement
     category_key = Column(String, nullable=False)  # target category, e.g. "wire-transfer"
+    match_scope = Column(String, default="both")  # tag | description | both
+    priority = Column(Integer, default=100)        # higher rules are evaluated first
+    is_active = Column(Boolean, default=True)
     is_default = Column(Boolean, default=False)
 
 
@@ -400,12 +403,12 @@ class CreditPayment(Base):
 
 
 class Statement(Base):
-    """One uploaded BANK-ACCOUNT statement → one record per account per period.
+    """One uploaded non-credit account statement → one record per account/period.
 
-    The bank-account twin of CreditPayment: it stores the original document as an
+    The account twin of CreditPayment: it stores the original document as an
     attachment and groups the movements the import created
     (transactions.statement_id). A credit-card statement produces a CreditPayment
-    instead — never both — so a card's ekstre is not archived twice.
+    instead — never both. Debit cards have no due date and remain valid Statements.
     """
     __tablename__ = "statements"
     id = Column(Integer, primary_key=True, index=True)

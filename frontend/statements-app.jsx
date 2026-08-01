@@ -1,6 +1,6 @@
 // statements-app.jsx — Home Ledger Statements page (bank-account statement archive).
-// This page owns the Import Statement wizard (moved here from Accounts): importing
-// is what creates a statement record, so the wizard belongs with the archive.
+// This page hosts the non-credit Import Statement wizard. Credit-card imports start
+// from Card Payments and create CreditPayment records instead.
 (function () {
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
@@ -329,7 +329,7 @@
               <div className="page-title-wrap cfg-detail-title-wrap">
                 <div className="cfg-title-col">
                   <h1 className="page-title">Statements</h1>
-                  <p className="page-subtitle">Uploaded bank-account statements</p>
+                  <p className="page-subtitle">Uploaded non-credit account statements</p>
                 </div>
               </div>
               <div className="head-actions st-head-actions">
@@ -384,7 +384,7 @@
           onClose={() => setDel(null)} onConfirm={handleDelete} />}
         {batchDel && <DeleteStatementConfirm count={selectedIds.length}
           onClose={() => setBatchDel(false)} onConfirm={confirmBatchDelete} />}
-        {importWiz && <ImportWizard preAccId={importWiz.preAccId}
+        {importWiz && <ImportWizard preAccId={importWiz.preAccId} excludeAccountType="credit"
           onClose={() => setImportWiz(null)} onCommit={handleImport} />}
       </div>
     );

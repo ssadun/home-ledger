@@ -1,6 +1,7 @@
 // statement-mappings-data.js — Statement Value Mapping API client (Configuration page).
 // Maps between the backend StatementMapping row and the config-app item shape
-// { id, lang, etiket, category_key }. Drives the importer's Etiket→category rule.
+// { id, lang, etiket, category_key, match_scope, priority, is_active }.
+// Comma-separated aliases stay grouped in the UI and are flattened by the backend.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
@@ -10,6 +11,9 @@
       lang: row.lang || 'tr',
       etiket: row.etiket || '',
       category_key: row.category_key || '',
+      match_scope: row.match_scope || 'both',
+      priority: row.priority == null ? 100 : Number(row.priority),
+      is_active: row.is_active !== false,
     };
   }
 
@@ -18,7 +22,16 @@
       lang: item.lang || 'tr',
       etiket: item.etiket,
       category_key: item.category_key,
+      match_scope: item.match_scope || 'both',
+      priority: item.priority == null || item.priority === '' ? 100 : Number(item.priority),
+      is_active: item.is_active !== false,
     };
+  }
+
+  async function errorText(res, fallback) {
+    let message = fallback + ' (' + res.status + ')';
+    try { const body = await res.json(); if (body && body.detail) message = body.detail; } catch (_) {}
+    return message;
   }
 
   async function list() {
@@ -33,7 +46,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });
-    if (!res.ok) throw new Error('Failed to create statement mapping (' + res.status + ')');
+    if (!res.ok) throw new Error(await errorText(res, 'Failed to create statement mapping'));
     return fromApi(await res.json());
   }
 
@@ -43,7 +56,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });
-    if (!res.ok) throw new Error('Failed to update statement mapping (' + res.status + ')');
+    if (!res.ok) throw new Error(await errorText(res, 'Failed to update statement mapping'));
     return fromApi(await res.json());
   }
 

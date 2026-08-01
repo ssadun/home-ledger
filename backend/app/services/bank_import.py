@@ -23,6 +23,7 @@ Her parser normalize edilmiş şu formata çıktı üretir:
 import io
 import csv
 import re
+import unicodedata
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -196,32 +197,64 @@ _DIGER_RE = re.compile(r"\b(DIGER|OTHER)\b")
 # transfer rule, on CARD statements it stays a plain expense. "Para Çekme" (ATM
 # withdrawal) is likewise left to the sign-based default.
 _ETIKET_CATEGORY = {
-    "MAAS":             "salary",              # Maaş
-    "PARATRANSFERI":    "wire-transfer",       # Para Transferi
-    "KARTODEMESI":      "credit-card-payment", # Kart Ödemesi
-    "FAIZKOMISYON":     "interest",            # Faiz / Komisyon
-    "TELEKOMUNIKASYON": "utilities",           # Telekomünikasyon
-    "ULASIM":           "transport",           # Ulaşım
-    "DOVIZALSAT":       "wire-transfer",       # Döviz Al / Sat
-    "MARKET":           "groceries",           # Market
-    "YEMEICME":         "dining",              # Yeme / İçme
-    "AKARYAKIT":        "transport",           # Akaryakıt
-    "GIYIMAKSESUAR":    "shopping",            # Giyim / Aksesuar
-    "EGLENCEHOBI":      "entertainment",       # Eğlence / Hobi
-    "SAGLIKBAKIM":      "health",              # Sağlık / Bakım
-    "ELEKTRONIK":       "shopping",            # Elektronik
-    "EVDEKORASYON":     "shopping",            # Ev / Dekorasyon
-    "KISISELHIZMET":    "shopping",            # Kişisel Hizmet
+    "maas":                 "salary",              # Maaş
+    "paratransferi":        "wire-transfer",       # Para Transferi
+    "kartodemesi":          "credit-card-payment", # Kart Ödemesi
+    "faizkomisyon":         "interest",            # Faiz / Komisyon
+    "telekomunikasyon":     "utilities",           # Telekomünikasyon
+    "ulasim":               "transport",           # Ulaşım
+    "dovizalsat":           "wire-transfer",       # Döviz Al / Sat
+    "market":               "groceries",           # Market
+    "supermarket":          "groceries",           # Süpermarket
+    "yemeicme":             "dining",              # Yeme / İçme
+    "caferestaurant":       "dining",              # Cafe & Restaurant
+    "fastfood":             "dining",              # Fast Food
+    "pastane":              "dining",              # Pastane
+    "sbx":                  "dining",
+    "sbux":                 "dining",
+    "starbucks":            "dining",
+    "akaryakit":            "transport",           # Akaryakıt
+    "giyimaksesuar":        "shopping",            # Giyim / Aksesuar
+    "eglencehobi":          "entertainment",       # Eğlence / Hobi
+    "eglence":              "entertainment",       # Tam ekstre bölüm başlığı
+    "paribucineverse":      "entertainment",
+    "passo":                "entertainment",
+    "saglikbakim":          "health",              # Sağlık / Bakım
+    "elektronik":           "shopping",            # Elektronik
+    "bilgisayar":           "shopping",            # Tam ekstre bölüm başlığı
+    "arcelik":              "shopping",
+    "evdekorasyon":         "shopping",            # Ev / Dekorasyon
+    "kisiselhizmet":        "shopping",            # Kişisel Hizmet
     # Covers BOTH pension contributions and ordinary insurance premiums
     # ("HEPİYİ SİGORTA"), so it maps to the safer of the two. Real BES payments are
     # claimed earlier by _cc_classify's "G.E. <sözleşme no>" rule.
-    "EMEKLILIKSIGORTA": "insurance",           # Emeklilik / Sigorta
+    "emekliliksigorta":     "insurance",           # Emeklilik / Sigorta
 }
 
 
 def _etiket_key(etiket: str) -> str:
-    """Diacritic/spacing-insensitive lookup key for an Etiket tag."""
-    return re.sub(r"[^A-Z0-9]", "", _fold(etiket))
+    """Turkish-safe lowercase key used by every statement mapping lookup.
+
+    Mapping dotted/dotless I before case-folding makes I/İ/ı/i converge to ``i``.
+    The stored description and tag remain untouched; only this search shadow is
+    stripped of accents, whitespace, and punctuation.
+    """
+    value = unicodedata.normalize("NFKC", etiket or "").translate(_TR_FOLD).casefold()
+    value = "".join(
+        char for char in unicodedata.normalize("NFKD", value)
+        if not unicodedata.combining(char)
+    )
+    return re.sub(r"[^a-z0-9]", "", value)
+
+
+def _statement_words(value: str) -> str:
+    """Canonical lowercase text with token boundaries retained for short keys."""
+    folded = unicodedata.normalize("NFKC", value or "").translate(_TR_FOLD).casefold()
+    folded = "".join(
+        char for char in unicodedata.normalize("NFKD", folded)
+        if not unicodedata.combining(char)
+    )
+    return re.sub(r"[^a-z0-9]+", " ", folded).strip()
 
 
 def _etiket_keys(etiket: str) -> list[str]:
@@ -229,10 +262,35 @@ def _etiket_keys(etiket: str) -> list[str]:
     return [key for key in (_etiket_key(part) for part in (etiket or "").split(",")) if key]
 
 
-# Runtime Etiket→category_key map loaded from the DB (Configuration → Statement
-# Value Mapping). None until load_etiket_map() runs; the hardcoded _ETIKET_CATEGORY
-# above is the bootstrap fallback used when no DB session is available (e.g. tests).
-_ETIKET_RUNTIME: Optional[dict] = None
+# Runtime rules loaded from Configuration → Statement Value Mapping. Each
+# comma-separated alias becomes one flat rule. None means use the bootstrap map.
+_ETIKET_RUNTIME: Optional[list[dict]] = None
+
+
+def _mapping_rules() -> list[dict]:
+    source = _ETIKET_RUNTIME
+    if source is None:
+        source = [
+            {"key": key, "category_key": category_key, "match_scope": "both",
+             "priority": 100, "mapping_id": 0, "words": key}
+            for key, category_key in _ETIKET_CATEGORY.items()
+        ]
+    # Compatibility for callers/tests that replace the runtime table with a dict.
+    if isinstance(source, dict):
+        source = [
+            {"key": _etiket_key(key), "category_key": category_key,
+             "match_scope": "both", "priority": 100, "mapping_id": 0,
+             "words": _statement_words(key)}
+            for key, category_key in source.items()
+        ]
+    return sorted(
+        source,
+        key=lambda rule: (
+            -int(rule.get("priority", 100)),
+            -len(rule.get("key", "")),
+            int(rule.get("mapping_id", 0)),
+        ),
+    )
 
 
 def load_etiket_map(db) -> None:
@@ -242,12 +300,28 @@ def load_etiket_map(db) -> None:
     global _ETIKET_RUNTIME
     try:
         from app.models import StatementMapping
-        m: dict[str, str] = {}
-        for row in db.query(StatementMapping).all():
+        rules: list[dict] = []
+        rows = (
+            db.query(StatementMapping)
+            .filter(StatementMapping.is_active.is_(True))
+            .order_by(StatementMapping.priority.desc(), StatementMapping.id.asc())
+            .all()
+        )
+        for row in rows:
             if row.etiket and row.category_key:
-                for key in _etiket_keys(row.etiket):
-                    m[key] = row.category_key
-        _ETIKET_RUNTIME = m
+                for alias in (part.strip() for part in row.etiket.split(",")):
+                    key = _etiket_key(alias)
+                    if not key:
+                        continue
+                    rules.append({
+                        "key": key,
+                        "words": _statement_words(alias),
+                        "category_key": row.category_key,
+                        "match_scope": row.match_scope or "both",
+                        "priority": row.priority if row.priority is not None else 100,
+                        "mapping_id": row.id,
+                    })
+        _ETIKET_RUNTIME = rules
     except Exception:
         pass  # keep whatever we had; statement mapping falls back to _ETIKET_CATEGORY
 
@@ -255,19 +329,45 @@ def load_etiket_map(db) -> None:
 def _statement_mapping_category(etiket: str = "", description: str = "") -> Optional[str]:
     """Map statement text to a category_key.
 
-    If the parsed row has a structured Etiket value, match that exact normalized
-    tag. Otherwise, fall back to a normalized contains match on the description,
-    which covers account-movement PDFs whose tables only expose an Açıklama column.
+    Tag and description candidates share one priority order. Higher priority wins;
+    ties prefer the longer normalized keyword and then the older mapping id. Tag
+    rules still require an exact match, while description rules use controlled
+    contains matching. This lets a specific merchant rule override a broad bank
+    section tag without making every transaction in that section use the merchant
+    category.
     """
     if not etiket and not description:
         return None
-    table = _ETIKET_RUNTIME if _ETIKET_RUNTIME is not None else _ETIKET_CATEGORY
-    if etiket:
-        return table.get(_etiket_key(etiket))
-    desc_key = _etiket_key(description)
-    for key, category_key in table.items():
-        if key and key in desc_key:
-            return category_key
+    rules = _mapping_rules()
+    tag_key = _etiket_key(etiket) if etiket else ""
+    desc_words = _statement_words(description)
+    desc_tokens = desc_words.split()
+    for rule in rules:
+        key = rule["key"]
+        if not key:
+            continue
+        if (
+            tag_key
+            and rule["match_scope"] in {"tag", "both"}
+            and key == tag_key
+        ):
+            return rule["category_key"]
+        if not desc_words or rule["match_scope"] not in {"description", "both"}:
+            continue
+        rule_words = rule.get("words") or key
+        if " " in rule_words:
+            matched = bool(re.search(
+                rf"(?:^|\s){re.escape(rule_words)}(?:$|\s)", desc_words
+            ))
+        elif len(key) <= 3:
+            matched = key in desc_tokens
+        else:
+            # Long keys may sit inside one gateway-prefixed token, but must not
+            # concatenate across punctuation-separated tokens. This prevents a
+            # rule such as KOLAYPASSO matching "PAYNKOLAY/PASSO" accidentally.
+            matched = any(key in token for token in desc_tokens)
+        if matched:
+            return rule["category_key"]
     return None
 
 
@@ -285,6 +385,10 @@ def _normalize_row(date: str, description: str, amount: float, balance=None, raw
     # because on CARD statements "Diğer" is a legitimate spending tag (tolls, etc.).
     if category_override is None and account_type == "bank" and _DIGER_RE.search(_fold(description)):
         category_override = "wire-transfer"
+    # Ordinary credit/debit-card expenses use Shopping only after special rules,
+    # exact statement tags, and description keywords have all failed.
+    if category_override is None and account_type in {"credit", "debit"} and amount < 0:
+        category_override = "shopping"
     return {
         "date": date,
         "description": (description or "").strip()[:200],
@@ -574,6 +678,35 @@ _TR_AMOUNT_RE = re.compile(r"(\d{1,3}(?:\.\d{3})*,\d{2})\s*([+-]?)")
 _WATERMARK_RE = re.compile(r"[bB]+[oO]+[sşSŞ]+[lL]+[uU]+[kK]+")
 _CC_LINE_RE = re.compile(r"^(\d{1,2}\s+[A-Za-zÇĞİÖŞÜçğıöşü]+\s+\d{4})\s+(.+)$")
 
+# Standalone category headings in billed Bonus statements. They apply to every
+# following movement until another heading. The PDF has no Etiket column, so the
+# parser carries the raw heading into each row and lets Statement Value Mapping
+# resolve it exactly. Higher-level statement headings reset the active category.
+_GARANTI_CC_SECTION_TAGS = {
+    _etiket_key(label): label for label in (
+        "Akaryakıt", "Cafe & Restaurant", "Süpermarket", "Fast Food",
+        "Eğitim", "Eğlence", "Optik & Saat", "Pastane", "Saat/Mücevherat",
+        "Ulaşım", "Kozmetik", "Seyahat", "Spor Giyim", "Bilgisayar",
+        "Eczane", "Otomotiv", "RentACar", "Sağlık",
+        "Ev Tekstil & Dekorasyon", "DİĞER HARCAMALARINIZ",
+        "YURT DIŞI HARCAMALARINIZ",
+    )
+}
+_GARANTI_CC_SECTION_RESETS = {
+    _etiket_key(label) for label in (
+        "BONUS HARCAMALARINIZ",
+        "BONUS PROGRAM ORTAKLARI'NDA YAPTIĞINIZ HARCAMALAR",
+        "BONUS PROGRAM ORTAKLARI DIŞI HARCAMALARINIZ",
+        "BONUS PLATINUM SAHİBİ OLDUĞUNUZ İÇİN EKSTRA BONUS KAZANDIĞINIZ İŞLEMLER",
+    )
+}
+
+
+def _garanti_cc_section_tag(line: str) -> Optional[str]:
+    """Return a canonical raw Bonus section label, or None for ordinary text."""
+    compact = " ".join((line or "").split()).strip()
+    return _GARANTI_CC_SECTION_TAGS.get(_etiket_key(compact))
+
 
 def _is_garanti_cc_pdf(text: str) -> bool:
     head = text[:3000].lower()
@@ -610,8 +743,16 @@ def _parse_garanti_cc_pdf(text: str) -> tuple[list[dict], list[dict]]:
     if mtot:
         statement_total = _parse_amount(mtot.group(1))
 
+    active_section_tag = None
     for raw in text.splitlines():
         line = _WATERMARK_RE.sub(" ", raw).strip()
+        section_tag = _garanti_cc_section_tag(line)
+        if section_tag:
+            active_section_tag = section_tag
+            continue
+        if _etiket_key(" ".join(line.split())) in _GARANTI_CC_SECTION_RESETS:
+            active_section_tag = None
+            continue
         m = _CC_LINE_RE.match(line)
         if not m:
             continue
@@ -632,7 +773,10 @@ def _parse_garanti_cc_pdf(text: str) -> tuple[list[dict], list[dict]]:
             continue
         # sonekli (+/-) → alacak/iade (gelir, pozitif); soneksiz → harcama (gider, negatif)
         signed = value if last.group(2) in ("+", "-") else -value
-        rows.append(_normalize_row(date, desc, signed, currency="TRY", source=card))
+        rows.append(_normalize_row(
+            date, desc, signed, currency="TRY", etiket=active_section_tag,
+            source=card, account_type="credit",
+        ))
 
     accounts: list[dict] = []
     if card:
@@ -739,6 +883,7 @@ def _parse_garanti_donemici_pdf(content: bytes, text: str) -> tuple[list[dict], 
                     etiket = re.sub(r"\s*/\s*", " / ", etiket)
                     rows.append(_normalize_row(
                         date, desc, amount, currency=currency, etiket=etiket, source=card,
+                        account_type="credit",
                     ))
 
     accounts: list[dict] = []
@@ -2142,12 +2287,27 @@ def import_transactions(
     row it creates so the UI can show provenance (e.g. Account Activity's detail modal).
     """
     from datetime import date as date_type
-    from app.models import Transaction as Tx, TransactionType, Currency
+    from app.models import Account, Transaction as Tx, TransactionType, Currency
     from app.routers.transactions import _apply_rates
 
     imported = 0
     skipped = 0
     errors = []
+    # Resolve every payment-method reference in one owner-scoped query. Frontend
+    # normally sends account_key; unique legacy display names are supported too.
+    owned_accounts = db.query(Account).filter(Account.owner_id == owner_id).all()
+    account_type_by_ref = {
+        account.account_key: account.type
+        for account in owned_accounts
+        if account.account_key
+    }
+    name_counts: dict[str, int] = {}
+    for account in owned_accounts:
+        if account.name:
+            name_counts[account.name] = name_counts.get(account.name, 0) + 1
+    for account in owned_accounts:
+        if account.name and name_counts.get(account.name) == 1:
+            account_type_by_ref[account.name] = account.type
     existing_keys = set()
     if skip_duplicates:
         parsed_dates = []
@@ -2181,6 +2341,14 @@ def import_transactions(
             # Spending module persists transactions (positive amount + type).
             amount = abs(raw_amount)
             currency = row.get("currency", "TRY")
+            payment_method = row.get("payment_method") or default_payment_method
+            category_key = cat_override or row.get("category_key") or default_category_key
+            if (
+                not category_key
+                and tx_type == TransactionType.expense
+                and account_type_by_ref.get(payment_method) in {"credit", "debit"}
+            ):
+                category_key = "shopping"
 
             dedupe_key = (tx_date, round(amount, 2), tx_type)
             if skip_duplicates and dedupe_key in existing_keys:
@@ -2194,8 +2362,8 @@ def import_transactions(
                 currency=currency,
                 description=desc,
                 date=tx_date,
-                category_key=cat_override or row.get("category_key") or default_category_key,
-                payment_method=row.get("payment_method") or default_payment_method,
+                category_key=category_key,
+                payment_method=payment_method,
                 payer=row.get("payer"),
                 paying_for=row.get("paying_for"),
                 credit_payment_id=credit_payment_id,
