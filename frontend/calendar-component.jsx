@@ -204,7 +204,11 @@
 
     let mInc = 0, mExp = 0, mCnt = 0;
     Object.values(events).forEach(arr => {
-      arr.forEach(ev => { mCnt++; if (ev.source === 'income') mInc += ev.amount; else if (ev.source === 'expense') mExp += ev.amount; });
+      arr.forEach(ev => {
+        mCnt++;
+        if (ev.source === 'income') mInc += ev.amount;
+        else if (ev.source === 'expense' || ev.source === 'recurring') mExp += ev.amount;
+      });
     });
 
     // Live combined balance across all accounts (independent of the shown month).
