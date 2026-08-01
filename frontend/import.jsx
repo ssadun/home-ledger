@@ -14,6 +14,10 @@
   const grp = (v, d = 2) => Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   // ISO → Turkish display date ("2026-08-16" → "16.08.2026").
   const fmtDateTr = (iso) => { if (!iso) return '-'; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; };
+  const shortDateIso = (v) => {
+    const m = String(v || '').match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+    return m ? `20${m[3]}-${m[2]}-${m[1]}` : null;
+  };
   const FMT = { csv: { label: 'CSV', icon: 'file-spreadsheet', color: 'var(--green)' },
                 excel: { label: 'Excel', icon: 'sheet', color: 'var(--emerald)' },
                 pdf: { label: 'PDF', icon: 'file-text', color: 'var(--red)' } };
@@ -594,7 +598,13 @@
         {result.accounts && result.accounts.length > 0 && (
           <div className="imp-done-cp" id="imp-done-invest-account">
             <Icon name="trending-up" size={13} />
-            Created investment account{result.accounts.length !== 1 ? 's' : ''}: {result.accounts.join(', ')} - open it on the Accounts page to see these holdings.
+            Synced investment account{result.accounts.length !== 1 ? 's' : ''}: {result.accounts.join(', ')} - open it on the Accounts page to see these holdings.
+          </div>
+        )}
+        {result.statements && result.statements.length > 0 && (
+          <div className="imp-done-cp" id="imp-done-invest-statement">
+            <Icon name="archive" size={13} />
+            Archived statement{result.statements.length !== 1 ? 's' : ''}: {result.statements.join(', ')}
           </div>
         )}
       </div>
@@ -963,42 +973,48 @@
         currency: r.cur,
         amount: r.qty,
         purchase_price: r.cost,
+        current_value: r.value,
       }));
       setBusy(true);
       let outcome;
       try {
-        outcome = await window.HL_IMPORT_API.confirmInvestments(holdings, true);
+        outcome = await window.HL_IMPORT_API.confirmInvestments(holdings, true, invSummary || null);
       } catch (e) {
         setError(e.message || 'Import failed.');
         setBusy(false);
         return;
       }
-      // Auto-create an "invest"-type account per platform so the holdings surface
-      // under it on the Accounts page (matched by platform == account name). Skip
-      // platforms that already have an invest account. Non-fatal: the Investment
-      // records are already saved above.
-      const createdAccounts = [];
-      const platforms = [...new Set(incl.map(r => r.platform || 'Midas'))];
-      if (window.HL_ACCOUNTS_API) {
-        for (const p of platforms) {
-          const exists = accounts.some(a => a.type === 'invest' && (a.name || '').trim().toLowerCase() === p.trim().toLowerCase());
-          if (exists) continue;
-          const mine = incl.filter(r => (r.platform || 'Midas') === p);
-          // Portfolio value: statement total when it's the only platform, else the
-          // sum of the platform's holdings' market value (cost basis as fallback).
-          const value = (platforms.length === 1 && invSummary && invSummary.total)
-            ? invSummary.total
-            : +mine.reduce((s, r) => s + (Number(r.value) || (r.qty * (r.cost || 0))), 0).toFixed(2);
-          const cur = (mine[0] && mine[0].cur) || 'TRY';
-          try {
-            const acc = await window.HL_ACCOUNTS_API.create({ type: 'invest', name: p, owner: 'Sadun', cur, balance: value, institution: p });
-            createdAccounts.push(acc.name);
-          } catch (e) { /* non-fatal: holdings still imported */ }
-        }
+
+      const archivedStatements = [];
+      if (window.HL_STATEMENTS_API && pickedFile) {
+        try {
+          const fresh = window.HL_ACCOUNTS_API ? await window.HL_ACCOUNTS_API.list() : accounts;
+          const platform = (outcome.accounts && outcome.accounts[0]) || 'Midas';
+          const acct = fresh.find(a => a.type === 'invest' && (a.name || '').trim().toLowerCase() === platform.trim().toLowerCase());
+          const from = shortDateIso(invSummary && invSummary.period_from);
+          const to = shortDateIso(invSummary && invSummary.period_to);
+          const [py, pm] = String(to || from || '').split('-');
+          if (acct) {
+            const st = await window.HL_STATEMENTS_API.create({
+              accountId: acct._dbId,
+              year: Number(py) || new Date().getFullYear(),
+              month: Number(pm) || (new Date().getMonth() + 1),
+              from, to,
+              cur: (invSummary && invSummary.currency) || acct.cur || 'TRY',
+              moneyIn: Number(invSummary && invSummary.cash) || 0,
+              moneyOut: 0,
+              closingBalance: invSummary && invSummary.total != null ? Number(invSummary.total) : null,
+              bank: doc && doc.institution || 'Midas (portföy)',
+            });
+            try { await window.HL_STATEMENTS_API.attachFile(st.id, pickedFile); }
+            catch (e) { /* record survives even if attachment fails */ }
+            archivedStatements.push(st.name);
+          }
+        } catch (e) { /* holdings already imported; archive failure is non-fatal */ }
       }
 
       setBusy(false);
-      setInvResult({ created: outcome.created || 0, updated: outcome.updated || 0, holdings: incl, accounts: createdAccounts });
+      setInvResult({ created: outcome.created || 0, updated: outcome.updated || 0, holdings: incl, accounts: outcome.accounts || [], statements: archivedStatements });
       // Refresh the parent Accounts list — a freshly created invest account has to
       // appear, and an existing one's holdings changed underneath it either way.
       refreshHost([], {});

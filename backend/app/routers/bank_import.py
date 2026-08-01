@@ -73,7 +73,7 @@ async def confirm_investments(
 ):
     """
     Midas portföy önizlemesinden onaylanan varlıkları Investment tablosuna yazar.
-    payload: { investments: [...], upsert: bool }
+    payload: { investments: [...], portfolio: {...}, upsert: bool }
     """
     holdings = payload.get("investments", [])
     if not holdings:
@@ -84,6 +84,8 @@ async def confirm_investments(
         owner_id=current_user.id,
         holdings=holdings,
         upsert=payload.get("upsert", True),
+        portfolio=payload.get("portfolio") or {},
+        sync_holdings=True,
     )
 
 

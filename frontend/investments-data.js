@@ -23,15 +23,35 @@
     return price != null && price !== '' ? qty * price : qty;
   }
 
+  function exchangeOf(item) {
+    const cur = String((item && item.cur) || (item && item.currency) || '').toUpperCase();
+    const type = String((item && (item.assetType || item.asset_type || item.asset_class)) || '').toLowerCase();
+    const symbol = String((item && (item.symbol || item.name)) || '').toUpperCase();
+    if (type === 'fund' || /\.F\b/.test(symbol)) return 'TEFAS';
+    if (cur === 'TRY' || /\.S\d\b/.test(symbol)) return 'BIST';
+    if (cur === 'USD') return 'NASDAQ';
+    return cur || 'OTHER';
+  }
+
+  const EXCHANGES = {
+    BIST: { label: 'BIST', icon: 'landmark' },
+    TEFAS: { label: 'TEFAS', icon: 'layers' },
+    NASDAQ: { label: 'NASDAQ', icon: 'line-chart' },
+    EUR: { label: 'EUR', icon: 'circle-dollar-sign' },
+    OTHER: { label: 'Other', icon: 'layers' },
+  };
+
   function withConverted(item) {
     const fx = FX();
     item.costBasis = +costBasisOf(item.qty, item.price).toFixed(2);
+    item.marketValue = +costBasisOf(item.qty, item.currentPrice != null ? item.currentPrice : item.price).toFixed(2);
+    item.exchange = exchangeOf(item);
     if (fx && fx[item.cur]) {
-      item.tryValue = +(item.costBasis * fx[item.cur].toTRY).toFixed(2);
-      item.usdValue = +(item.costBasis * fx[item.cur].toUSD).toFixed(2);
+      item.tryValue = +(item.marketValue * fx[item.cur].toTRY).toFixed(2);
+      item.usdValue = +(item.marketValue * fx[item.cur].toUSD).toFixed(2);
     } else {
-      item.tryValue = item.costBasis;
-      item.usdValue = item.costBasis;
+      item.tryValue = item.marketValue;
+      item.usdValue = item.marketValue;
     }
     return item;
   }
@@ -176,6 +196,6 @@
     return true;
   }
 
-  window.INVESTMENTS_DATA = { HOLDINGS: [], ASSET_TYPES, costBasisOf };
+  window.INVESTMENTS_DATA = { HOLDINGS: [], ASSET_TYPES, EXCHANGES, costBasisOf, exchangeOf };
   window.HL_INVESTMENTS_API = { list, listForAccount, create, update, remove };
 })();

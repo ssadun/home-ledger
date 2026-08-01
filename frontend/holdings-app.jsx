@@ -5,7 +5,7 @@
   const { Pagination } = window;
   const { ExportData } = window;
   const { grp, SYM } = window.LEDGER_FMT;
-  const { ASSET_TYPES } = window.INVESTMENTS_DATA;
+  const { ASSET_TYPES, EXCHANGES } = window.INVESTMENTS_DATA;
   const ACCOUNT_TYPES = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNT_TYPES) || {};
   const HOLDING_COLS = [
     { key: 'name', label: 'Holding', size: 360, minSize: 220 },
@@ -19,6 +19,7 @@
   const EXPORT_COLS = [
     { key: 'name', label: 'Holding' },
     { key: 'accountName', label: 'Account' },
+    { key: 'exchange', label: 'Exchange' },
     { key: 'assetType', label: 'Type', get: r => typeMeta(r.assetType).label },
     { key: 'cur', label: 'Currency' },
     { key: 'qty', label: 'Quantity' },
@@ -29,6 +30,7 @@
 
   const money = (v, cur = 'TRY', dec = 0) => (SYM[cur] || cur + ' ') + grp(v || 0, dec);
   const typeMeta = (k) => ASSET_TYPES[k] || ASSET_TYPES.stock;
+  const exchangeMeta = (k) => EXCHANGES[k] || EXCHANGES.OTHER || { label: k || 'Other', icon: 'layers' };
   const typeClass = (k) => 'asset-type-' + (ASSET_TYPES[k] ? k : 'stock');
   const fmtQty = (q) => {
     const n = Number(q) || 0;
@@ -242,12 +244,38 @@
   }
 
   function HoldingGroup({ group, collapsed, onToggle, fields }) {
+    const exchangeGroups = React.useMemo(() => {
+      const order = ['BIST', 'TEFAS', 'NASDAQ', 'EUR', 'OTHER'];
+      const map = new Map();
+      group.rows.forEach(row => {
+        const key = row.exchange || 'OTHER';
+        if (!map.has(key)) map.set(key, { key, rows: [], totalTry: 0 });
+        const g = map.get(key);
+        g.rows.push(row);
+        g.totalTry += row.tryValue || 0;
+      });
+      return Array.from(map.values()).sort((a, b) => {
+        const ai = order.indexOf(a.key), bi = order.indexOf(b.key);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    }, [group.rows]);
     return (
       <div className={'acct-group holdings-group' + (collapsed ? ' is-collapsed' : '')}>
         <HoldingGroupHeader group={group} collapsed={collapsed} onToggle={onToggle} />
         {!collapsed && (
           <div className="card-grid acct-grid card-grid--list acct-list holdings-card-grid">
-            {group.rows.map(row => <HoldingCard key={row.accountId + '-' + row.id} row={row} fields={fields} />)}
+            {exchangeGroups.map(exchangeGroup => {
+              const xm = exchangeMeta(exchangeGroup.key);
+              return (
+                <React.Fragment key={exchangeGroup.key}>
+                  <div className="holdings-exchange-head">
+                    <span><Icon name={xm.icon} size={12} />{xm.label}</span>
+                    <span>{exchangeGroup.rows.length} · ₺{grp(exchangeGroup.totalTry, 0)}</span>
+                  </div>
+                  {exchangeGroup.rows.map(row => <HoldingCard key={row.accountId + '-' + row.id} row={row} fields={fields} />)}
+                </React.Fragment>
+              );
+            })}
           </div>
         )}
       </div>
@@ -291,7 +319,7 @@
       if (typeFilter !== 'all' && r.assetType !== typeFilter) return false;
       if (currencyFilter !== 'all' && r.cur !== currencyFilter) return false;
       const q = search.trim().toLowerCase();
-      return !q || [r.name, r.accountName, r.assetType, typeMeta(r.assetType).label, r.cur].join(' ').toLowerCase().includes(q);
+      return !q || [r.name, r.accountName, r.exchange, exchangeMeta(r.exchange).label, r.assetType, typeMeta(r.assetType).label, r.cur].join(' ').toLowerCase().includes(q);
     });
     const val = (r, col) => {
       if (col === 'type') return typeMeta(r.assetType).label;

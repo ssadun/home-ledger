@@ -18,6 +18,7 @@ GARANTI_CC = "26.01-BonusCardEkstre.pdf"
 ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
 ON_BURGAN_FULL = "ON TL Hesap Hareketleri.pdf"
 MIDAS = "Midas_Ekstre_Mayıs_2026.pdf"
+MIDAS_JULY = "Midas_Ekstre_Temmuz_2026.pdf"
 GARANTI_TL = "garanti-tl-hesaphareketleri.pdf"
 GARANTI_USD = "garanti-usd-hesaphareketleri.pdf"
 QNB_KAZANDIRAN = "qnb_kazandiran_hesap_hareketleri.pdf"
@@ -322,6 +323,7 @@ class TestMidasPortfolio:
         assert res["portfolio"] == {
             "cash": pytest.approx(9291.31),
             "total": pytest.approx(32844.34),
+            "currency": "TRY",
             "period_from": "01/05/26",
             "period_to": "31/05/26",
         }
@@ -342,6 +344,27 @@ class TestMidasPortfolio:
         assert by_ticker["GMSTR.F"]["current_value"] == pytest.approx(9901.5)
         assert by_ticker["VPS"]["asset_type"] == "fund"
         assert by_ticker["VPS"]["amount"] == pytest.approx(4328.0)
+
+
+class TestMidasJulyPortfolio:
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def res(parse_sample):
+        return parse_sample(MIDAS_JULY)
+
+    def test_us_portfolio_summary(self, res):
+        assert res["kind"] == "investments"
+        assert res["total_rows"] == 8
+        assert res["portfolio"]["cash"] == pytest.approx(67.21)
+        assert res["portfolio"]["total"] == pytest.approx(624.27)
+        assert res["portfolio"]["currency"] == "USD"
+
+    def test_fractional_share_quantity_keeps_decimal_comma(self, res):
+        by_ticker = {h["ticker"]: h for h in res["investments"]}
+        assert by_ticker["LMT"]["currency"] == "USD"
+        assert by_ticker["LMT"]["amount"] == pytest.approx(0.083898174)
+        assert by_ticker["LMT"]["purchase_price"] == pytest.approx(585.41)
+        assert by_ticker["LMT"]["current_value"] == pytest.approx(48.89)
 
 
 # --------------------------------------------------------------------------

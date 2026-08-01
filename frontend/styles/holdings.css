@@ -10,6 +10,10 @@
 .holdings-body .asset-type-deposit{--t:var(--green);--cat:var(--green)}
 .holdings-body .asset-type-usd{--t:var(--emerald);--cat:var(--emerald)}
 .holdings-group-head .acct-group-icon{color:var(--text)}
+.holdings-exchange-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 4px 2px;
+  font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:0}
+.holdings-exchange-head > span{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.holdings-exchange-head > span:last-child{font-family:var(--font-mono,monospace);font-weight:700;color:var(--slate);white-space:nowrap}
 .holdings-card{cursor:default}
 .holdings-card-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
 .holdings-card-meta{min-width:0}

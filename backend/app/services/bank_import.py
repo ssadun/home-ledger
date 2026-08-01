@@ -1590,6 +1590,20 @@ def _midas_num(cell) -> Optional[float]:
     return _parse_amount(m.group(0)) if m else None
 
 
+def _midas_quantity(cell) -> Optional[float]:
+    """Midas quantity cells use decimal comma with variable precision: '0,083898174'."""
+    m = _MIDAS_NUM_RE.search(str(cell or ""))
+    if not m:
+        return None
+    s = m.group(0)
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 def _midas_asset_type(ticker: str, name: str) -> str:
     """Sembol/isimden varlık türü tahmini (kullanıcı review'da değiştirebilir)."""
     t = (ticker or "").upper()
@@ -1603,13 +1617,17 @@ def _midas_asset_type(ticker: str, name: str) -> str:
 
 def _midas_summary(text: str) -> dict:
     """Ekstre başlığından nakit bakiye / toplam portföy değeri / dönem çıkarır."""
-    out = {"cash": None, "total": None, "period_from": None, "period_to": None}
-    m = re.search(r"Nakit Bakiye\s*:\s*([\d.,]+)", text)
+    out = {"cash": None, "total": None, "currency": None, "period_from": None, "period_to": None}
+    m = re.search(r"Nakit Bakiye\s*:\s*([\d.,]+)\s*([A-Z]{3})?", text)
     if m:
         out["cash"] = _parse_amount(m.group(1))
-    m = re.search(r"Toplam Portföy Değeri\s*:\s*([\d.,]+)", text)
+        if m.group(2):
+            out["currency"] = m.group(2)
+    m = re.search(r"Toplam Portföy Değeri\s*:\s*([\d.,]+)\s*([A-Z]{3})?", text)
     if m:
         out["total"] = _parse_amount(m.group(1))
+        if m.group(2):
+            out["currency"] = m.group(2)
     m = re.search(r"(\d{2}/\d{2}/\d{2})\s*-\s*(\d{2}/\d{2}/\d{2})", text)
     if m:
         out["period_from"] = m.group(1)
@@ -1647,7 +1665,7 @@ def _parse_midas_holdings(content: bytes) -> list[dict]:
                     # Dipnot (*) ve toplam satırlarını atla.
                     if name_cell.startswith("*") or "TOPLAM" in folded:
                         continue
-                    qty = _midas_num(cells[1]) if len(cells) > 1 else None
+                    qty = _midas_quantity(cells[1]) if len(cells) > 1 else None
                     if qty is None:
                         continue
                     avg = _midas_num(cells[2]) if len(cells) > 2 else None
@@ -2209,6 +2227,7 @@ def import_investments(
     note: str = "midas_import",
     replace: bool = False,
     sync_holdings: bool = False,
+    portfolio: Optional[dict] = None,
 ) -> dict:
     """
     Parse edilmiş Midas portföy satırlarını Investment tablosuna yazar.
@@ -2222,14 +2241,19 @@ def import_investments(
     ortalıkta kalırsa fonların toplamı hesap bakiyesini tutmaz. Midas yolu bunu
     kullanmaz (varsayılan False) — orada ekstre tüm portföyü içermeyebilir.
     """
-    from app.models import Investment as Inv
+    from app.models import Account, Investment as Inv
     from app.services.assets import delete_investment_holding, record_asset_valuation_from_holdings, sync_investment_holding
 
     created = 0
     updated = 0
     removed = 0
+    accounts_created = 0
+    accounts_updated = 0
     errors = []
     seen: dict[str, set] = {}
+    platform_meta: dict[str, dict] = {}
+    touched: list[Inv] = []
+    current_unit_prices: dict[tuple[str, str], float] = {}
 
     for h in holdings:
         try:
@@ -2243,6 +2267,16 @@ def import_investments(
             asset_type = h.get("asset_type") or "stock"
             price = h.get("purchase_price")
             price = float(price) if price is not None else None
+            current_value = h.get("current_value")
+            current_value = float(current_value) if current_value is not None else None
+            meta = platform_meta.setdefault(platform, {"currency": currency, "value": 0.0})
+            meta["currency"] = meta.get("currency") or currency
+            if current_value is not None:
+                meta["value"] += current_value
+                if amount:
+                    current_unit_prices[(platform, name)] = current_value / amount
+            elif price is not None:
+                meta["value"] += amount * price
 
             existing = None
             if upsert and ticker:
@@ -2263,8 +2297,7 @@ def import_investments(
                     existing.purchase_price = price
                 existing.asset_type = asset_type or existing.asset_type
                 existing.currency = currency
-                if sync_holdings:
-                    sync_investment_holding(db, existing)
+                touched.append(existing)
                 updated += 1
             else:
                 inv = Inv(
@@ -2279,8 +2312,7 @@ def import_investments(
                 )
                 db.add(inv)
                 db.flush()
-                if sync_holdings:
-                    sync_investment_holding(db, inv)
+                touched.append(inv)
                 created += 1
 
             seen.setdefault(platform, set()).add(name)
@@ -2302,6 +2334,47 @@ def import_investments(
                     removed += 1
 
     if sync_holdings:
+        for platform, meta in platform_meta.items():
+            rows = (
+                db.query(Account)
+                .filter(Account.owner_id == owner_id, Account.type == "invest")
+                .all()
+            )
+            acc = next(
+                (a for a in rows
+                 if (a.name or "").strip().casefold() == platform.strip().casefold()),
+                None,
+            )
+            if acc is None:
+                acc = Account(
+                    owner_id=owner_id,
+                    type="invest",
+                    name=platform,
+                    institution=platform,
+                    currency=(portfolio or {}).get("currency") or meta.get("currency") or "TRY",
+                    balance=0.0,
+                )
+                db.add(acc)
+                db.flush()
+                acc.account_key = f"acc-{acc.id}"
+                accounts_created += 1
+            else:
+                accounts_updated += 1
+            acc.name = platform
+            acc.institution = acc.institution or platform
+            acc.currency = (portfolio or {}).get("currency") or meta.get("currency") or acc.currency
+            if portfolio and len(platform_meta) == 1 and portfolio.get("total") is not None:
+                acc.balance = float(portfolio["total"])
+            else:
+                acc.balance = round(float(meta.get("value") or 0), 2)
+
+        for inv in touched:
+            holding = sync_investment_holding(db, inv)
+            unit = current_unit_prices.get((inv.platform or "", inv.name or ""))
+            if unit is not None:
+                holding.current_price = round(unit, 8)
+                holding.price_source = "import"
+
         asset_ids = set()
         from app.models import Asset
         for platform in seen:
@@ -2318,7 +2391,15 @@ def import_investments(
                 record_asset_valuation_from_holdings(db, asset)
 
     db.commit()
-    return {"created": created, "updated": updated, "removed": removed, "errors": errors}
+    return {
+        "created": created,
+        "updated": updated,
+        "removed": removed,
+        "accounts_created": accounts_created,
+        "accounts_updated": accounts_updated,
+        "accounts": list(seen.keys()) if sync_holdings else [],
+        "errors": errors,
+    }
 
 
 def import_pension(

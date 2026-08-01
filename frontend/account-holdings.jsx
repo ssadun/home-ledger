@@ -7,7 +7,7 @@
   const StyledSelect = window.StyledSelect;
   const DateInput = window.DateInput;
   const { FX } = window.LEDGER;
-  const { ASSET_TYPES, costBasisOf } = window.INVESTMENTS_DATA;
+  const { ASSET_TYPES, EXCHANGES, costBasisOf } = window.INVESTMENTS_DATA;
 
   // Defined locally (the Accounts page does not load components.jsx/LEDGER_FMT),
   // matching accounts-components.jsx.
@@ -15,6 +15,7 @@
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
 
   const typeMeta = (k) => ASSET_TYPES[k] || ASSET_TYPES.stock;
+  const exchangeMeta = (k) => EXCHANGES[k] || EXCHANGES.OTHER || { label: k || 'Other', icon: 'layers' };
   const fmtQty = (q) => { const n = Number(q) || 0; return Number.isInteger(n) ? n.toLocaleString('en-US') : grp(n, 4); };
 
   function parseCurrencyInput(raw, currency) {
@@ -264,6 +265,21 @@
     const loading = holdings === null;
     const rows = holdings || [];
     const totalTry = rows.reduce((s, r) => s + (r.tryValue || 0), 0);
+    const exchangeGroups = React.useMemo(() => {
+      const order = ['BIST', 'TEFAS', 'NASDAQ', 'EUR', 'OTHER'];
+      const map = new Map();
+      rows.forEach(row => {
+        const key = row.exchange || 'OTHER';
+        if (!map.has(key)) map.set(key, { key, rows: [], totalTry: 0 });
+        const group = map.get(key);
+        group.rows.push(row);
+        group.totalTry += row.tryValue || 0;
+      });
+      return Array.from(map.values()).sort((a, b) => {
+        const ai = order.indexOf(a.key), bi = order.indexOf(b.key);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    }, [rows]);
 
     function pensionShare(h) {
       const pct = allocation[h.name];
@@ -292,30 +308,45 @@
           </div>
         ) : (
           <React.Fragment>
-            <div className="acct-holdings-total">
-              <span className="ah-total-k">{isPension ? 'Total Value' : 'Total Cost Basis'}</span>
-              <span className="ah-total-v">₺{grp(totalTry)}</span>
-            </div>
+            {isPension && (
+              <div className="acct-holdings-total">
+                <span className="ah-total-k">Total Value</span>
+                <span className="ah-total-v">₺{grp(totalTry)}</span>
+              </div>
+            )}
             <div className="acct-holdings-list">
-              {rows.map(h => (
-                <div className={'ah-row' + (h.id === flashId ? ' row-flash' : '')} key={h.id} id={'ah-row-' + h.id}>
-                  <span className="ah-ico cat-chip" style={{ '--cat': typeMeta(h.assetType).color }}><Icon name={typeMeta(h.assetType).icon} size={14} /></span>
-                  <div className="ah-main">
-                    <span className="ah-name">{h.name}</span>
-                    <span className="ah-sub"><TypeBadge type={h.assetType} /><span className="inv-cur-chip">{h.cur}</span></span>
+              {exchangeGroups.map(group => {
+                const xm = exchangeMeta(group.key);
+                return (
+                  <div className="ah-exchange-group" key={group.key}>
+                    {!isPension && (
+                      <div className="ah-exchange-head">
+                        <span><Icon name={xm.icon} size={12} />{xm.label}</span>
+                        <span>{group.rows.length} · ₺{grp(group.totalTry, 0)}</span>
+                      </div>
+                    )}
+                    {group.rows.map(h => (
+                      <div className={'ah-row' + (h.id === flashId ? ' row-flash' : '')} key={h.id} id={'ah-row-' + h.id}>
+                        <span className="ah-ico cat-chip" style={{ '--cat': typeMeta(h.assetType).color }}><Icon name={typeMeta(h.assetType).icon} size={14} /></span>
+                        <div className="ah-main">
+                          <span className="ah-name">{h.name}</span>
+                          <span className="ah-sub"><TypeBadge type={h.assetType} /><span className="inv-cur-chip">{h.cur}</span>{!isPension && <span className="inv-cur-chip">{exchangeMeta(h.exchange).label}</span>}</span>
+                        </div>
+                        <div className="ah-metrics">
+                          <span className="ah-qty mono" title={isPension && stateFunds.includes(h.name) ? 'Share of your state contribution' : isPension ? 'Share of your savings' : undefined}>{isPension
+                            ? pensionShare(h)
+                            : fmtQty(h.qty) + (h.price != null ? ' × ' + SYM[h.cur] + grp(h.price) : '')}</span>
+                          <span className="ah-basis mono">{SYM[h.cur]}{grp(h.marketValue != null ? h.marketValue : h.costBasis)}</span>
+                        </div>
+                        <div className="ah-actions">
+                          <button id={'ah-edit-' + h.id} className="ah-btn" title="Edit holding" onClick={() => setModal({ holding: h })}><Icon name="pencil" size={13} /></button>
+                          <button id={'ah-del-' + h.id} className="ah-btn danger" title="Delete holding" onClick={() => setDel(h)}><Icon name="trash-2" size={13} /></button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="ah-metrics">
-                    <span className="ah-qty mono" title={isPension && stateFunds.includes(h.name) ? 'Share of your state contribution' : isPension ? 'Share of your savings' : undefined}>{isPension
-                      ? pensionShare(h)
-                      : fmtQty(h.qty) + (h.price != null ? ' × ' + SYM[h.cur] + grp(h.price) : '')}</span>
-                    <span className="ah-basis mono">{SYM[h.cur]}{grp(h.costBasis)}</span>
-                  </div>
-                  <div className="ah-actions">
-                    <button id={'ah-edit-' + h.id} className="ah-btn" title="Edit holding" onClick={() => setModal({ holding: h })}><Icon name="pencil" size={13} /></button>
-                    <button id={'ah-del-' + h.id} className="ah-btn danger" title="Delete holding" onClick={() => setDel(h)}><Icon name="trash-2" size={13} /></button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </React.Fragment>
         )}

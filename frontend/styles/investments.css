@@ -13,6 +13,11 @@
 .ah-total-v{font-size:18px;font-weight:800;color:var(--white);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 
 .acct-holdings-list{display:flex;flex-direction:column;gap:8px}
+.ah-exchange-group{display:flex;flex-direction:column;gap:8px}
+.ah-exchange-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0 0;padding:6px 2px;
+  font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:0}
+.ah-exchange-head > span{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.ah-exchange-head > span:last-child{font-family:var(--font-mono,monospace);font-weight:700;color:var(--slate);white-space:nowrap}
 .ah-row{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3,#141720);transition:all .15s}
 .ah-row:hover{border-color:var(--border-emphasis,#353b5e)}
 .ah-row.row-flash{animation:ah-flash 1.5s ease}

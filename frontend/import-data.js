@@ -190,13 +190,14 @@
     }
 
     // holdings: [{ ticker, name, platform, asset_type, currency, amount,
-    //   purchase_price }]. Upserts by platform+ticker into the Investments table.
-    // Returns { created, updated, errors }.
-    async function confirmInvestments(holdings, upsert) {
+    //   purchase_price, current_value }]. Upserts by platform+ticker into the
+    // Investments table and syncs the matching invest Account.
+    // Returns { created, updated, accounts, errors }.
+    async function confirmInvestments(holdings, upsert, portfolio) {
       const res = await api()('/api/import/confirm-investments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ investments: holdings, upsert: upsert !== false }),
+        body: JSON.stringify({ investments: holdings, upsert: upsert !== false, portfolio: portfolio || null }),
       });
       if (!res.ok) {
         let msg = 'Import failed (' + res.status + ')';
