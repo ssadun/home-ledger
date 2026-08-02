@@ -36,6 +36,7 @@ GARANTI_USD = "garanti-usd-hesaphareketleri.pdf"
 QNB_KAZANDIRAN = "qnb_kazandiran_hesap_hareketleri.pdf"
 ODEA_PDF = "odeabank-usd vadeli.pdf"
 ODEA_XLSX = "odebank Hesap Hareketleri Tablo usd vadeli.xlsx"
+TEB_XLS = "TEBHareket07.xls"
 
 
 def find_row(rows, needle):
@@ -482,6 +483,48 @@ class TestOdeaUsdTimeDeposit:
         assert row["currency"] == "USD"
         assert row["balance"] == pytest.approx(30000.0)
         assert row["source"] == "TR430014600000594423600003"
+
+
+# --------------------------------------------------------------------------
+# TEB HTML-based XLS account export
+# --------------------------------------------------------------------------
+
+class TestTebHtmlXlsAccount:
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def res(parse_sample):
+        return parse_sample(TEB_XLS)
+
+    def test_totals_and_range(self, res):
+        assert res["bank_detected"] == "teb (hesap hareketleri XLS)"
+        assert res["total_rows"] == 10
+        assert res["income_total"] == pytest.approx(72905.39)
+        assert res["expense_total"] == pytest.approx(72904.45)
+        assert res["date_range"] == {"from": "2026-07-27", "to": "2026-07-27"}
+
+    def test_account_identity(self, res):
+        assert len(res["accounts"]) == 1
+        acc = res["accounts"][0]
+        assert acc["type"] == "bank"
+        assert acc["iban"] == "TR460003200000000155464776"
+        assert acc["number"] == "155464776"
+        assert acc["branch"] == "66-Çarşı İzmir"
+        assert acc["holder"] == "SADUN SEVİNGEN"
+        assert acc["currency"] == "TRY"
+        assert acc["balance"] == pytest.approx(0.94)
+        assert acc["institution"] == "teb"
+
+    def test_signed_amount_and_running_balance(self, res):
+        outgoing = find_row(res["rows"], "OKUL ÖDEMESİ")
+        assert outgoing["type"] == "expense"
+        assert outgoing["amount"] == pytest.approx(72898.48)
+        assert outgoing["balance"] == pytest.approx(0.94)
+
+        incoming = find_row(res["rows"], "gelen havale")
+        assert incoming["type"] == "income"
+        assert incoming["currency"] == "TRY"
+        assert incoming["source"] == "TR460003200000000155464776"
+        assert incoming["category_key"] == "wire-transfer"
 
 
 # --------------------------------------------------------------------------

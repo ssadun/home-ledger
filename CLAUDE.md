@@ -424,7 +424,7 @@ Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user 
 
 ### High-level dispatch (`parse_bank_file`)
 
-- **Spreadsheet / CSV** (`xls`, `xlsx`, `csv`): try the Garanti multi-section grid export first (`_is_garanti_export` → `_parse_garanti_export`), then Odea's raw-grid account format (`_is_odea_grid` → `_parse_odea_grid`), else load a DataFrame and route by column signature to `_parse_garanti` / `_parse_on_burgan` / `_parse_generic`.
+- **Spreadsheet / CSV** (`xls`, `xlsx`, `csv`): detect TEB's HTML-disguised `.xls` export first (`_is_teb_html_export` → `_parse_teb_html_export`), then try the Garanti multi-section grid export (`_is_garanti_export` → `_parse_garanti_export`) and Odea's raw-grid account format (`_is_odea_grid` → `_parse_odea_grid`), else load a DataFrame and route by column signature to `_parse_garanti` / `_parse_on_burgan` / `_parse_generic`.
 - **PDF**: extract text, then try each dedicated text-PDF parser **in the order below**; the first whose detector matches wins. If none match (or none yield rows), fall back to the generic table parser (`_parse_pdf` → `_parse_generic`), then scanned-PDF OCR (`_parse_pdf_ocr`, PyMuPDF + Tesseract `tur+eng`).
 
 ### PDF statement parsers (dispatch order)
@@ -452,6 +452,7 @@ wrong account.
 
 | Format | Detector | Layout | Notes |
 |---|---|---|---|
+| TEB Internet Branch account export | `_is_teb_html_export` | UTF-8 HTML saved with `.xls` extension; account metadata plus `Tarih\|Valör\|Saat\|Açıklama\|Tutar\|Bakiye\|Dekont` | `_parse_teb_html_export`; uses the signed `Tutar`, preserves each post-transaction balance, and emits the bank account identity. Parsed with the standard-library `HTMLParser` because the file is not a BIFF workbook and `xlrd` rejects it |
 | Garanti multi-section export | `_is_garanti_export` | Raw cell grid; delayed header, multiple card/account sections | `_parse_garanti_export` — state machine; tags each row with `source` + `etiket`; emits account identities. If the header prints both `Bakiye` and `Kullanılabilir Bakiye`, `Bakiye` is the real `Account.balance`; `Kullanılabilir Bakiye - Bakiye` is the overdraft `credit_limit` |
 | Odea Bank account export | `_is_odea_grid` | Raw cell grid; account metadata above `Tarih\|İşlem\|Tutar(...)\|Bakiye(...)` | `_parse_odea_grid`; same account identity and rows as Odea PDF |
 | Garanti (single header) | column signature | `Tarih\|Açıklama\|Borç\|Alacak\|Bakiye` (or single `Tutar`) | `_parse_garanti` |

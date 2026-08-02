@@ -4,6 +4,7 @@ Banka ekstre import servisi.
 Desteklenen bankalar:
   - Garanti BBVA   → XLS/XLSX/CSV
   - ON (Burgan)    → XLS/XLSX/CSV
+  - TEB            → PDF / HTML tabanlı XLS
   - QNB Finansbank → PDF hesap hareketleri
   - Odea Bank      → PDF/XLSX hesap hareketleri
   - Generic        → Akıllı kolon tahmini (diğer bankalar için fallback)
@@ -25,6 +26,7 @@ import csv
 import re
 import unicodedata
 from datetime import datetime
+from html.parser import HTMLParser
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.models import Transaction
@@ -1437,6 +1439,126 @@ def _parse_teb_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
     return rows, accounts
 
 
+# ─── TEB İnternet Şubesi "Hesap Hareketlerim" (HTML tabanlı XLS) ──────
+# TEB bu dışa aktarımı eski Excel ikili biçimiyle değil, UTF-8 HTML'i
+# `.xls` uzantısıyla indirir. Bu nedenle xlrd dosyayı açamaz. Standart
+# kütüphanedeki HTMLParser ile tablo hücrelerini okuyarak ek bağımlılık istemeyiz.
+
+
+class _TebHtmlTableParser(HTMLParser):
+    """Collect every HTML table row as a whitespace-normalized cell list."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.rows: list[list[str]] = []
+        self._row_stack: list[dict] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        tag = tag.lower()
+        if tag == "tr":
+            self._row_stack.append({"cells": [], "cell": None})
+        elif tag in {"td", "th"} and self._row_stack:
+            self._row_stack[-1]["cell"] = []
+
+    def handle_data(self, data: str) -> None:
+        # Nested layout tables are present. Keep feeding an outer cell while an
+        # inner row is active; only the inner row is useful, but this preserves
+        # correct parser state until the outer </td> arrives.
+        for row in self._row_stack:
+            if row["cell"] is not None:
+                row["cell"].append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if tag in {"td", "th"} and self._row_stack:
+            row = self._row_stack[-1]
+            if row["cell"] is not None:
+                row["cells"].append(" ".join("".join(row["cell"]).split()))
+                row["cell"] = None
+        elif tag == "tr" and self._row_stack:
+            row = self._row_stack.pop()
+            if row["cells"]:
+                self.rows.append(row["cells"])
+
+
+def _decode_teb_html(content: bytes) -> str:
+    """Decode TEB's disguised HTML spreadsheet without corrupting Turkish text."""
+    for encoding in ("utf-8-sig", "cp1254", "iso-8859-9"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("latin-1", errors="replace")
+
+
+def _is_teb_html_export(content: bytes) -> bool:
+    text = _decode_teb_html(content)
+    folded = _fold(text)
+    return (
+        ("<HTML" in text.upper() or "<HEAD" in text.upper())
+        and "HESAP HAREKETLERIM" in folded
+        and "TURK EKONOMI BANKASI" in folded
+    )
+
+
+def _parse_teb_html_export(content: bytes) -> tuple[list[dict], list[dict]]:
+    parser = _TebHtmlTableParser()
+    parser.feed(_decode_teb_html(content))
+
+    metadata: dict[str, str] = {}
+    header_index: Optional[int] = None
+    for index, cells in enumerate(parser.rows):
+        folded = [_fold(cell) for cell in cells]
+        if len(cells) == 2 and folded[0] in {
+            "SUBE", "HESAP", "IBAN", "HESAP TURU", "HESAP SAHIBI", "BAKIYE",
+        }:
+            metadata[folded[0]] = cells[1]
+        if {"TARIH", "ACIKLAMA", "TUTAR", "BAKIYE"}.issubset(set(folded)):
+            header_index = index
+
+    iban = _clean_iban(metadata.get("IBAN"))
+    account_no = re.sub(r"\D", "", metadata.get("HESAP", "")) or None
+    account_type = metadata.get("HESAP TURU", "")
+    currency = _detect_currency(account_type)
+    balance = _parse_amount(metadata.get("BAKIYE"))
+    source = iban or account_no
+
+    accounts: list[dict] = []
+    if source:
+        accounts.append({
+            "source": source, "type": "bank", "number": account_no,
+            "card_number": None, "iban": iban, "branch": metadata.get("SUBE"),
+            "holder": metadata.get("HESAP SAHIBI"), "currency": currency,
+            "balance": balance, "institution": "teb",
+        })
+
+    rows: list[dict] = []
+    if header_index is None:
+        return rows, accounts
+
+    headers = [_fold(cell) for cell in parser.rows[header_index]]
+    date_idx = headers.index("TARIH")
+    desc_idx = headers.index("ACIKLAMA")
+    amount_idx = headers.index("TUTAR")
+    balance_idx = headers.index("BAKIYE")
+    needed = max(date_idx, desc_idx, amount_idx, balance_idx)
+
+    for cells in parser.rows[header_index + 1:]:
+        if len(cells) <= needed:
+            continue
+        date = _parse_turkish_date(cells[date_idx])
+        amount = _parse_amount(cells[amount_idx])
+        if not date or amount in (None, 0):
+            continue
+        raw = dict(zip(parser.rows[header_index], cells))
+        rows.append(_normalize_row(
+            date, cells[desc_idx], amount,
+            balance=_parse_amount(cells[balance_idx]), raw=raw,
+            currency=currency, source=source, account_type="bank",
+        ))
+    return rows, accounts
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Garanti BBVA "export" parser (hesap hareketleri + kredi kartı ekstresi)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2238,17 +2360,27 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
             rows = _parse_pdf(content)
             bank_detected = bank_hint if bank_hint != "auto" else "pdf"
     else:
+        # TEB'in `.xls` dosyası gerçekte HTML'dir; xlrd'ye göndermeden önce
+        # imzayı yakala ve tabloyu kendi ayrıştırıcımızla oku.
+        teb_html = _is_teb_html_export(content)
+        if teb_html:
+            rows, accounts = _parse_teb_html_export(content)
+            bank_detected = "teb (hesap hareketleri XLS)"
+        else:
+            rows, accounts = [], []
+            bank_detected = None
+
         # Önce Garanti çok-bölümlü export imzasını dene (ham ızgara üzerinden).
         # Bu format gecikmiş başlık + birden fazla kart bölümü içerdiğinden
         # standart tek-başlık DataFrame yolu onu okuyamaz.
-        bank_detected = None
-        grid = _load_raw_grid(content, ext) if bank_hint in ("auto", "garanti", "odea") else None
-        rows, accounts = _parse_garanti_export(grid) if (grid and _is_garanti_export(grid)) else ([], [])
+        grid = _load_raw_grid(content, ext) if not teb_html and bank_hint in ("auto", "garanti", "odea") else None
+        if not rows and grid and _is_garanti_export(grid):
+            rows, accounts = _parse_garanti_export(grid)
         if not rows and grid and _is_odea_grid(grid):
             rows, accounts = _parse_odea_grid(grid)
             bank_detected = "odea"
 
-        if rows:
+        if rows or teb_html:
             bank_detected = bank_detected or "garanti"
         else:
             df = _load_dataframe(content, ext)
