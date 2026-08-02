@@ -352,7 +352,7 @@
     // own either — its contributions arrive on a credit card and are listed by
     // PensionContributions instead. Full history is one click away via the
     // "View All" link, which deep-links into Account Activity pre-filtered to
-    // this account (?account=<id>).
+    // this account and, when activity exists, the latest movement's month.
     const showActivity = !isInvest && !isCredit && !isPension;
     const [recentAct, setRecentAct] = React.useState([]);
     const [actLoading, setActLoading] = React.useState(showActivity);
@@ -369,7 +369,14 @@
         .finally(() => { if (alive) setActLoading(false); });
       return () => { alive = false; };
     }, [account.id, showActivity]);
-    const activityHref = 'Account Activity.html?account=' + encodeURIComponent(account.id);
+    const activityParams = new URLSearchParams({ account: account.id });
+    const latestActivityDate = recentAct.length ? String(recentAct[0].date || '') : '';
+    const latestActivityMatch = latestActivityDate.match(/^(\d{4})-(\d{2})-/);
+    if (latestActivityMatch) {
+      activityParams.set('year', latestActivityMatch[1]);
+      activityParams.set('month', String(Number(latestActivityMatch[2])));
+    }
+    const activityHref = 'Account Activity.html?' + activityParams.toString();
     function profileLang() {
       const user = window.HL_AUTH && window.HL_AUTH.getUser ? window.HL_AUTH.getUser() : null;
       return user && user.language === 'tr' ? 'tr' : 'en';

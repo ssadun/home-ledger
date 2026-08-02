@@ -13,6 +13,24 @@
 
   const TWEAK_DEFAULTS = { accent: 'var(--theme-accent)', zebra: true, density: 'compact', colorAmounts: true, groupByWeek: true };
 
+  function activityDeepLink() {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const linkedYear = Number(q.get('year'));
+      const linkedMonth = Number(q.get('month'));
+      return {
+        account: q.get('account') || 'all',
+        year: Number.isInteger(linkedYear) && linkedYear >= 2000 && linkedYear <= 2100
+          ? linkedYear : CURRENT_YEAR,
+        // URL month is the human-facing 1-12 value; page state remains 0-indexed.
+        month: Number.isInteger(linkedMonth) && linkedMonth >= 1 && linkedMonth <= 12
+          ? linkedMonth - 1 : CURRENT_MONTH,
+      };
+    } catch (e) {
+      return { account: 'all', year: CURRENT_YEAR, month: CURRENT_MONTH };
+    }
+  }
+
   function weekOfMonth(iso) { return Math.ceil(+iso.split('-')[2] / 7); }
   function weekRangeLabel(wk, month, year) {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -383,22 +401,18 @@
   // ══════════════════════════════════════════════════════════════════════════
   function App() {
     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const initialDeepLink = React.useMemo(activityDeepLink, []);
     // Rows are the real imported bank-account movements (transactions tagged
     // note=="banka_import"), fetched per selected month from the backend.
     const [rows, setRows] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [loadErr, setLoadErr] = React.useState(null);
     const [accountsReady, setAccountsReady] = React.useState(false);
-    const [month, setMonth] = React.useState(CURRENT_MONTH);
-    const [year, setYear] = React.useState(CURRENT_YEAR);
+    const [month, setMonth] = React.useState(initialDeepLink.month);
+    const [year, setYear] = React.useState(initialDeepLink.year);
     // Deep-link support: Accounts → detail modal → "View All" opens this page as
     // ?account=<id> so the Account filter starts pinned to that account.
-    const [account, setAccount] = React.useState(() => {
-      try {
-        const q = new URLSearchParams(window.location.search).get('account');
-        return q || 'all';
-      } catch (e) { return 'all'; }
-    });
+    const [account, setAccount] = React.useState(initialDeepLink.account);
     const [txType, setTxType] = React.useState('all');
     const [direction, setDirection] = React.useState('all');
     const [search, setSearch] = React.useState('');

@@ -1763,6 +1763,16 @@ def _midas_asset_type(ticker: str, name: str) -> str:
     return "stock"
 
 
+def _midas_platform(currency: Optional[str]) -> str:
+    """Keep Midas' TRY and USD portfolios in separate investment accounts."""
+    cur = (currency or "").upper()
+    if cur == "USD":
+        return "Midas NASDAQ"
+    if cur == "TRY":
+        return "Midas BIST & TEFAS"
+    return f"Midas {cur}".strip()
+
+
 def _midas_summary(text: str) -> dict:
     """Ekstre başlığından nakit bakiye / toplam portföy değeri / dönem çıkarır."""
     out = {"cash": None, "total": None, "currency": None, "period_from": None, "period_to": None}
@@ -2119,6 +2129,9 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
         if text and _is_midas_pdf(text):
             holdings = _parse_midas_holdings(content)
             summary = _midas_summary(text)
+            platform = _midas_platform(summary.get("currency"))
+            for holding in holdings:
+                holding["platform"] = platform
             return {
                 "kind": "investments",
                 "bank_detected": "Midas (portföy)",
@@ -2523,11 +2536,16 @@ def import_investments(
                 None,
             )
             if acc is None:
+                institution = (
+                    "Midas Menkul Değerler A.Ş."
+                    if platform.casefold().startswith("midas")
+                    else platform
+                )
                 acc = Account(
                     owner_id=owner_id,
                     type="invest",
                     name=platform,
-                    institution=platform,
+                    institution=institution,
                     currency=(portfolio or {}).get("currency") or meta.get("currency") or "TRY",
                     balance=0.0,
                 )

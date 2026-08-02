@@ -176,7 +176,7 @@
         // acctLabel is the full plain string (institution + name) — used for search
         // and the modal subtitle; acctInst/acctNamePart drive the styled ACCOUNT cell.
         const label = namePart ? ((inst ? inst + ' · ' : '') + namePart) : null;
-        return { ...r, acctLabel: label, acctInst: inst, acctNamePart: namePart };
+        return { ...r, acctLabel: label, acctInst: inst, acctNamePart: namePart, acctType: a ? a.type : null };
       });
     }, []);
 

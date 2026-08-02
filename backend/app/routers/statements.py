@@ -4,10 +4,13 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app.database import get_db
-from app.models import Statement, Account, Transaction, User
+from app.models import (
+    Account, Asset, AssetValuation, Investment, InvestmentHolding,
+    Statement, Transaction, User,
+)
 from app.schemas import StatementCreate, StatementUpdate, StatementOut
 from app.services.auth import get_current_user
 from app.services.ocr import save_upload
@@ -282,13 +285,55 @@ def update_statement(
 
 @router.delete("/{st_id}", status_code=204)
 def delete_statement(st_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Delete the record and its file. The movements themselves survive — they are
-    ordinary Account Activity rows and only lose their statement link."""
+    """Delete a statement and the imported data owned by its account kind.
+
+    Bank/overdraft statements own their linked Account Activity movements. An
+    investment statement is a current portfolio snapshot, so deleting it clears
+    that account's canonical holdings and legacy Investment rows together.
+    Other statement-capable account kinds keep the previous unlink-only behavior.
+    """
     rec = _get_owned(db, st_id, current_user)
-    db.query(Transaction).filter(
+    account = None
+    if rec.account_id is not None:
+        account = db.query(Account).filter(
+            Account.id == rec.account_id,
+            Account.owner_id == current_user.id,
+        ).first()
+
+    linked_transactions = db.query(Transaction).filter(
         Transaction.owner_id == current_user.id,
         Transaction.statement_id == rec.id,
-    ).update({Transaction.statement_id: None}, synchronize_session=False)
+    )
+    if account and account.type in {"bank", "overdraft"}:
+        linked_transactions.delete(synchronize_session=False)
+    else:
+        linked_transactions.update(
+            {Transaction.statement_id: None}, synchronize_session=False
+        )
+
+    if account and account.type == "invest":
+        assets = db.query(Asset).filter(
+            Asset.owner_id == current_user.id,
+            Asset.type == "investment",
+            or_(
+                Asset.account_id == account.id,
+                func.lower(Asset.name) == (account.name or "").strip().lower(),
+            ),
+        ).all()
+        asset_ids = [asset.id for asset in assets]
+        if asset_ids:
+            db.query(InvestmentHolding).filter(
+                InvestmentHolding.owner_id == current_user.id,
+                InvestmentHolding.asset_id.in_(asset_ids),
+            ).delete(synchronize_session=False)
+            db.query(AssetValuation).filter(
+                AssetValuation.asset_id.in_(asset_ids),
+                AssetValuation.source == "holdings",
+            ).delete(synchronize_session=False)
+        db.query(Investment).filter(
+            Investment.owner_id == current_user.id,
+            func.lower(Investment.platform) == (account.name or "").strip().lower(),
+        ).delete(synchronize_session=False)
     if rec.file_path:
         try:
             Path(rec.file_path).unlink(missing_ok=True)

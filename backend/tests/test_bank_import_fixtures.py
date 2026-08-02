@@ -29,6 +29,8 @@ ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
 ON_BURGAN_FULL = "ON TL Hesap Hareketleri.pdf"
 MIDAS = "Midas_Ekstre_Mayıs_2026.pdf"
 MIDAS_JULY = "Midas_Ekstre_Temmuz_2026.pdf"
+MIDAS_JULY_BIST = "Midas_Ekstre_Temmuz_2026_BIST.pdf"
+MIDAS_JULY_NASDAQ = "Midas_Ekstre_Temmuz_2026_NASDAQ.pdf"
 GARANTI_TL = "garanti-tl-hesaphareketleri.pdf"
 GARANTI_USD = "garanti-usd-hesaphareketleri.pdf"
 QNB_KAZANDIRAN = "qnb_kazandiran_hesap_hareketleri.pdf"
@@ -506,7 +508,7 @@ class TestMidasPortfolio:
 
         gold = by_ticker["ALTIN.S1"]
         assert gold["asset_type"] == "gold"
-        assert gold["platform"] == "Midas"
+        assert gold["platform"] == "Midas BIST & TEFAS"
         assert gold["currency"] == "TRY"
         assert gold["amount"] == pytest.approx(97.0)
         assert gold["purchase_price"] == pytest.approx(80.83)
@@ -537,6 +539,24 @@ class TestMidasJulyPortfolio:
         assert by_ticker["LMT"]["amount"] == pytest.approx(0.083898174)
         assert by_ticker["LMT"]["purchase_price"] == pytest.approx(585.41)
         assert by_ticker["LMT"]["current_value"] == pytest.approx(48.89)
+
+
+class TestMidasSplitJulyPortfolios:
+    def test_bist_and_tefas_are_one_try_account(self, parse_sample):
+        res = parse_sample(MIDAS_JULY_BIST)
+        assert res["portfolio"]["currency"] == "TRY"
+        assert res["portfolio"]["total"] == pytest.approx(49381.58)
+        assert {h["platform"] for h in res["investments"]} == {"Midas BIST & TEFAS"}
+        assert {h["ticker"] for h in res["investments"]} == {"VPS", "GMSTR.F", "ALTIN.S1"}
+
+    def test_nasdaq_is_a_separate_usd_account(self, parse_sample):
+        res = parse_sample(MIDAS_JULY_NASDAQ)
+        assert res["portfolio"]["currency"] == "USD"
+        assert res["portfolio"]["total"] == pytest.approx(624.27)
+        assert {h["platform"] for h in res["investments"]} == {"Midas NASDAQ"}
+        assert {h["ticker"] for h in res["investments"]} == {
+            "BA", "LUNR", "FLY", "ASTS", "RDW", "LMT", "RTX", "SPCX",
+        }
 
 
 # --------------------------------------------------------------------------

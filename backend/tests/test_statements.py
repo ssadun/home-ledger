@@ -7,7 +7,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import get_db
-from app.models import Account, Base, Statement, User
+from app.models import (
+    Account, Asset, AssetValuation, Base, Investment, InvestmentHolding,
+    Statement, Transaction, User,
+)
 from app.routers import statements
 from app.services.auth import get_current_user
 
@@ -201,5 +204,133 @@ def test_statement_create_and_update_reject_overlapping_ranges():
             json={"period_from": "2026-07-31"},
         )
         assert overlapping_update.status_code == 409
+    finally:
+        db.close()
+
+
+def test_deleting_bank_statement_deletes_only_its_account_activity_rows():
+    client, db, _, _ = _api()
+    try:
+        user = db.query(User).one()
+        bank = Account(
+            owner_id=user.id,
+            account_key="acc-bank",
+            name="Checking",
+            type="bank",
+            currency="TRY",
+        )
+        db.add(bank)
+        db.commit()
+        db.refresh(bank)
+        created = client.post("/api/statements/", json=_payload(bank.id))
+        assert created.status_code == 201
+        statement_id = created.json()["id"]
+
+        linked = Transaction(
+            owner_id=user.id,
+            type="expense",
+            amount=100,
+            currency="TRY",
+            description="Imported movement",
+            date=date(2026, 7, 10),
+            payment_method=bank.account_key,
+            statement_id=statement_id,
+        )
+        unrelated = Transaction(
+            owner_id=user.id,
+            type="expense",
+            amount=25,
+            currency="TRY",
+            description="Manual movement",
+            date=date(2026, 7, 11),
+            payment_method=bank.account_key,
+        )
+        db.add_all([linked, unrelated])
+        db.commit()
+        unrelated_id = unrelated.id
+
+        response = client.delete(f"/api/statements/{statement_id}")
+        assert response.status_code == 204
+        db.expire_all()
+        assert db.query(Statement).filter(Statement.id == statement_id).first() is None
+        assert db.query(Transaction).count() == 1
+        assert db.query(Transaction).one().id == unrelated_id
+    finally:
+        db.close()
+
+
+def test_deleting_investment_statement_clears_only_that_accounts_holdings():
+    client, db, _, _ = _api()
+    try:
+        user = db.query(User).one()
+        invest = Account(
+            owner_id=user.id,
+            account_key="acc-invest",
+            name="Midas NASDAQ",
+            type="invest",
+            currency="USD",
+        )
+        other = Account(
+            owner_id=user.id,
+            account_key="acc-other-invest",
+            name="Other Broker",
+            type="invest",
+            currency="USD",
+        )
+        db.add_all([invest, other])
+        db.commit()
+        db.refresh(invest)
+        db.refresh(other)
+        created = client.post("/api/statements/", json=_payload(invest.id) | {"currency": "USD"})
+        assert created.status_code == 201
+        statement_id = created.json()["id"]
+
+        asset = Asset(
+            owner_id=user.id, account_id=invest.id, name=invest.name,
+            type="investment", currency="USD", valuation_mode="holdings",
+        )
+        other_asset = Asset(
+            owner_id=user.id, account_id=other.id, name=other.name,
+            type="investment", currency="USD", valuation_mode="holdings",
+        )
+        db.add_all([asset, other_asset])
+        db.flush()
+        investment = Investment(
+            owner_id=user.id, name="LMT - Lockheed Martin",
+            platform=invest.name, asset_type="stock", currency="USD", amount=1,
+        )
+        other_investment = Investment(
+            owner_id=user.id, name="MSFT - Microsoft",
+            platform=other.name, asset_type="stock", currency="USD", amount=1,
+        )
+        db.add_all([investment, other_investment])
+        db.flush()
+        db.add_all([
+            InvestmentHolding(
+                owner_id=user.id, asset_id=asset.id,
+                legacy_investment_id=investment.id, name=investment.name,
+                asset_class="stock", currency="USD", quantity=1,
+            ),
+            InvestmentHolding(
+                owner_id=user.id, asset_id=other_asset.id,
+                legacy_investment_id=other_investment.id, name=other_investment.name,
+                asset_class="stock", currency="USD", quantity=1,
+            ),
+            AssetValuation(
+                asset_id=asset.id, value=600, currency="USD",
+                valued_at=date(2026, 7, 31), source="holdings",
+            ),
+        ])
+        db.commit()
+
+        response = client.delete(f"/api/statements/{statement_id}")
+        assert response.status_code == 204
+        db.expire_all()
+        assert db.query(Investment).filter(Investment.platform == invest.name).count() == 0
+        assert db.query(InvestmentHolding).filter(InvestmentHolding.asset_id == asset.id).count() == 0
+        assert db.query(AssetValuation).filter(AssetValuation.asset_id == asset.id).count() == 0
+        assert db.query(Asset).filter(Asset.id == asset.id).count() == 1
+        assert db.query(Investment).filter(Investment.platform == other.name).count() == 1
+        assert db.query(InvestmentHolding).filter(InvestmentHolding.asset_id == other_asset.id).count() == 1
     finally:
         db.close()

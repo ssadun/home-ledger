@@ -886,6 +886,7 @@
               qty: Number(h.amount) || 0,
               cost: h.purchase_price != null ? Number(h.purchase_price) : 0,
               value: Number(h.current_value) || 0,
+              platform: h.platform || 'Midas',
             })));
             setDoc({ fileName: pickedFile.name, format: formatOf(pickedFile.name),
               institution: res.bank_detected || 'Broker' });
@@ -1003,8 +1004,9 @@
       const from = shortDateIso(invSummary && invSummary.period_from);
       const to = shortDateIso(invSummary && invSummary.period_to);
       if (!from || !to) return [];
+      const platform = (invRows[0] && invRows[0].platform) || 'Midas';
       const acct = accounts.find(a => a.type === 'invest' &&
-        (a.name || '').trim().toLowerCase() === 'midas');
+        (a.name || '').trim().toLowerCase() === platform.trim().toLowerCase());
       if (!acct) return [];
       const overlap = await window.HL_STATEMENTS_API.checkOverlap(
         acct._dbId, from, to, acct.accountKey || null);
@@ -1019,7 +1021,7 @@
       const holdings = incl.map(r => ({
         ticker: r.ticker,
         name: r.name,
-        platform: 'Midas',
+        platform: r.platform || 'Midas',
         asset_type: r.assetType,
         currency: r.cur,
         amount: r.qty,

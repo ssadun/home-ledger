@@ -339,6 +339,13 @@
   // ── Delete confirm ──────────────────────────────────────────────────────────
   function DeleteStatementConfirm({ record, count, onClose, onConfirm }) {
     const batch = typeof count === 'number';
+    const warning = batch
+      ? '⚠ Uploaded documents and their linked investment holdings or bank Account Activity movements will be deleted. This cannot be undone.'
+      : record && record.acctType === 'invest'
+        ? '⚠ The uploaded document and all holdings in this investment account will be deleted. This cannot be undone.'
+        : record && (record.acctType === 'bank' || record.acctType === 'overdraft')
+          ? '⚠ The uploaded document and its linked Account Activity movements will be deleted. This cannot be undone.'
+          : '⚠ The uploaded document is removed. Linked movements lose their statement link. This cannot be undone.';
     return (
       <div className="backdrop">
         <div className="modal confirm-modal">
@@ -354,7 +361,7 @@
               {batch
                 ? <>Delete <b>{count}</b> selected {count === 1 ? 'statement' : 'statements'}?</>
                 : <>Delete <b>{record.name}</b>?</>}
-              <span className="warn">⚠ The uploaded document is removed. Movements stay on Account Activity, but lose their statement link. This cannot be undone.</span>
+              <span className="warn">{warning}</span>
             </div>
           </div>
           <div className="modal-foot">
