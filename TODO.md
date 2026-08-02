@@ -83,3 +83,7 @@ with the repo mounted — exact command in CLAUDE.md → _Backend tests_. **30 t
 ## 6. Statement duplicate warnings
 
 - [x] Apply the same duplicate-warning rule to both credit-card statements (`CreditPayment`) and non-credit account statements (`Statement`): the import wizard now performs an account + inclusive date-range preflight **before any transaction, balance, holding, or archive write**. Bank/debit statements, billed credit-card statements, and broker portfolio archives all stop on a shared **Statement Already Exists** dialog when the range overlaps; there is no override. Both create and update APIs independently enforce the rule with HTTP 409, so the UI cannot be bypassed. Credit Payments persist their exact imported `period_from` / `period_to` window (existing SQLite databases gain both columns idempotently at startup), while legacy/manual records retain the cutover fallback. Filename and generated name are not part of the duplicate decision. Verified against real bank, card, and Midas PDFs, including the 360px dialog.
+
+## 7. Holdings mobile filters
+
+- [x] Fix the **Holdings** mobile view column-filter popup: Account, Type, and Currency now use the same fixed/portaled `StyledSelect` dropdown behavior as Spending-style pages, including portal-aware outside-click handling. The panel is capped to the mobile viewport width and becomes internally scrollable on short screens. Verified at 360px with the panel and each expanded option list fully inside the viewport, usable selection/apply flow, and zero document overflow.

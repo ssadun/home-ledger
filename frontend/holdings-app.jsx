@@ -1,6 +1,7 @@
 // holdings-app.jsx - Standalone Holdings page under Assets.
 (function () {
   const Icon = window.Icon;
+  const StyledSelect = window.StyledSelect;
   const { Sidebar } = window.HL_NAV;
   const { Pagination } = window;
   const { ExportData } = window;
@@ -46,7 +47,7 @@
       <div className="filter-field">
         <span className="filter-label">{icon && <Icon name={icon} size={11} />}{label}</span>
         <div className="select-wrap">
-          <select id={id} className="sel" value={value} onChange={e => onChange(e.target.value)}>{children}</select>
+          <StyledSelect id={id} className="sel" value={value} onChange={e => onChange(e.target.value)}>{children}</StyledSelect>
         </div>
       </div>
     );
@@ -61,7 +62,12 @@
     }, [open, accountFilter, typeFilter, currencyFilter]);
     React.useEffect(() => {
       if (!open) return;
-      const onDoc = (e) => { if (anchorRef.current && !anchorRef.current.contains(e.target)) setOpen(false); };
+      // StyledSelect renders its option list through a body portal. Treat clicks
+      // there as inside the filter flow so choosing an option does not close and
+      // unmount the parent popover before the selection is applied.
+      const onDoc = (e) => {
+        if (anchorRef.current && !anchorRef.current.contains(e.target) && !e.target.closest('.ss-dropdown')) setOpen(false);
+      };
       const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
       document.addEventListener('mousedown', onDoc);
       document.addEventListener('keydown', onKey);

@@ -30,6 +30,16 @@
   .page-head:has(.holdings-filter-bar) .page-head-top{flex-wrap:nowrap;align-items:center}
   .page-head:has(.holdings-filter-bar) .cfg-detail-head-left{flex:1;min-width:0}
   .holdings-filter-bar .export-tools{display:flex}
+  /* Keep the page-specific Filter By Column panel inside narrow viewports and
+     scroll its contents on short screens. The option lists themselves are the
+     shared fixed/portaled StyledSelect dropdowns used by Spending-style pages. */
+  .holdings-filters-pop{
+    right:0;
+    width:min(248px,calc(100vw - 24px));
+    max-height:calc(100vh - 128px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
   .holdings-card-row{grid-template-columns:34px minmax(0,1fr) max-content}
   .holdings-card-end{align-items:flex-end}
   .hold-card-value{font-size:17px}
