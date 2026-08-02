@@ -1,8 +1,10 @@
 from typing import List, Optional
+from datetime import date as date_type
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.database import get_db
 from app.models import Statement, Account, Transaction, User
@@ -38,6 +40,52 @@ def _compute_name(db: Session, rec: Statement) -> str:
     yy = rec.period_year or 0
     mm = rec.period_month or 0
     return f"{yy:04d}.{mm:02d} - {label}"
+
+
+def _range_overlap(start_a: Optional[date_type], end_a: Optional[date_type], start_b: Optional[date_type], end_b: Optional[date_type]) -> bool:
+    if not start_a or not end_a or not start_b or not end_b:
+        return False
+    return start_a <= end_b and end_a >= start_b
+
+
+def _overlap_matches(
+    db: Session,
+    owner_id: int,
+    account_id: Optional[int],
+    account_key: Optional[str],
+    period_from: Optional[date_type],
+    period_to: Optional[date_type],
+    exclude_id: Optional[int] = None,
+) -> list[Statement]:
+    if period_from is None or period_to is None:
+        return []
+    if period_from > period_to:
+        raise HTTPException(400, "Statement period start must not be after its end.")
+    account_refs = []
+    if account_id is not None:
+        account_refs.append(Statement.account_id == account_id)
+    if account_key:
+        account_refs.append(Statement.account_key == account_key)
+    if not account_refs:
+        return []
+    q = db.query(Statement).filter(
+        Statement.owner_id == owner_id,
+        or_(*account_refs),
+    )
+    if exclude_id is not None:
+        q = q.filter(Statement.id != exclude_id)
+    return [
+        rec for rec in q.all()
+        if _range_overlap(period_from, period_to, rec.period_from, rec.period_to)
+    ]
+
+
+def _reject_overlap(matches: list[Statement]) -> None:
+    if matches:
+        raise HTTPException(
+            409,
+            "This account already has a statement covering an overlapping date range.",
+        )
 
 
 def _relink_transactions(db: Session, rec: Statement) -> None:
@@ -141,6 +189,31 @@ def list_statements(
     return [_serialize(db, r) for r in recs]
 
 
+@router.get("/check-overlap")
+def check_statement_overlap(
+    account_id: Optional[int] = None,
+    account_key: Optional[str] = None,
+    period_from: Optional[date_type] = None,
+    period_to: Optional[date_type] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    matches = [
+        {
+                "id": rec.id,
+                "name": rec.name,
+                "account_id": rec.account_id,
+                "account_key": rec.account_key,
+                "period_from": rec.period_from.isoformat() if rec.period_from else None,
+                "period_to": rec.period_to.isoformat() if rec.period_to else None,
+        }
+        for rec in _overlap_matches(
+            db, current_user.id, account_id, account_key, period_from, period_to
+        )
+    ]
+    return {"count": len(matches), "matches": matches}
+
+
 @router.post("/", response_model=StatementOut, status_code=201)
 def create_statement(
     payload: StatementCreate,
@@ -152,6 +225,10 @@ def create_statement(
     )
     rec = Statement(**payload.model_dump(), owner_id=current_user.id)
     _backfill_account_key(db, rec, current_user.id)
+    _reject_overlap(_overlap_matches(
+        db, current_user.id, rec.account_id, rec.account_key,
+        rec.period_from, rec.period_to,
+    ))
     rec.name = _compute_name(db, rec)
     db.add(rec)
     db.commit()
@@ -176,6 +253,19 @@ def update_statement(
         data.get("account_id", rec.account_id),
         data.get("account_key", rec.account_key),
     )
+    next_account_id = data.get("account_id", rec.account_id)
+    next_account_key = data.get("account_key", rec.account_key)
+    if "account_id" in data and not payload.account_key:
+        account = db.query(Account).filter(
+            Account.id == next_account_id, Account.owner_id == current_user.id
+        ).first()
+        next_account_key = account.account_key if account else None
+    _reject_overlap(_overlap_matches(
+        db, current_user.id, next_account_id, next_account_key,
+        data.get("period_from", rec.period_from),
+        data.get("period_to", rec.period_to),
+        exclude_id=rec.id,
+    ))
     for field, value in data.items():
         setattr(rec, field, value)
     if "account_id" in data and not payload.account_key:

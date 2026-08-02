@@ -387,6 +387,10 @@ class CreditPayment(Base):
     period_year = Column(Integer)
     period_month = Column(Integer)
 
+    # Exact movement window parsed from the uploaded statement. Older/manual
+    # records may leave this blank and retain the legacy cutover-based fallback.
+    period_from = Column(Date)
+    period_to = Column(Date)
     cutover_date = Column(Date)                 # statement closing date
     payment_date = Column(Date)                 # payment due date (calendar event)
     total_amount = Column(Float, default=0.0)   # total payment due

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, text
 
 from app.database import get_db
 from app.models import CreditPayment, Account, Transaction, User
@@ -73,6 +74,18 @@ def _period_start(db: Session, rec: CreditPayment) -> Optional[date_type]:
     return _minus_one_month(rec.cutover_date)
 
 
+def ensure_credit_payment_period_columns(db: Session) -> None:
+    """Add exact imported statement windows to an existing SQLite database."""
+    if db.bind.dialect.name != "sqlite":
+        return
+    cols = {row[1] for row in db.execute(text("PRAGMA table_info(credit_payments)")).fetchall()}
+    if "period_from" not in cols:
+        db.execute(text("ALTER TABLE credit_payments ADD COLUMN period_from DATE"))
+    if "period_to" not in cols:
+        db.execute(text("ALTER TABLE credit_payments ADD COLUMN period_to DATE"))
+    db.commit()
+
+
 def _relink_spendings(db: Session, rec: CreditPayment) -> None:
     """Recompute which spendings belong to this statement (card + cutover window)."""
     # Detach any previously-linked rows so a changed window doesn't keep stale links.
@@ -82,15 +95,70 @@ def _relink_spendings(db: Session, rec: CreditPayment) -> None:
     ).update({Transaction.credit_payment_id: None}, synchronize_session=False)
 
     refs = _card_refs(rec)
-    start = _period_start(db, rec)
-    if refs and rec.cutover_date and start is not None:
-        db.query(Transaction).filter(
+    start = rec.period_from or _period_start(db, rec)
+    end = rec.period_to or rec.cutover_date
+    if refs and start is not None and end is not None:
+        query = db.query(Transaction).filter(
             Transaction.owner_id == rec.owner_id,
             Transaction.payment_method.in_(refs),
-            Transaction.date > start,
-            Transaction.date <= rec.cutover_date,
-        ).update({Transaction.credit_payment_id: rec.id}, synchronize_session=False)
+            Transaction.date <= end,
+        )
+        # Exact imported ranges are inclusive. Legacy records use the old
+        # previous-cutover boundary, whose first day is exclusive.
+        query = query.filter(
+            Transaction.date >= start if rec.period_from else Transaction.date > start
+        )
+        query.update({Transaction.credit_payment_id: rec.id}, synchronize_session=False)
     db.commit()
+
+
+def _range_overlap(start_a: Optional[date_type], end_a: Optional[date_type], start_b: Optional[date_type], end_b: Optional[date_type]) -> bool:
+    if not start_a or not end_a or not start_b or not end_b:
+        return False
+    return start_a <= end_b and end_a >= start_b
+
+
+def _overlap_matches(
+    db: Session,
+    owner_id: int,
+    account_id: Optional[int],
+    account_key: Optional[str],
+    period_from: Optional[date_type],
+    period_to: Optional[date_type],
+    exclude_id: Optional[int] = None,
+) -> list[tuple[CreditPayment, date_type, date_type]]:
+    if period_from is None or period_to is None:
+        return []
+    if period_from > period_to:
+        raise HTTPException(400, "Statement period start must not be after its end.")
+    account_refs = []
+    if account_id is not None:
+        account_refs.append(CreditPayment.account_id == account_id)
+    if account_key:
+        account_refs.append(CreditPayment.account_key == account_key)
+    if not account_refs:
+        return []
+    q = db.query(CreditPayment).filter(
+        CreditPayment.owner_id == owner_id,
+        or_(*account_refs),
+    )
+    if exclude_id is not None:
+        q = q.filter(CreditPayment.id != exclude_id)
+    matches = []
+    for rec in q.all():
+        end = rec.period_to or rec.cutover_date
+        start = rec.period_from or _period_start(db, rec)
+        if start and end and _range_overlap(period_from, period_to, start, end):
+            matches.append((rec, start, end))
+    return matches
+
+
+def _reject_overlap(matches: list[tuple[CreditPayment, date_type, date_type]]) -> None:
+    if matches:
+        raise HTTPException(
+            409,
+            "This card already has a statement covering an overlapping date range.",
+        )
 
 
 def _serialize(db: Session, rec: CreditPayment) -> CreditPaymentOut:
@@ -124,6 +192,31 @@ def list_credit_payments(db: Session = Depends(get_db), current_user: User = Dep
     return [_serialize(db, r) for r in recs]
 
 
+@router.get("/check-overlap")
+def check_credit_payment_overlap(
+    account_id: Optional[int] = None,
+    account_key: Optional[str] = None,
+    period_from: Optional[date_type] = None,
+    period_to: Optional[date_type] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    matches = [
+        {
+                "id": rec.id,
+                "name": rec.name,
+                "account_id": rec.account_id,
+                "account_key": rec.account_key,
+                "period_from": start.isoformat() if start else None,
+                "period_to": end.isoformat(),
+        }
+        for rec, start, end in _overlap_matches(
+            db, current_user.id, account_id, account_key, period_from, period_to
+        )
+    ]
+    return {"count": len(matches), "matches": matches}
+
+
 @router.post("/", response_model=CreditPaymentOut, status_code=201)
 def create_credit_payment(
     payload: CreditPaymentCreate,
@@ -138,6 +231,10 @@ def create_credit_payment(
         ).first()
         if card:
             rec.account_key = card.account_key
+    _reject_overlap(_overlap_matches(
+        db, current_user.id, rec.account_id, rec.account_key,
+        rec.period_from, rec.period_to,
+    ))
     rec.name = _compute_name(db, rec)
     db.add(rec)
     db.commit()
@@ -156,6 +253,19 @@ def update_credit_payment(
 ):
     rec = _get_owned(db, cp_id, current_user)
     data = payload.model_dump(exclude_none=True)
+    next_account_id = data.get("account_id", rec.account_id)
+    next_account_key = data.get("account_key", rec.account_key)
+    if "account_id" in data and not payload.account_key:
+        card = db.query(Account).filter(
+            Account.id == next_account_id, Account.owner_id == current_user.id
+        ).first()
+        next_account_key = card.account_key if card else None
+    _reject_overlap(_overlap_matches(
+        db, current_user.id, next_account_id, next_account_key,
+        data.get("period_from", rec.period_from),
+        data.get("period_to", rec.period_to),
+        exclude_id=rec.id,
+    ))
     for field, value in data.items():
         setattr(rec, field, value)
     if rec.account_id is not None and "account_id" in data and not payload.account_key:
@@ -168,7 +278,7 @@ def update_credit_payment(
     db.commit()
     db.refresh(rec)
     # Re-link if anything affecting the window changed.
-    if {"account_id", "account_key", "cutover_date"} & set(data.keys()):
+    if {"account_id", "account_key", "period_from", "period_to", "cutover_date"} & set(data.keys()):
         _relink_spendings(db, rec)
         db.refresh(rec)
     return _serialize(db, rec)

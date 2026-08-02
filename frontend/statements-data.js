@@ -77,6 +77,18 @@
     return true;
   }
 
+  async function checkOverlap(accountId, periodFrom, periodTo, accountKey = null) {
+    const params = new URLSearchParams({
+      account_id: accountId != null ? String(accountId) : '',
+      account_key: accountKey || '',
+      period_from: periodFrom || '',
+      period_to: periodTo || '',
+    });
+    const res = await api()('/api/statements/check-overlap?' + params.toString(), { method: 'GET' });
+    if (!res.ok) throw new Error('Failed to check statement overlap (' + res.status + ')');
+    return res.json();
+  }
+
   // Attach (or replace) the record's document. Nothing is imported — the wizard has
   // already written the rows; this only archives the original file.
   async function attachFile(id, file) {
@@ -113,7 +125,7 @@
 
   window.HL_STATEMENTS_API = {
     list, create, update, remove,
-    attachFile, downloadFile, statementAccounts,
+    checkOverlap, attachFile, downloadFile, statementAccounts,
     fromApi, toApi, STATEMENT_TYPES,
   };
 })();

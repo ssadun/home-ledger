@@ -14,6 +14,8 @@
       name: row.name || '',
       year: row.period_year != null ? row.period_year : null,
       month: row.period_month != null ? row.period_month : null,
+      periodFrom: row.period_from || '',
+      periodTo: row.period_to || '',
       cutoverDate: row.cutover_date || '',
       paymentDate: row.payment_date || '',
       total: row.total_amount != null ? row.total_amount : 0,
@@ -30,6 +32,8 @@
       account_id: item.accountId != null ? Number(item.accountId) : null,
       period_year: item.year != null ? Number(item.year) : null,
       period_month: item.month != null ? Number(item.month) : null,
+      period_from: item.periodFrom || null,
+      period_to: item.periodTo || null,
       cutover_date: item.cutoverDate || null,
       payment_date: item.paymentDate || null,
       total_amount: item.total != null ? Number(item.total) : 0,
@@ -89,6 +93,18 @@
     return res.json();
   }
 
+  async function checkOverlap(accountId, periodFrom, periodTo, accountKey = null) {
+    const params = new URLSearchParams({
+      account_id: accountId != null ? String(accountId) : '',
+      account_key: accountKey || '',
+      period_from: periodFrom || '',
+      period_to: periodTo || '',
+    });
+    const res = await api()('/api/credit-payments/check-overlap?' + params.toString(), { method: 'GET' });
+    if (!res.ok) throw new Error('Failed to check statement overlap (' + res.status + ')');
+    return res.json();
+  }
+
   // Download the stored statement (Bearer-auth → blob → trigger save).
   async function downloadStatement(id, filename) {
     const res = await api()('/api/credit-payments/' + id + '/statement', { method: 'GET' });
@@ -113,7 +129,7 @@
 
   window.HL_CREDIT_PAYMENTS_API = {
     list, create, update, remove,
-    previewStatement, confirmStatement, downloadStatement, creditCards,
+    previewStatement, confirmStatement, checkOverlap, downloadStatement, creditCards,
     fromApi, toApi,
   };
   // Populated by the page after list() so the dashboard calendar can read it.

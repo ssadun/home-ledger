@@ -70,6 +70,8 @@ def _payment(owner_id, account):
         name="2026.07 - Bonus",
         period_year=2026,
         period_month=7,
+        period_from=date(2026, 7, 1),
+        period_to=date(2026, 7, 26),
         cutover_date=date(2026, 7, 26),
         payment_date=date(2026, 8, 5),
         total_amount=1000,
@@ -149,3 +151,115 @@ def test_delete_credit_payment_is_owner_scoped(api):
     assert response.status_code == 404
     assert db.query(CreditPayment).filter(CreditPayment.id == cp.id).first() is not None
     assert db.query(Transaction).filter(Transaction.id == tx_id).first() is not None
+
+
+def test_credit_payment_overlap_check_is_date_range_based(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+
+    existing = _payment(user1.id, card)
+    db.add(existing)
+    db.commit()
+    db.refresh(existing)
+
+    response = client.get(
+        "/api/credit-payments/check-overlap",
+        params={
+            "account_id": card.id,
+            "period_from": "2026-07-20",
+            "period_to": "2026-08-05",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 1
+    assert body["matches"][0]["id"] == existing.id
+    assert body["matches"][0]["name"] == "2026.07 - Bonus"
+    assert body["matches"][0]["period_from"] == "2026-07-01"
+    assert body["matches"][0]["period_to"] == "2026-07-26"
+
+
+def test_credit_payment_overlap_is_scoped_and_rejects_reversed_ranges(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    other = _card(user1.id, "acc-other-card")
+    db.add_all([card, other])
+    db.commit()
+    db.refresh(card)
+    db.refresh(other)
+    db.add(_payment(user1.id, card))
+    db.commit()
+
+    adjacent = client.get(
+        "/api/credit-payments/check-overlap",
+        params={
+            "account_id": card.id,
+            "period_from": "2026-07-27",
+            "period_to": "2026-08-26",
+        },
+    )
+    different_card = client.get(
+        "/api/credit-payments/check-overlap",
+        params={
+            "account_id": other.id,
+            "period_from": "2026-07-01",
+            "period_to": "2026-07-26",
+        },
+    )
+    reversed_range = client.get(
+        "/api/credit-payments/check-overlap",
+        params={
+            "account_id": card.id,
+            "period_from": "2026-08-01",
+            "period_to": "2026-07-01",
+        },
+    )
+
+    assert adjacent.json()["count"] == 0
+    assert different_card.json()["count"] == 0
+    assert reversed_range.status_code == 400
+
+
+def test_credit_payment_create_and_update_reject_overlapping_ranges(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    payload = {
+        "account_id": card.id,
+        "period_year": 2026,
+        "period_month": 7,
+        "period_from": "2026-07-01",
+        "period_to": "2026-07-26",
+        "cutover_date": "2026-07-26",
+        "payment_date": "2026-08-05",
+        "total_amount": 1000,
+        "minimum_amount": 100,
+        "currency": "TRY",
+    }
+    existing = client.post("/api/credit-payments/", json=payload)
+    assert existing.status_code == 201
+
+    duplicate = client.post("/api/credit-payments/", json=payload)
+    assert duplicate.status_code == 409
+    assert "overlapping date range" in duplicate.json()["detail"]
+    assert db.query(CreditPayment).count() == 1
+
+    august = payload | {
+        "period_month": 8,
+        "period_from": "2026-07-27",
+        "period_to": "2026-08-26",
+        "cutover_date": "2026-08-26",
+        "payment_date": "2026-09-05",
+    }
+    second = client.post("/api/credit-payments/", json=august)
+    assert second.status_code == 201
+    overlapping_update = client.patch(
+        f"/api/credit-payments/{second.json()['id']}",
+        json={"period_from": "2026-07-26"},
+    )
+    assert overlapping_update.status_code == 409

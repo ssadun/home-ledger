@@ -597,6 +597,8 @@ class CreditPaymentCreate(BaseModel):
     account_key: Optional[str] = None
     period_year: int
     period_month: int
+    period_from: Optional[date] = None
+    period_to: Optional[date] = None
     cutover_date: Optional[date] = None
     payment_date: Optional[date] = None
     total_amount: float = 0.0
@@ -608,6 +610,8 @@ class CreditPaymentUpdate(BaseModel):
     account_key: Optional[str] = None
     period_year: Optional[int] = None
     period_month: Optional[int] = None
+    period_from: Optional[date] = None
+    period_to: Optional[date] = None
     cutover_date: Optional[date] = None
     payment_date: Optional[date] = None
     total_amount: Optional[float] = None
@@ -621,6 +625,8 @@ class CreditPaymentOut(BaseModel):
     name: Optional[str]
     period_year: Optional[int]
     period_month: Optional[int]
+    period_from: Optional[date]
+    period_to: Optional[date]
     cutover_date: Optional[date]
     payment_date: Optional[date]
     total_amount: Optional[float]

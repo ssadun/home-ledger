@@ -728,6 +728,7 @@
     const [penResult, setPenResult] = React.useState(null);   // confirm-pension response + funds
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState(null);
+    const [duplicateWarning, setDuplicateWarning] = React.useState(null);
     const [sourceMap, setSourceMap] = React.useState({});     // statement source → chosen account id
     const [createDraft, setCreateDraft] = React.useState(null); // AccountFormModal initial (pre-filled)
     const [createError, setCreateError] = React.useState(null); // save-time AccountFormModal validation/API error
@@ -997,6 +998,21 @@
     }
 
     // Persist reviewed broker holdings as Investments (upsert by platform+symbol).
+    async function findInvestmentOverlaps() {
+      if (!window.HL_STATEMENTS_API) return [];
+      const from = shortDateIso(invSummary && invSummary.period_from);
+      const to = shortDateIso(invSummary && invSummary.period_to);
+      if (!from || !to) return [];
+      const acct = accounts.find(a => a.type === 'invest' &&
+        (a.name || '').trim().toLowerCase() === 'midas');
+      if (!acct) return [];
+      const overlap = await window.HL_STATEMENTS_API.checkOverlap(
+        acct._dbId, from, to, acct.accountKey || null);
+      return (overlap.matches || []).map(match => ({
+        kind: 'Account statement', account: acct.name, from, to, match,
+      }));
+    }
+
     async function commitInvestments() {
       setError(null);
       const incl = invRows.filter(r => r.include);
@@ -1011,6 +1027,18 @@
         current_value: r.value,
       }));
       setBusy(true);
+      try {
+        const overlaps = await findInvestmentOverlaps();
+        if (overlaps.length) {
+          setDuplicateWarning({ matches: overlaps });
+          setBusy(false);
+          return;
+        }
+      } catch (e) {
+        setError(e.message || 'Could not check for duplicate statements.');
+        setBusy(false);
+        return;
+      }
       let outcome;
       try {
         outcome = await window.HL_IMPORT_API.confirmInvestments(holdings, true, invSummary || null);
@@ -1056,6 +1084,46 @@
       setStep('done');
     }
 
+    async function findTransactionOverlaps(incl) {
+      const checks = [];
+      const creditStatements = (doc.statementAccounts || []).filter(
+        rec => rec.type === 'credit' && rec.payment_due && rec.total && !rec.interim);
+      creditStatements.forEach(rec => {
+        const cardId = resolveSource(rec.source);
+        const acct = accounts.find(a => a.id === cardId);
+        if (!acct || !window.HL_CREDIT_PAYMENTS_API) return;
+        const dates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
+        const from = dates[0] || null;
+        const to = dates[dates.length - 1] || rec.payment_due;
+        if (!from || !to) return;
+        checks.push(window.HL_CREDIT_PAYMENTS_API.checkOverlap(
+          acct._dbId, from, to, acct.accountKey || null).then(overlap =>
+            (overlap.matches || []).map(match => ({
+              kind: 'Credit-card statement', account: acct.name, from, to, match,
+            }))));
+      });
+
+      if (window.HL_STATEMENTS_API) {
+        const archiveTypes = window.HL_STATEMENTS_API.STATEMENT_TYPES;
+        const rowsByAcc = {};
+        incl.forEach(r => { (rowsByAcc[r.accId] = rowsByAcc[r.accId] || []).push(r); });
+        Object.keys(rowsByAcc).forEach(accKey => {
+          const acct = accounts.find(a => a.id === accKey);
+          if (!acct || archiveTypes.indexOf(acct.type) === -1) return;
+          const dates = rowsByAcc[accKey].map(r => r.date).filter(Boolean).sort();
+          const from = dates[0] || null;
+          const to = dates[dates.length - 1] || null;
+          if (!from || !to) return;
+          checks.push(window.HL_STATEMENTS_API.checkOverlap(
+            acct._dbId, from, to, acct.accountKey || null).then(overlap =>
+              (overlap.matches || []).map(match => ({
+                kind: 'Account statement', account: acct.name, from, to, match,
+              }))));
+        });
+      }
+      return (await Promise.all(checks)).flat();
+    }
+
     async function commit() {
       setError(null);
       const incl = rows.filter(r => r.include);
@@ -1073,6 +1141,18 @@
       }));
 
       setBusy(true);
+      try {
+        const overlaps = await findTransactionOverlaps(incl);
+        if (overlaps.length) {
+          setDuplicateWarning({ matches: overlaps });
+          setBusy(false);
+          return;
+        }
+      } catch (e) {
+        setError(e.message || 'Could not check for duplicate statements.');
+        setBusy(false);
+        return;
+      }
       let outcome;
       try {
         outcome = await window.HL_IMPORT_API.confirm(backendRows, true, doc.fileName);
@@ -1107,13 +1187,16 @@
         try {
           // Cutover ≈ the statement's last transaction date for this card; the backend
           // links purchases dated within (cutover − 1 month, cutover] to the record.
-          const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).sort();
+          const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
+          const periodFrom = cardDates[0] || null;
           const cutover = cardDates.length ? cardDates[cardDates.length - 1] : rec.payment_due;
           const [cy, cm] = String(cutover || rec.payment_due).split('-');
           const cp = await window.HL_CREDIT_PAYMENTS_API.create({
             accountId: acct._dbId,
             year: Number(cy),
             month: Number(cm),
+            periodFrom,
+            periodTo: cutover,
             cutoverDate: cutover,
             paymentDate: rec.payment_due,
             total: rec.total,
@@ -1241,7 +1324,7 @@
         <React.Fragment>
           <button id="imp-review-back-btn" className="amb cancel" onClick={() => setStep(mode === 'tx' ? 'detect' : 'choose')} disabled={busy}><Icon name="arrow-left" size={14} />Back</button>
           <button id="imp-review-import-btn" className="amb ok" disabled={inclCount === 0 || busy}
-            onClick={mode === 'pen' ? commitPension : mode === 'inv' ? commitInvestments : commit}>
+            onClick={() => mode === 'pen' ? commitPension() : mode === 'inv' ? commitInvestments() : commit()}>
             <Icon name={busy ? 'loader' : 'check'} size={14} />{busy ? 'Importing…' : 'Import'}
           </button>
         </React.Fragment>
@@ -1287,6 +1370,39 @@
             onClearError={() => setCreateError(null)}
             onClose={() => { createSrcRef.current = null; setCreateError(null); setCreateDraft(null); }}
             onSave={saveNewAccount} />}
+
+        {duplicateWarning && (
+          <div className="backdrop imp-duplicate-backdrop" onMouseDown={e => e.stopPropagation()}>
+            <div className="modal confirm-modal imp-duplicate-modal" role="alertdialog" aria-modal="true" aria-labelledby="imp-duplicate-title">
+              <div className="modal-head">
+                <div className="modal-head-l">
+                  <span id="imp-duplicate-title" className="modal-title"><Icon name="circle-x" size={16} />Statement Already Exists</span>
+                  <span className="modal-sub">This file cannot be imported again</span>
+                </div>
+                <button id="imp-duplicate-close-btn" className="m-close" onClick={() => setDuplicateWarning(null)}><Icon name="x" size={17} /></button>
+              </div>
+              <div className="confirm-body imp-duplicate-body">
+                <div className="confirm-ico imp-duplicate-ico"><Icon name="triangle-alert" size={20} /></div>
+                <div className="confirm-text">
+                  <b>This account already has a statement covering the same date range.</b>
+                  <span className="warn">No transactions, balances, holdings, or statement records have been changed yet.</span>
+                  <div className="imp-duplicate-list">
+                    {duplicateWarning.matches.map((item, index) => (
+                      <div className="imp-duplicate-row" key={item.kind + item.account + item.match.id + index}>
+                        <span>{item.kind} · {item.account}</span>
+                        <b>{item.from} → {item.to}</b>
+                        <small>Overlaps {item.match.name || 'existing statement'} ({item.match.period_from} → {item.match.period_to})</small>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="modal-foot">
+                <button id="imp-duplicate-cancel-btn" className="amb cancel" onClick={() => setDuplicateWarning(null)}><Icon name="arrow-left" size={14} />Back to Review</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
