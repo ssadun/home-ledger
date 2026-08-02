@@ -208,6 +208,47 @@ def test_statement_create_and_update_reject_overlapping_ranges():
         db.close()
 
 
+def test_import_can_archive_overlap_without_stealing_existing_transactions():
+    client, db, _, debit = _api()
+    try:
+        existing = client.post("/api/statements/", json=_payload(debit.id))
+        assert existing.status_code == 201
+        old_tx = Transaction(
+            owner_id=debit.owner_id,
+            type="expense",
+            amount=10,
+            currency="TRY",
+            description="Existing movement",
+            date=date(2026, 7, 10),
+            payment_method=debit.account_key,
+            statement_id=existing.json()["id"],
+        )
+        new_tx = Transaction(
+            owner_id=debit.owner_id,
+            type="expense",
+            amount=20,
+            currency="TRY",
+            description="New movement",
+            date=date(2026, 7, 20),
+            payment_method=debit.account_key,
+        )
+        db.add_all([old_tx, new_tx])
+        db.commit()
+        old_id, new_id = old_tx.id, new_tx.id
+
+        archived = client.post(
+            "/api/statements/?allow_overlap=true",
+            json=_payload(debit.id),
+        )
+
+        assert archived.status_code == 201
+        db.expire_all()
+        assert db.get(Transaction, old_id).statement_id == existing.json()["id"]
+        assert db.get(Transaction, new_id).statement_id == archived.json()["id"]
+    finally:
+        db.close()
+
+
 def test_deleting_bank_statement_deletes_only_its_account_activity_rows():
     client, db, _, _ = _api()
     try:

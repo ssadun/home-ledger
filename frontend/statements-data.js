@@ -53,8 +53,9 @@
     return (await res.json()).map(fromApi);
   }
 
-  async function create(item) {
-    const res = await api()('/api/statements/', {
+  async function create(item, options) {
+    const suffix = options && options.allowOverlap ? '?allow_overlap=true' : '';
+    const res = await api()('/api/statements/' + suffix, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(item)),
     });

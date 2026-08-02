@@ -101,6 +101,7 @@ def _relink_spendings(db: Session, rec: CreditPayment) -> None:
         query = db.query(Transaction).filter(
             Transaction.owner_id == rec.owner_id,
             Transaction.payment_method.in_(refs),
+            Transaction.credit_payment_id.is_(None),
             Transaction.date <= end,
         )
         # Exact imported ranges are inclusive. Legacy records use the old
@@ -220,6 +221,7 @@ def check_credit_payment_overlap(
 @router.post("/", response_model=CreditPaymentOut, status_code=201)
 def create_credit_payment(
     payload: CreditPaymentCreate,
+    allow_overlap: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -231,10 +233,11 @@ def create_credit_payment(
         ).first()
         if card:
             rec.account_key = card.account_key
-    _reject_overlap(_overlap_matches(
-        db, current_user.id, rec.account_id, rec.account_key,
-        rec.period_from, rec.period_to,
-    ))
+    if not allow_overlap:
+        _reject_overlap(_overlap_matches(
+            db, current_user.id, rec.account_id, rec.account_key,
+            rec.period_from, rec.period_to,
+        ))
     rec.name = _compute_name(db, rec)
     db.add(rec)
     db.commit()

@@ -170,7 +170,11 @@
       type !== 'all' && { key: 'type', label: 'Type', val: cap(type), clear: () => setType('all') },
       payer !== 'all' && { key: 'payer', label: 'Payer', val: payer, clear: () => setPayer('all') },
       payingFor !== 'all' && { key: 'payingFor', label: 'Paying For', val: forLabel(payingFor), clear: () => setPayingFor('all') },
-      cat !== 'all' && { key: 'cat', label: 'Category', val: (CATS[cat] || {}).label || cat, clear: () => setCat('all') },
+      cat !== 'all' && {
+        key: 'cat', label: 'Category',
+        val: cat === 'all-except-wire-transfer' ? 'Excluding Wire Transfer' : (CATS[cat] || {}).label || cat,
+        clear: () => setCat('all'),
+      },
       paymentSource && paymentSource !== 'all' && { key: 'paymentSource', label: 'Payment Source', val: ((paymentSourceOptions || []).find(o => o.value === paymentSource) || {}).label || paymentSource, clear: () => setPaymentSource && setPaymentSource('all') },
       source !== 'all' && { key: 'source', label: 'Source', val: sourceLabel(source), clear: () => setSource('all') },
     ].filter(Boolean);
@@ -236,6 +240,7 @@
                     <option value="–">N/A</option>
                   </Select>
                   <Select id="filter-category-select" label="Category" icon="tag" value={draft.cat} onChange={(value) => setDraft(d => ({ ...d, cat: value }))} searchable searchPlaceholder="Search categories...">
+                    <option value="all-except-wire-transfer" data-icon="list-filter" data-color="var(--muted)">All Except Wire Transfer</option>
                     <option value="all" data-icon="tag" data-color="var(--muted)">All Categories</option>
                     {window.HL_CATEGORY_OPTIONS.entries().map(([k, c]) => <option key={k} value={k} data-icon={c.icon} data-color={c.color}>{c.label}</option>)}
                   </Select>

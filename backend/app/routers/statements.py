@@ -109,6 +109,7 @@ def _relink_transactions(db: Session, rec: Statement) -> None:
             Transaction.owner_id == rec.owner_id,
             Transaction.payment_method.in_(refs),
             Transaction.credit_payment_id.is_(None),
+            Transaction.statement_id.is_(None),
             Transaction.date >= rec.period_from,
             Transaction.date <= rec.period_to,
         ).update({Transaction.statement_id: rec.id}, synchronize_session=False)
@@ -220,6 +221,7 @@ def check_statement_overlap(
 @router.post("/", response_model=StatementOut, status_code=201)
 def create_statement(
     payload: StatementCreate,
+    allow_overlap: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -228,10 +230,11 @@ def create_statement(
     )
     rec = Statement(**payload.model_dump(), owner_id=current_user.id)
     _backfill_account_key(db, rec, current_user.id)
-    _reject_overlap(_overlap_matches(
-        db, current_user.id, rec.account_id, rec.account_key,
-        rec.period_from, rec.period_to,
-    ))
+    if not allow_overlap:
+        _reject_overlap(_overlap_matches(
+            db, current_user.id, rec.account_id, rec.account_key,
+            rec.period_from, rec.period_to,
+        ))
     rec.name = _compute_name(db, rec)
     db.add(rec)
     db.commit()

@@ -263,3 +263,42 @@ def test_credit_payment_create_and_update_reject_overlapping_ranges(api):
         json={"period_from": "2026-07-26"},
     )
     assert overlapping_update.status_code == 409
+
+
+def test_import_can_archive_overlap_without_stealing_existing_spendings(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    existing = _payment(user1.id, card)
+    db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    old_tx = _tx(user1.id, existing.id, "existing row")
+    new_tx = _tx(user1.id, None, "new row")
+    db.add_all([old_tx, new_tx])
+    db.commit()
+    old_id, new_id = old_tx.id, new_tx.id
+    payload = {
+        "account_id": card.id,
+        "period_year": 2026,
+        "period_month": 7,
+        "period_from": "2026-07-01",
+        "period_to": "2026-07-26",
+        "cutover_date": "2026-07-26",
+        "payment_date": "2026-08-05",
+        "total_amount": 1000,
+        "minimum_amount": 100,
+        "currency": "TRY",
+    }
+
+    archived = client.post(
+        "/api/credit-payments/?allow_overlap=true",
+        json=payload,
+    )
+
+    assert archived.status_code == 201
+    db.expire_all()
+    assert db.get(Transaction, old_id).credit_payment_id == existing.id
+    assert db.get(Transaction, new_id).credit_payment_id == archived.json()["id"]

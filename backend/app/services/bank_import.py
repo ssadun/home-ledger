@@ -2455,7 +2455,8 @@ def import_transactions(
 ) -> dict:
     """
     Parse edilmiş satırları Transaction tablosuna yazar.
-    skip_duplicates=True ise aynı tarih+tutar+açıklama olan kayıtları atlar.
+    skip_duplicates=True ise aynı hesap+tarih+tür+tutar+para birimi+açıklama
+    olan kayıtları atlar. Eşleşme dönemden bağımsızdır.
 
     credit_payment_id / default_payment_method / default_category_key:
     when importing a credit-card statement, tag every created spending with the
@@ -2486,7 +2487,39 @@ def import_transactions(
     for account in owned_accounts:
         if account.name and name_counts.get(account.name) == 1:
             account_type_by_ref[account.name] = account.type
-    existing_keys = set()
+    # Map every supported account reference to one stable identity. Without the
+    # account in the key, two unrelated statements can suppress one another when
+    # they happen to contain the same dated amount.
+    account_identity_by_ref: dict[str, str] = {}
+    for account in owned_accounts:
+        identity = f"account:{account.id}"
+        account_identity_by_ref[str(account.id)] = identity
+        if account.account_key:
+            account_identity_by_ref[account.account_key] = identity
+        if account.name and name_counts.get(account.name) == 1:
+            account_identity_by_ref[account.name] = identity
+
+    def account_identity(value: str | None) -> str | None:
+        if not value:
+            return None
+        return account_identity_by_ref.get(value, f"ref:{value}")
+
+    def enum_value(value):
+        return value.value if hasattr(value, "value") else str(value)
+
+    def transaction_key(tx_date, amount, tx_type, currency, description, payment_method):
+        return (
+            tx_date,
+            round(float(amount or 0), 2),
+            enum_value(tx_type),
+            enum_value(currency or "TRY"),
+            (description or "").strip(),
+            account_identity(payment_method),
+        )
+
+    # Counts, rather than a set, preserve legitimate repeated purchases with the
+    # same fields. A re-import consumes the existing occurrences one by one.
+    existing_counts: dict[tuple, int] = {}
     if skip_duplicates:
         parsed_dates = []
         for row in rows:
@@ -2495,14 +2528,23 @@ def import_transactions(
             except Exception:
                 continue
         if parsed_dates:
-            existing_keys = {
-                (tx.date, round(float(tx.amount or 0), 2), tx.type)
-                for tx in db.query(Tx.date, Tx.amount, Tx.type)
-                .filter(Tx.owner_id == owner_id, Tx.date.in_(set(parsed_dates)))
-                .all()
-            }
+            existing_rows = db.query(
+                Tx.date, Tx.amount, Tx.type, Tx.currency,
+                Tx.description, Tx.payment_method,
+            ).filter(
+                Tx.owner_id == owner_id,
+                Tx.date.in_(set(parsed_dates)),
+            ).all()
+            for tx in existing_rows:
+                key = transaction_key(
+                    tx.date, tx.amount, tx.type, tx.currency,
+                    tx.description, tx.payment_method,
+                )
+                existing_counts[key] = existing_counts.get(key, 0) + 1
 
-    for row in rows:
+    imported_indices = []
+    skipped_indices = []
+    for row_index, row in enumerate(rows):
         try:
             tx_date = date_type.fromisoformat(row["date"])
             raw_amount = float(row["amount"])
@@ -2534,9 +2576,13 @@ def import_transactions(
             ):
                 category_key = "wire-transfer"
 
-            dedupe_key = (tx_date, round(amount, 2), tx_type)
-            if skip_duplicates and dedupe_key in existing_keys:
+            dedupe_key = transaction_key(
+                tx_date, amount, tx_type, currency, desc, payment_method
+            )
+            if skip_duplicates and existing_counts.get(dedupe_key, 0) > 0:
+                existing_counts[dedupe_key] -= 1
                 skipped += 1
+                skipped_indices.append(row_index)
                 continue
 
             tx = Tx(
@@ -2556,9 +2602,8 @@ def import_transactions(
             )
             _apply_rates(tx, db)
             db.add(tx)
-            if skip_duplicates:
-                existing_keys.add(dedupe_key)
             imported += 1
+            imported_indices.append(row_index)
 
         except Exception as e:
             errors.append(f"Satır atlandı: {row.get('date')} — {e}")
@@ -2567,6 +2612,8 @@ def import_transactions(
     return {
         "imported": imported,
         "skipped": skipped,
+        "imported_indices": imported_indices,
+        "skipped_indices": skipped_indices,
         "errors": errors,
     }
 

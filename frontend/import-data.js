@@ -193,7 +193,8 @@
     // rows: backend-shaped [{ date, amount, type, currency, description,
     //   category_key, payment_method, payer, paying_for }]. sourceFilename: the
     // uploaded statement's original name, stamped onto every created row so the
-    // UI can show provenance later. Returns { imported, skipped, errors }.
+    // UI can show provenance later. Returns imported/skipped counts plus their
+    // source-row indices so partial imports update balances from new rows only.
     async function confirm(rows, skipDuplicates, sourceFilename) {
       const res = await api()('/api/import/confirm', {
         method: 'POST',

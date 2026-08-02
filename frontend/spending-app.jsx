@@ -20,6 +20,7 @@
   const { Sidebar } = window.HL_NAV;
 
   const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DEFAULT_CATEGORY_FILTER = 'all-except-wire-transfer';
   function weekOfMonth(iso) { return Math.ceil(+iso.split('-')[2] / 7); }
   function weekRangeLabel(wk, month, year) {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -185,7 +186,9 @@
     const [type, setType] = React.useState('all');
     const [payer, setPayer] = React.useState('all');
     const [payingFor, setPayingFor] = React.useState('all');
-    const [cat, setCat] = React.useState('all');
+    // Account-to-account movements are available on demand, but keeping them out
+    // of the initial Spending view prevents transfers from inflating everyday spend.
+    const [cat, setCat] = React.useState(DEFAULT_CATEGORY_FILTER);
     const [source, setSource] = React.useState('all');
     const [paymentSource, setPaymentSource] = React.useState('all');
     const [search, setSearch] = React.useState('');
@@ -239,7 +242,8 @@
         if (type !== 'all' && r.type !== type) return false;
         if (payer !== 'all' && r.payer !== payer) return false;
         if (payingFor !== 'all' && r.payingFor !== payingFor) return false;
-        if (cat !== 'all' && r.cat !== cat) return false;
+        if (cat === DEFAULT_CATEGORY_FILTER && r.cat === 'wire-transfer') return false;
+        if (cat !== 'all' && cat !== DEFAULT_CATEGORY_FILTER && r.cat !== cat) return false;
         if (paymentSource !== 'all' && r.paymentMethod !== paymentSource) return false;
         if (source !== 'all') {
           if (source === 'recurring' && !r.recurringId) return false;

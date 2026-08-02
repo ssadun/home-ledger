@@ -1086,46 +1086,6 @@
       setStep('done');
     }
 
-    async function findTransactionOverlaps(incl) {
-      const checks = [];
-      const creditStatements = (doc.statementAccounts || []).filter(
-        rec => rec.type === 'credit' && rec.payment_due && rec.total && !rec.interim);
-      creditStatements.forEach(rec => {
-        const cardId = resolveSource(rec.source);
-        const acct = accounts.find(a => a.id === cardId);
-        if (!acct || !window.HL_CREDIT_PAYMENTS_API) return;
-        const dates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
-        const from = dates[0] || null;
-        const to = dates[dates.length - 1] || rec.payment_due;
-        if (!from || !to) return;
-        checks.push(window.HL_CREDIT_PAYMENTS_API.checkOverlap(
-          acct._dbId, from, to, acct.accountKey || null).then(overlap =>
-            (overlap.matches || []).map(match => ({
-              kind: 'Credit-card statement', account: acct.name, from, to, match,
-            }))));
-      });
-
-      if (window.HL_STATEMENTS_API) {
-        const archiveTypes = window.HL_STATEMENTS_API.STATEMENT_TYPES;
-        const rowsByAcc = {};
-        incl.forEach(r => { (rowsByAcc[r.accId] = rowsByAcc[r.accId] || []).push(r); });
-        Object.keys(rowsByAcc).forEach(accKey => {
-          const acct = accounts.find(a => a.id === accKey);
-          if (!acct || archiveTypes.indexOf(acct.type) === -1) return;
-          const dates = rowsByAcc[accKey].map(r => r.date).filter(Boolean).sort();
-          const from = dates[0] || null;
-          const to = dates[dates.length - 1] || null;
-          if (!from || !to) return;
-          checks.push(window.HL_STATEMENTS_API.checkOverlap(
-            acct._dbId, from, to, acct.accountKey || null).then(overlap =>
-              (overlap.matches || []).map(match => ({
-                kind: 'Account statement', account: acct.name, from, to, match,
-              }))));
-        });
-      }
-      return (await Promise.all(checks)).flat();
-    }
-
     async function commit() {
       setError(null);
       const incl = rows.filter(r => r.include);
@@ -1143,18 +1103,6 @@
       }));
 
       setBusy(true);
-      try {
-        const overlaps = await findTransactionOverlaps(incl);
-        if (overlaps.length) {
-          setDuplicateWarning({ matches: overlaps });
-          setBusy(false);
-          return;
-        }
-      } catch (e) {
-        setError(e.message || 'Could not check for duplicate statements.');
-        setBusy(false);
-        return;
-      }
       let outcome;
       try {
         outcome = await window.HL_IMPORT_API.confirm(backendRows, true, doc.fileName);
@@ -1163,6 +1111,20 @@
         setBusy(false);
         return;
       }
+      if (!outcome.imported) {
+        if (outcome.skipped === incl.length) {
+          setDuplicateWarning({ allTransactionsExist: true, skipped: outcome.skipped });
+        } else {
+          setError((outcome.errors || []).join(' ') || 'No transactions could be imported.');
+        }
+        setBusy(false);
+        return;
+      }
+      const importedIndices = Array.isArray(outcome.imported_indices)
+        ? outcome.imported_indices
+        : incl.map((_, index) => index);
+      const importedRows = importedIndices.map(index => incl[index]).filter(Boolean);
+      const importedAccountIds = new Set(importedRows.map(r => r.accId));
       setBusy(false);
 
       // Credit-card statement summary → create a dedicated Credit Payments record
@@ -1176,7 +1138,7 @@
       for (const rec of stmts) {
         const cardId = resolveSource(rec.source);        // 'acc-N' account key
         const acct = accounts.find(a => a.id === cardId);
-        if (!acct) continue;
+        if (!acct || !importedAccountIds.has(cardId)) continue;
         // Persist the statement's Last Payment Date on the card (unchanged behavior).
         try {
           await window.HL_ACCOUNTS_API.update(acct._dbId, { ...acct, paymentDue: rec.payment_due });
@@ -1204,7 +1166,7 @@
             total: rec.total,
             minimum: rec.minimum || rec.min_payment || 0,
             cur: rec.currency || 'TRY',
-          });
+          }, { allowOverlap: true });
           // Attach the uploaded statement to the record (stores the file; does not
           // re-import rows). Skipped on the sample-document path where there is no file.
           if (pickedFile) {
@@ -1224,7 +1186,11 @@
       if (window.HL_STATEMENTS_API) {
         const ARCHIVE_TYPES = window.HL_STATEMENTS_API.STATEMENT_TYPES;
         const rowsByAcc = {};
-        incl.forEach(r => { (rowsByAcc[r.accId] = rowsByAcc[r.accId] || []).push(r); });
+        incl.forEach(r => {
+          if (importedAccountIds.has(r.accId)) {
+            (rowsByAcc[r.accId] = rowsByAcc[r.accId] || []).push(r);
+          }
+        });
         for (const accKey of Object.keys(rowsByAcc)) {
           const acct = accounts.find(a => a.id === accKey);
           if (!acct || ARCHIVE_TYPES.indexOf(acct.type) === -1) continue;
@@ -1247,7 +1213,7 @@
               moneyOut: +mine.filter(r => r.amount < 0).reduce((s, r) => s - r.amount, 0).toFixed(2),
               closingBalance,
               bank: doc.institution || null,
-            });
+            }, { allowOverlap: true });
             if (pickedFile) {
               try { await window.HL_STATEMENTS_API.attachFile(st.id, pickedFile); }
               catch (e) { /* attachment failed; the record + its links still stand */ }
@@ -1259,15 +1225,14 @@
 
       // Per-account summary for the Done screen + the host's balance sync.
       const byAcc = {};
-      incl.forEach(r => {
+      importedRows.forEach(r => {
         if (!byAcc[r.accId]) byAcc[r.accId] = { delta: 0, n: 0 };
         byAcc[r.accId].delta += r.amount;
         byAcc[r.accId].n += 1;
       });
       (doc.statementAccounts || []).forEach(rec => {
         const accId = resolveSource(rec.source);
-        if (!accId || rec.balance == null) return;
-        if (!byAcc[accId]) byAcc[accId] = { delta: 0, n: 0 };
+        if (!accId || !byAcc[accId] || rec.balance == null) return;
         byAcc[accId].closingBalance = rec.balance;
       });
       Object.keys(byAcc).forEach(accId => {
@@ -1277,8 +1242,7 @@
       });
       (doc.statementAccounts || []).forEach(rec => {
         const accId = resolveSource(rec.source);
-        if (!accId) return;
-        if (!byAcc[accId]) byAcc[accId] = { delta: 0, n: 0 };
+        if (!accId || !byAcc[accId]) return;
         if (rec.bank_subtype) byAcc[accId].bankSubtype = rec.bank_subtype;
         if (rec.credit_limit != null) byAcc[accId].limit = rec.credit_limit;
       });
@@ -1289,7 +1253,7 @@
       setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount,
         creditPayments: createdCP.map(c => c.name),
         statements: createdStatements.map(s => s.name) });
-      refreshHost(incl, byAcc);
+      refreshHost(importedRows, byAcc);
       setStep('done');
     }
 
@@ -1386,17 +1350,19 @@
               <div className="confirm-body imp-duplicate-body">
                 <div className="confirm-ico imp-duplicate-ico"><Icon name="triangle-alert" size={20} /></div>
                 <div className="confirm-text">
-                  <b>This account already has a statement covering the same date range.</b>
+                  <b>{duplicateWarning.allTransactionsExist
+                    ? 'All transactions in this statement have already been imported.'
+                    : 'This account already has a statement covering the same date range.'}</b>
                   <span className="warn">No transactions, balances, holdings, or statement records have been changed yet.</span>
-                  <div className="imp-duplicate-list">
-                    {duplicateWarning.matches.map((item, index) => (
+                  {!duplicateWarning.allTransactionsExist && <div className="imp-duplicate-list">
+                    {(duplicateWarning.matches || []).map((item, index) => (
                       <div className="imp-duplicate-row" key={item.kind + item.account + item.match.id + index}>
                         <span>{item.kind} · {item.account}</span>
                         <b>{item.from} → {item.to}</b>
                         <small>Overlaps {item.match.name || 'existing statement'} ({item.match.period_from} → {item.match.period_to})</small>
                       </div>
                     ))}
-                  </div>
+                  </div>}
                 </div>
               </div>
               <div className="modal-foot">
