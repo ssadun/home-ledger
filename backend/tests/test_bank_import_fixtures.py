@@ -74,6 +74,14 @@ class TestGarantiCreditCard:
         assert acc["holder"] == "SADUN SEVİNGEN"
         assert acc["currency"] == "TRY"
         assert acc["institution"] == "garanti"
+        assert acc["balance"] == pytest.approx(76.46)
+        assert acc["available_balance"] == pytest.approx(150076.46)
+        assert acc["bank_subtype"] == "overdraft"
+        assert acc["credit_limit"] == pytest.approx(150000.0)
+
+    def test_latest_printed_balance_is_preserved_on_rows(self, res):
+        assert res["rows"][0]["date"] == "2026-07-01"
+        assert res["rows"][0]["balance"] == pytest.approx(76.46)
 
     def test_creates_a_credit_payment(self, res):
         """A billed ekstre carries the cycle figures and is NOT interim."""

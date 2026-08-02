@@ -915,6 +915,14 @@ _HESAP_HOLDER_RE = re.compile(r"Say[ıi]n\s+([^,\n]+)")
 _HESAP_NO_RE     = re.compile(r"Hesap Numaras[ıi]\s*:\s*(\d[\d\s-]*\d)")
 _HESAP_IBAN_RE   = re.compile(r"IBAN\s*:\s*(TR\d[\dA-Z ]+\d)")
 _HESAP_SUBE_RE   = re.compile(r"Şube\s*:\s*([^\n]+)")
+_HESAP_BALANCE_RE = re.compile(
+    r"(?<!Kullanılabilir )Bakiye\s*:\s*(-?[\d.]+,\d{2})\s*(TL|TRY|USD|EUR)",
+    re.IGNORECASE,
+)
+_HESAP_AVAILABLE_BALANCE_RE = re.compile(
+    r"Kullanılabilir Bakiye\s*:\s*(-?[\d.]+,\d{2})\s*(TL|TRY|USD|EUR)",
+    re.IGNORECASE,
+)
 
 
 def _is_garanti_hesap_pdf(text: str) -> bool:
@@ -948,7 +956,15 @@ def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], lis
     if msu:
         branch = " ".join(msu.group(1).split())
 
-    file_currency = "TRY"
+    balance_match = _HESAP_BALANCE_RE.search(text)
+    available_match = _HESAP_AVAILABLE_BALANCE_RE.search(text)
+    statement_balance = _parse_amount(balance_match.group(1)) if balance_match else None
+    available_balance = _parse_amount(available_match.group(1)) if available_match else None
+    file_currency = _detect_currency(
+        (balance_match.group(2) if balance_match else None)
+        or (available_match.group(2) if available_match else None)
+        or "TRY"
+    )
 
     try:
         import pdfplumber
@@ -961,7 +977,7 @@ def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], lis
                 if not table:
                     continue
                 # Başlık satırını ve kolon indekslerini bul.
-                header_idx = date_i = amount_i = None
+                header_idx = date_i = amount_i = balance_i = None
                 desc_i = etiket_i = None
                 for i, r in enumerate(table):
                     di = _match_idx(r, GARANTI_DATE_COLS)
@@ -971,6 +987,7 @@ def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], lis
                         date_i, amount_i = di, ai
                         desc_i = _match_idx(r, GARANTI_DESC_COLS)
                         etiket_i = _match_idx(r, GARANTI_ETIKET_COLS)
+                        balance_i = _match_idx(r, GARANTI_BALANCE_COLS)
                         break
                 if header_idx is None:
                     continue
@@ -990,18 +1007,31 @@ def _parse_garanti_hesap_pdf(content: bytes, text: str) -> tuple[list[dict], lis
                     file_currency = currency
                     desc = " ".join(cells[desc_i].split()) if (desc_i is not None and desc_i < len(cells)) else ""
                     etiket = " ".join(cells[etiket_i].split()) if (etiket_i is not None and etiket_i < len(cells)) else ""
+                    balance = (
+                        _parse_amount(re.sub(r"[^\d.,+-]", "", cells[balance_i]))
+                        if balance_i is not None and balance_i < len(cells)
+                        else None
+                    )
                     rows.append(_normalize_row(
-                        date, desc, amount, currency=currency, etiket=etiket,
+                        date, desc, amount, balance, currency=currency, etiket=etiket,
                         source=iban or account_no, account_type="bank",
                     ))
 
     accounts: list[dict] = []
     if account_no or iban:
-        accounts.append({
+        account = {
             "source": iban or account_no, "type": "bank", "number": account_no,
             "card_number": None, "iban": iban, "branch": branch, "holder": holder,
             "currency": file_currency, "institution": "garanti",
-        })
+            "balance": statement_balance,
+            "available_balance": available_balance,
+        }
+        if statement_balance is not None and available_balance is not None:
+            credit_limit = round(float(available_balance) - float(statement_balance), 2)
+            if credit_limit > 0:
+                account["bank_subtype"] = "overdraft"
+                account["credit_limit"] = credit_limit
+        accounts.append(account)
     return rows, accounts
 
 

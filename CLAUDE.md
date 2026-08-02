@@ -467,7 +467,7 @@ wrong account.
 >
 > This is why ON/Burgan statements, which print only an IBAN, still arrive at the wizard with an account number. Same file: a bank-account draft is named after the **holder alone** (`Sadun Sevingen`, not `Burgan Bank · Sadun Sevingen`) — institution is its own field and the Accounts page already renders it next to the name; only card drafts keep `institution ••last4`.
 >
-> **Statement balances win over reconciliation.** When a parser emits `accounts[].balance`, `import.jsx` carries it as `closingBalance` and `statements-app.jsx` writes that exact value to `Account.balance`; it does **not** add the imported net movement. If an account-level balance is missing but rows include running balances, `parse_bank_file` fills the account balance from row balances as a fallback. Bank-specific header balances remain authoritative (for example ON/Burgan's top `IBAN | Bakiye` value, because same-day movement rows can show intermediate balances).
+> **Statement balances win over reconciliation.** When a parser emits `accounts[].balance`, `import.jsx` carries it as `closingBalance` and `statements-app.jsx` writes that exact value to `Account.balance`; it does **not** add the imported net movement. If an account-level balance is missing but rows include running balances, `parse_bank_file` fills the account balance from row balances as a fallback. Bank-specific header balances remain authoritative: ON/Burgan uses its top `IBAN | Bakiye`, while Garanti Hesap Hareketleri uses `Bakiye`; Garanti's `Kullanılabilir Bakiye` is `Bakiye + credit_limit` and must never replace the real balance.
 
 ### Turkish number & date cheat-sheet
 
