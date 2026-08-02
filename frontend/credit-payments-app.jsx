@@ -11,7 +11,7 @@
   // ── Filter bar ────────────────────────────────────────────────────────────
   // Same structure/classes as Account Activity's bar, but the only period filter
   // is a Year stepper (no month) — statements are filtered by their statement year.
-  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards, popActions }) {
+  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -60,7 +60,6 @@
               </button>
               {open && (
                 <div className="filters-pop">
-                  {popActions && <div className="fp-actions"><div className="filters-pop-head"><span>More Actions</span></div>{popActions}</div>}
                   <div className="filters-pop-head">
                     <span>Filter By Column</span>
                     {active.length > 0 && <button id="cp-filter-clear-all-btn" className="fp-clear" onClick={clearAll}><Icon name="x" size={12} />Clear All</button>}
@@ -120,52 +119,6 @@
     const [perPage, setPerPage] = React.useState(() => { const v = +localStorage.getItem('hl-rows-per-page'); return [10, 20, 30, 40, 50, 100].includes(v) ? v : 10; });
     React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     function yearStep(d) { setYear(y => y + d); }
-
-    const headTopRef = React.useRef(null);
-    const headLeftRef = React.useRef(null);
-    const headActionsRef = React.useRef(null);
-    const addBtnRef = React.useRef(null);
-    const [addInMore, setAddInMore] = React.useState(false);
-    React.useLayoutEffect(() => {
-      let raf = 0;
-      const measure = () => {
-        if (!window.matchMedia('(max-width: 660px)').matches) {
-          setAddInMore(false);
-          return;
-        }
-        const head = headTopRef.current;
-        const left = headLeftRef.current;
-        const actions = headActionsRef.current;
-        const add = addBtnRef.current;
-        if (!head || !left || !actions || !add) return;
-
-        const headWidth = Math.floor(head.getBoundingClientRect().width);
-        const leftWidth = Math.ceil(left.scrollWidth || left.getBoundingClientRect().width);
-        const actionsWidth = Math.ceil(actions.getBoundingClientRect().width);
-        const addWidth = Math.ceil(add.getBoundingClientRect().width);
-        const actionGap = parseFloat(getComputedStyle(actions).columnGap || getComputedStyle(actions).gap) || 0;
-        const headGap = parseFloat(getComputedStyle(head).columnGap || getComputedStyle(head).gap) || 10;
-        const baseActionsWidth = addInMore ? actionsWidth : Math.max(0, actionsWidth - addWidth - actionGap);
-        const needed = leftWidth + headGap + baseActionsWidth + (baseActionsWidth ? actionGap : 0) + addWidth;
-        setAddInMore(needed > headWidth);
-      };
-      const schedule = () => {
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(measure);
-      };
-      schedule();
-      window.addEventListener('resize', schedule);
-      let ro = null;
-      if (typeof ResizeObserver !== 'undefined') {
-        ro = new ResizeObserver(schedule);
-        [headTopRef.current, headLeftRef.current, headActionsRef.current, addBtnRef.current].filter(Boolean).forEach(el => ro.observe(el));
-      }
-      return () => {
-        cancelAnimationFrame(raf);
-        window.removeEventListener('resize', schedule);
-        if (ro) ro.disconnect();
-      };
-    }, [addInMore]);
 
     // Rows after filtering; records without a statement year always pass the year check.
     const visible = React.useMemo(() => records.filter(r => {
@@ -342,24 +295,22 @@
         <Sidebar active="credit-payments" />
         <div className="main">
           <header className="page-head">
-            <div className="page-head-top" ref={headTopRef}>
-              <div className="page-title-wrap cfg-detail-title-wrap" ref={headLeftRef}>
+            <div className="page-head-top">
+              <div className="page-title-wrap cfg-detail-title-wrap">
                 <div className="cfg-title-col">
                   <h1 className="page-title">Card Payments</h1>
                   <p className="page-subtitle">Credit-card statements & payments</p>
                 </div>
               </div>
-              <div className="head-actions cp-head-actions" ref={headActionsRef}>
+              <div className="head-actions cp-head-actions">
                 <button id="cp-import-btn" className="action-modal-btn scan" onClick={() => setImportWiz({ preAccId: null })}><Icon name="file-down" size={14} />Import Statement</button>
-                <button id="cp-add-btn" ref={addBtnRef} className={'action-modal-btn ok ha-overflow' + (addInMore ? ' cp-add-overflowed' : '')} onClick={() => setFormModal({ mode: 'add', record: {} })} aria-hidden={addInMore} tabIndex={addInMore ? -1 : undefined}><Icon name="plus" size={14} />Add Statement</button>
               </div>
             </div>
             <CreditPaymentFilterBar
               year={year} onYearStep={yearStep}
               cardFilter={cardFilter} setCardFilter={setCardFilter}
               search={search} setSearch={setSearch}
-              cards={cards}
-              popActions={addInMore ? <button id="cp-add-fp-btn" className="action-modal-btn ok" onClick={() => setFormModal({ mode: 'add', record: {} })}><Icon name="plus" size={14} />Add Statement</button> : null} />
+              cards={cards} />
           </header>
 
           <div className="cp-body">

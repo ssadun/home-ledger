@@ -6,6 +6,7 @@ Thumbs.db
 .vscode/
 CLAUDE.md
 AGENTS.md
+TODO.md
 
 # ── Live data (never commit — contains real accounts/financial data) ──
 data/
