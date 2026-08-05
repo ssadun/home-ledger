@@ -88,7 +88,7 @@
         source: tx.cat === 'credit-card-payment' ? 'recurring' : (tx.type === 'income' ? 'income' : 'expense'),
         id: tx.id, desc: tx.desc, amount: tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur), cur: tx.cur, rawAmt: tx.amt,
         catLabel: c.label || tx.cat, catIcon: c.icon || 'circle', catColor: c.color || 'var(--slate)',
-        payer: tx.payer, paymentMethod: tx.paymentMethod, pmKey: pm ? pm.key : null,
+        payer: tx.payer, payingFor: tx.payingFor, paymentMethod: tx.paymentMethod, pmKey: pm ? pm.key : null,
         href: 'Spending.html?month=' + month + '&year=' + year + '&highlight=' + tx.id,
       });
     });
@@ -127,7 +127,7 @@
           source: 'recurring', id: rec.id, desc: rec.name + ' - Due',
           amount: rec.tryAmount, cur: rec.cur, rawAmt: rec.amount,
           catLabel: c.label || rec.cat, catIcon: 'repeat', catColor: 'var(--lavender)',
-          payer: rec.payer,
+          payer: rec.payer, payingFor: rec.payingFor,
           paymentMethod: pmAcct ? pmAcct.name : null,
           paymentMethodType: pmAcct ? pmAcct.type : null,
           pmKey: pm ? pm.key : null,
@@ -203,13 +203,26 @@
     const selEvts  = sel && events[sel] ? events[sel] : [];
 
     let mInc = 0, mExp = 0, mCnt = 0;
+    // Per-person "Paying For" totals for the visible month — same expense/
+    // recurring pool as the Expense chip (so the two numbers can never
+    // contradict each other) and the same payment-method filter. Account
+    // Activity and Credit-Payment-due events carry no payingFor (no single
+    // beneficiary), so they're naturally excluded rather than special-cased.
+    const pfMap = {};
     Object.values(events).forEach(arr => {
       arr.forEach(ev => {
         mCnt++;
         if (ev.source === 'income') mInc += ev.amount;
-        else if (ev.source === 'expense' || ev.source === 'recurring') mExp += ev.amount;
+        else if (ev.source === 'expense' || ev.source === 'recurring') {
+          mExp += ev.amount;
+          const key = ev.payingFor;
+          if (key && key !== '–') pfMap[key] = (pfMap[key] || 0) + ev.amount;
+        }
       });
     });
+    const payingForData = Object.entries(pfMap)
+      .map(([payingFor, total]) => ({ payingFor, total }))
+      .sort((a, b) => b.total - a.total);
 
     // Live combined balance across all accounts (independent of the shown month).
     const acctTotal = accountsTotalTRY();
@@ -228,6 +241,12 @@
     }
 
     const acctTotalTone = acctTotal > 0 ? ' income' : (acctTotal < 0 ? ' expense' : '');
+    // Same 2-person color convention as PayingForCell (components.jsx): Handan
+    // gets lavender, every other named payer (just Sadun today) gets accent,
+    // and 'Shared' is neutral — a household expense with no single owner.
+    function pfTone(name) {
+      return name === 'Shared' ? 'pf-shared' : (name === 'Handan' ? 'pf-handan' : 'pf-accent');
+    }
 
     return (
       <React.Fragment>
@@ -296,6 +315,20 @@
             <span className="cal-chip income"><Icon name="arrow-down-left" size={11} />Income<b>₺{grp(mInc, 0)}</b></span>
             <span className="cal-chip expense"><Icon name="arrow-up-right" size={11} />Expense<b>₺{grp(mExp, 0)}</b></span>
           </div>
+          {payingForData.length > 0 && (
+            <div className="cal-pf-wrap">
+              <span className="filter-label"><Icon name="users" size={11} />Paying For ({MONTHS[month]})</span>
+              <div className="cal-payingfor">
+                {payingForData.map(p => (
+                  <span key={p.payingFor} className={'cal-pf-chip ' + pfTone(p.payingFor)}>
+                    <Icon name={p.payingFor === 'Shared' ? 'users' : 'user'} size={11} />
+                    {p.payingFor}
+                    <b>₺{grp(p.total, 0)}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="cal-detail">
           {sel ? (
             <React.Fragment>
