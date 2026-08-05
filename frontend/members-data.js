@@ -1,6 +1,6 @@
 // members-data.js — Members API client (used by the Configuration page).
 // Members reuse the backend Users table; maps between a User row and the
-// config-app item shape { id, name, username, password, role, active }.
+// config-app item shape { id, name, username, password, role, active, showAsPayer, color }.
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
@@ -13,6 +13,7 @@
       role: row.role || 'user',
       active: row.active !== false,
       showAsPayer: row.show_as_payer !== false,
+      color: row.color || 'var(--accent)',
     };
   }
 
@@ -25,6 +26,7 @@
       role: item.role || 'user',
       active: item.active !== false,
       show_as_payer: item.showAsPayer !== false,
+      color: item.color || 'var(--accent)',
     };
     if (withPassword && item.password) body.password = item.password;
     return body;
@@ -76,24 +78,28 @@
   }
 
   // Rebuild window.LEDGER.PAYERS (the Payer / Paying For option list other pages
-  // read) from the DB, mutating the existing array in place so references stay
-  // valid. Gated on showAsPayer (not active) — login access and being offered as
-  // a Payer/Paying For choice are independent settings.
+  // read) and window.LEDGER.PAYER_COLORS (first name -> display color, backing
+  // PayerBadge/PayingForCell/calendar chips/report bars) from the DB, mutating
+  // both in place so references stay valid. Gated on showAsPayer (not active)
+  // — login access and being offered as a Payer/Paying For choice are
+  // independent settings.
   // Uses each member's first name — existing transaction/recurring/subscription
-  // rows store the short form ("Sadun", not "Sadun Sevingen"), as does the
-  // PayerBadge color lookup, so the full users.name would silently stop
-  // matching saved data.
+  // rows store the short form ("Sadun", not "Sadun Sevingen"), so the full
+  // users.name would silently stop matching saved data.
   async function hydrateLedgerPayers() {
     if (!(window.LEDGER && window.LEDGER.PAYERS)) return;
     try {
       const members = await list();
-      const names = members
+      const named = members
         .filter(m => m.showAsPayer)
-        .map(m => (m.name || '').trim().split(/\s+/)[0])
-        .filter(Boolean);
+        .map(m => ({ name: (m.name || '').trim().split(/\s+/)[0], color: m.color }))
+        .filter(m => m.name);
       const arr = window.LEDGER.PAYERS;
       arr.length = 0;
-      names.forEach(n => arr.push(n));
+      named.forEach(m => arr.push(m.name));
+      const colors = window.LEDGER.PAYER_COLORS || (window.LEDGER.PAYER_COLORS = {});
+      Object.keys(colors).forEach(k => delete colors[k]);
+      named.forEach(m => { colors[m.name] = m.color || 'var(--accent)'; });
     } catch (e) { /* keep static fallback on failure */ }
   }
 

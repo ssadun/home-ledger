@@ -289,7 +289,7 @@
   function PayerCompareChart({ data, title, icon }) {
     if (!data || data.length === 0) return null;
     const total = data.reduce((s, d) => s + d.total, 0);
-    const PAYER_COLORS = { 'Sadun': 'var(--accent)', 'Handan': 'var(--lavender)' };
+    const PAYER_COLORS = (window.LEDGER && window.LEDGER.PAYER_COLORS) || {};
     return (
       <div className="dash-widget">
         <div className="dash-widget-head">

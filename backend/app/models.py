@@ -31,6 +31,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)           # inactive members cannot log in
     show_as_payer = Column(Boolean, default=True)       # appears as a Payer/Paying For option; independent of is_active
     notify_lead_days = Column(Integer, default=0)       # push reminder lead time: 0 = same-day
+    color = Column(String)                              # payer/paying-for display color, e.g. 'var(--accent)'; NULL until set
     avatar_path = Column(String)                        # profile picture on disk; NULL → initials fallback
     # Unguessable capability token in the avatar's public URL. An <img> tag cannot
     # send an Authorization header, so the picture cannot sit behind

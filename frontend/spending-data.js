@@ -4,6 +4,21 @@
 (function () {
   const api = () => (window.HL_AUTH && window.HL_AUTH.apiFetch);
 
+  async function errorText(res, fallback) {
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+    if (!body || !body.detail) return fallback + ' (' + res.status + ')';
+    if (typeof body.detail === 'string') return body.detail;
+    if (Array.isArray(body.detail)) {
+      const messages = body.detail.map(item => {
+        const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
+        return (field ? field + ': ' : '') + (item.msg || 'Invalid value');
+      }).filter(Boolean);
+      if (messages.length) return messages.join(' · ');
+    }
+    return fallback + ' (' + res.status + ')';
+  }
+
   // Backend row → frontend transaction object.
   function fromApi(row) {
     return {
@@ -17,6 +32,7 @@
       cur: row.currency,
       amt: row.amount,
       paymentMethod: row.payment_method || '',
+      creditPaymentId: row.credit_payment_id != null ? row.credit_payment_id : null,
       tryV: row.amount_try != null ? row.amount_try : null,
       usdV: row.amount_usd != null ? row.amount_usd : null,
     };
@@ -51,6 +67,7 @@
     if (opts.categoryKey) params.set('category_key', opts.categoryKey);
     if (opts.payer) params.set('payer', opts.payer);
     if (opts.qDesc) params.set('q_desc', opts.qDesc);
+    if (opts.creditPaymentId != null) params.set('credit_payment_id', String(opts.creditPaymentId));
     const res = await api()('/api/transactions/?' + params.toString(), { method: 'GET' });
     if (!res.ok) throw new Error('Failed to load transactions (' + res.status + ')');
     const data = await res.json();
@@ -63,7 +80,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(tx)),
     });
-    if (!res.ok) throw new Error('Failed to create transaction (' + res.status + ')');
+    if (!res.ok) throw new Error(await errorText(res, 'Failed to create transaction'));
     return fromApi(await res.json());
   }
 
@@ -73,7 +90,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toApi(tx)),
     });
-    if (!res.ok) throw new Error('Failed to update transaction (' + res.status + ')');
+    if (!res.ok) throw new Error(await errorText(res, 'Failed to update transaction'));
     return fromApi(await res.json());
   }
 

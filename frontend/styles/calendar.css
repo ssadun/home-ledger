@@ -38,17 +38,16 @@
 .cal-chip.income{background:color-mix(in srgb, var(--green) 10%, transparent);border:1px solid color-mix(in srgb, var(--green) 25%, transparent);color:var(--green)}
 .cal-chip.expense{background:color-mix(in srgb, var(--coral) 10%, transparent);border:1px solid color-mix(in srgb, var(--coral) 25%, transparent);color:var(--coral)}
 
-/* Paying For breakdown (per-person spend for the visible month) — tone
-   classes mirror .cal-chip.income/.expense: Handan = lavender, everyone
-   else named = accent, 'Shared' = neutral slate (no single owner). */
+/* Paying For breakdown (per-person spend for the visible month) — color is
+   per-member (Configuration -> Members), following the .cat-chip convention: a
+   static class reading a per-instance --payer custom property set inline
+   from the member's configured color. 'Shared' has no single owner and
+   stays a fixed neutral (see calendar-component.jsx pfColor()). */
 .cal-pf-wrap{display:flex;flex-direction:column;gap:8px}
 .cal-pf-wrap .filter-label{margin:0}
 .cal-payingfor{display:flex;gap:8px;flex-wrap:wrap}
-.cal-pf-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius);font-size:11px;font-weight:600;letter-spacing:.2px;border:1px solid}
+.cal-pf-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius);font-size:11px;font-weight:600;letter-spacing:.2px;border:1px solid;background:color-mix(in srgb, var(--payer) 10%, transparent);border-color:color-mix(in srgb, var(--payer) 25%, transparent);color:var(--payer)}
 .cal-pf-chip b{margin-left:auto;font-variant-numeric:tabular-nums}
-.cal-pf-chip.pf-shared{background:color-mix(in srgb, var(--slate) 10%, transparent);border-color:color-mix(in srgb, var(--slate) 25%, transparent);color:var(--slate)}
-.cal-pf-chip.pf-handan{background:color-mix(in srgb, var(--lavender) 10%, transparent);border-color:color-mix(in srgb, var(--lavender) 25%, transparent);color:var(--lavender)}
-.cal-pf-chip.pf-accent{background:color-mix(in srgb, var(--accent) 10%, transparent);border-color:color-mix(in srgb, var(--accent) 25%, transparent);color:var(--accent)}
 
 /* DOW header */
 .cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}

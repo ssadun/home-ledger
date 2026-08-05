@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import get_db
 from app.models import Account, Base, CreditPayment, Transaction, User
-from app.routers import credit_payments
+from app.routers import credit_payments, transactions
 from app.services.auth import get_current_user
 
 
@@ -33,6 +33,7 @@ def api():
 
     app = FastAPI()
     app.include_router(credit_payments.router)
+    app.include_router(transactions.router)
 
     def override_db():
         try:
@@ -151,6 +152,34 @@ def test_delete_credit_payment_is_owner_scoped(api):
     assert response.status_code == 404
     assert db.query(CreditPayment).filter(CreditPayment.id == cp.id).first() is not None
     assert db.query(Transaction).filter(Transaction.id == tx_id).first() is not None
+
+
+def test_spending_list_filters_by_credit_payment_and_owner(api):
+    client, db, current, user1, user2 = api
+    card1 = _card(user1.id, "acc-card")
+    card2 = _card(user2.id, "acc-other")
+    db.add_all([card1, card2])
+    db.commit()
+    cp1 = _payment(user1.id, card1)
+    cp2 = _payment(user2.id, card2)
+    db.add_all([cp1, cp2])
+    db.commit()
+    db.refresh(cp1)
+
+    db.add_all([
+        _tx(user1.id, cp1.id, "linked row"),
+        _tx(user1.id, cp2.id, "different statement"),
+        _tx(user2.id, cp1.id, "different owner"),
+    ])
+    db.commit()
+
+    response = client.get(
+        "/api/transactions/",
+        params={"credit_payment_id": cp1.id, "limit": 200},
+    )
+
+    assert response.status_code == 200
+    assert [row["description"] for row in response.json()] == ["linked row"]
 
 
 def test_credit_payment_overlap_check_is_date_range_based(api):

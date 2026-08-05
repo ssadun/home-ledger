@@ -26,11 +26,20 @@
   const SYM = { TRY: '₺', USD: '$', EUR: '€' };
   window.LEDGER_FMT = { fmtDate, dowOf, grp, SYM, MONTHS };
 
+  // ── Payer color resolution ──────────────────────────────────────────────
+  // Resolve a payer/beneficiary name to its configured display color (set per
+  // member on Configuration -> Members). 'Shared' has no single owner and
+  // stays a fixed neutral; unknown/legacy names fall back to accent.
+  function payerColor(name) {
+    if (name === 'Shared') return 'var(--slate)';
+    const colors = (window.LEDGER && window.LEDGER.PAYER_COLORS) || {};
+    return colors[name] || 'var(--accent)';
+  }
+
   // ── Payer badge ────────────────────────────────────────────────────────
   function PayerBadge({ name }) {
-    const cls = name === 'Sadun' ? 'payer-sadun' : 'payer-handan';
     return (
-      <span className={'payer-badge ' + cls}>
+      <span className="payer-badge cat-chip" style={{ '--cat': payerColor(name) }}>
         <span className="avatar">{name[0]}</span>{name}
       </span>
     );
@@ -46,10 +55,9 @@
         </span>
       );
     }
-    const col = value === 'Handan' ? 'var(--lavender)' : 'var(--accent)';
     return (
       <span className="for-plain">
-        <Icon name="user" size={13} style={{ color: col }} />{value}
+        <Icon name="user" size={13} style={{ color: payerColor(value) }} />{value}
       </span>
     );
   }

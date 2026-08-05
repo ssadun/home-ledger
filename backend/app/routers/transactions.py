@@ -53,6 +53,7 @@ def list_transactions(
     category_key: Optional[str] = None,
     q_desc: Optional[str] = None,
     payer: Optional[str] = None,
+    credit_payment_id: Optional[int] = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -76,6 +77,8 @@ def list_transactions(
         q = q.filter(Transaction.description.contains(q_desc))
     if payer:
         q = q.filter(Transaction.payer == payer)
+    if credit_payment_id is not None:
+        q = q.filter(Transaction.credit_payment_id == credit_payment_id)
     return q.order_by(Transaction.date.desc()).offset(offset).limit(limit).all()
 
 

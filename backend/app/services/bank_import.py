@@ -713,6 +713,12 @@ def _garanti_cc_section_tag(line: str) -> Optional[str]:
     return _GARANTI_CC_SECTION_TAGS.get(_etiket_key(compact))
 
 
+def _garanti_cc_resets_section(line: str) -> bool:
+    """Recognize a Bonus group heading even when the PDF appends helper copy."""
+    key = _etiket_key(" ".join((line or "").split()))
+    return any(key.startswith(reset_key) for reset_key in _GARANTI_CC_SECTION_RESETS)
+
+
 def _is_garanti_cc_pdf(text: str) -> bool:
     head = text[:3000].lower()
     return ("hesap kesim tarihi" in head or "dönem borcunuz" in head
@@ -755,7 +761,7 @@ def _parse_garanti_cc_pdf(text: str) -> tuple[list[dict], list[dict]]:
         if section_tag:
             active_section_tag = section_tag
             continue
-        if _etiket_key(" ".join(line.split())) in _GARANTI_CC_SECTION_RESETS:
+        if _garanti_cc_resets_section(line):
             active_section_tag = None
             continue
         m = _CC_LINE_RE.match(line)

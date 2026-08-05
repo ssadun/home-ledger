@@ -36,6 +36,7 @@ from app.routers.institutions import (
 _seed_db = SessionLocal()
 try:
     accounts.ensure_account_bank_columns(_seed_db)
+    members.ensure_member_color_column(_seed_db)
     credit_payments.ensure_credit_payment_period_columns(_seed_db)
     ensure_show_in_recurring_column(_seed_db)
     seed_default_categories(_seed_db)

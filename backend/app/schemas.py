@@ -3,6 +3,8 @@ from typing import Optional, List, Literal
 from datetime import date, datetime
 from app.models import TransactionType, Currency
 
+DateType = date
+
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -62,6 +64,7 @@ class MemberCreate(BaseModel):
     active: bool = True                    # → is_active
     show_as_payer: bool = True             # appears as a Payer/Paying For option
     email: Optional[EmailStr] = None       # synthesized from username when absent
+    color: Optional[str] = None            # display color, e.g. 'var(--accent)'; defaults server-side when absent
 
 class MemberUpdate(BaseModel):
     name: Optional[str] = None
@@ -71,6 +74,7 @@ class MemberUpdate(BaseModel):
     active: Optional[bool] = None
     show_as_payer: Optional[bool] = None
     email: Optional[EmailStr] = None
+    color: Optional[str] = None
 
 class MemberOut(BaseModel):
     id: int
@@ -80,6 +84,7 @@ class MemberOut(BaseModel):
     active: bool = True                    # mapped from is_active
     show_as_payer: bool = True             # mapped from show_as_payer
     email: str
+    color: Optional[str] = None
     model_config = {"from_attributes": True}
 
 
@@ -229,7 +234,9 @@ class TransactionUpdate(BaseModel):
     category_key: Optional[str] = None
     description: Optional[str] = None
     note: Optional[str] = None
-    date: Optional[date] = None
+    # `date` is also this field's name; a distinct type alias prevents Pydantic
+    # from resolving the optional annotation against the field's None default.
+    date: Optional[DateType] = None
     payer: Optional[str] = None
     paying_for: Optional[str] = None
     payment_method: Optional[str] = None

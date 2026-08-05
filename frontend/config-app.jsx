@@ -345,6 +345,7 @@
           role: i === 0 ? 'admin' : 'user',
           active: true,
           showAsPayer: true,
+          color: (L.PAYER_COLORS && L.PAYER_COLORS[name]) || 'var(--accent)',
         }));
       case 'currencies': {
         const fx = L.FX || {};
@@ -435,6 +436,7 @@
         { key: 'role', label: 'Role', render: v => <span className={'cfg-badge cfg-badge-' + (v || 'user')}>{v === 'admin' ? 'Admin' : 'User'}</span> },
         { key: 'active', label: 'Status', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Active' : 'Inactive'}</span>; } },
         { key: 'showAsPayer', label: 'Payer Visibility', render: v => { const on = v !== false; return <span className={'cfg-status cfg-status-' + (on ? 'active' : 'inactive')}><span className="cfg-status-dot" />{on ? 'Visible' : 'Hidden'}</span>; } },
+        { key: 'color', label: 'Color', render: v => <span className="cfg-color-dot" style={{ background: v }} title={colorLabel(v)} aria-label={colorLabel(v)} /> },
       ],
       fields: [
         { key: 'name',     label: 'Full Name', type: 'text', required: true, placeholder: 'e.g. Alex' },
@@ -443,6 +445,7 @@
         { key: 'role',     label: 'Role',       type: 'select', required: true, options: [{ value: 'admin', label: 'Admin - Full access including Configuration' }, { value: 'user', label: 'User - Standard access, no Configuration' }] },
         { key: 'active',   label: 'Status',     type: 'checkbox', default: true, checkboxLabel: 'Active - Can Log In', hint: 'Inactive members are kept on file but cannot sign in' },
         { key: 'showAsPayer', label: 'Payer Visibility', type: 'checkbox', default: true, checkboxLabel: 'Show as Payer / Paying For option', hint: 'Uncheck to hide this member from the Payer and Paying For dropdowns, independent of login access' },
+        { key: 'color', label: 'Payer Color', type: 'color', hint: 'Used for this member\u2019s Payer/Paying For badges across the app' },
       ],
     },
     {

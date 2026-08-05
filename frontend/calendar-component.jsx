@@ -241,11 +241,13 @@
     }
 
     const acctTotalTone = acctTotal > 0 ? ' income' : (acctTotal < 0 ? ' expense' : '');
-    // Same 2-person color convention as PayingForCell (components.jsx): Handan
-    // gets lavender, every other named payer (just Sadun today) gets accent,
-    // and 'Shared' is neutral — a household expense with no single owner.
-    function pfTone(name) {
-      return name === 'Shared' ? 'pf-shared' : (name === 'Handan' ? 'pf-handan' : 'pf-accent');
+    // Same color resolution as PayingForCell (components.jsx): per-member
+    // color configured on Configuration -> Members; 'Shared' stays a fixed
+    // neutral since a household expense has no single owner.
+    function pfColor(name) {
+      if (name === 'Shared') return 'var(--slate)';
+      const colors = (window.LEDGER && window.LEDGER.PAYER_COLORS) || {};
+      return colors[name] || 'var(--accent)';
     }
 
     return (
@@ -320,7 +322,7 @@
               <span className="filter-label"><Icon name="users" size={11} />Paying For ({MONTHS[month]})</span>
               <div className="cal-payingfor">
                 {payingForData.map(p => (
-                  <span key={p.payingFor} className={'cal-pf-chip ' + pfTone(p.payingFor)}>
+                  <span key={p.payingFor} className="cal-pf-chip" style={{ '--payer': pfColor(p.payingFor) }}>
                     <Icon name={p.payingFor === 'Shared' ? 'users' : 'user'} size={11} />
                     {p.payingFor}
                     <b>₺{grp(p.total, 0)}</b>

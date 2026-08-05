@@ -34,13 +34,11 @@ th.sorted .sort-arrow{opacity:1;color:var(--accent)}
 .td-date{color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
 .td-date .dow{display:block;font-size:10px;color:var(--muted);font-weight:400;letter-spacing:.3px}
 
-/* payer badge */
+/* payer badge — color is per-member (Configuration -> Members), rendered via
+   the shared .cat-chip convention (a per-instance --cat custom property set
+   inline from the member's configured color; see components.jsx payerColor). */
 .payer-badge{display:inline-flex;align-items:center;gap:6px;border-radius:var(--radius-pill);font-size:12px;font-weight:600;border:0px solid;white-space:nowrap}
-.payer-badge .avatar{width:15px;height:15px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--on-accent)}
-.payer-sadun{color:var(--accent);border-color:color-mix(in srgb, var(--accent) 40%, transparent)}
-.payer-sadun .avatar{background:var(--accent)}
-.payer-handan{color:var(--lavender);border-color:color-mix(in srgb, var(--lavender) 40%, transparent)}
-.payer-handan .avatar{background:var(--lavender)}
+.payer-badge .avatar{width:15px;height:15px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--on-accent);background:var(--cat)}
 
 /* paying-for cell */
 .for-badge{display:inline-flex;align-items:center;gap:5px;border-radius:var(--radius-pill);font-size:12px;font-weight:600;border:0px solid;white-space:nowrap}

@@ -309,6 +309,12 @@
 
           <div className="modal-foot">
             <button id="cp-detail-delete-btn" className="amb danger" style={{ marginRight: 'auto' }} onClick={() => onDelete(record)}><Icon name="trash-2" size={14} />Delete</button>
+            {record.linkedCount > 0 && (
+              <a id="cp-view-spendings-link" className="amb cancel cp-view-spendings-link"
+                href={'Spending.html?month=' + (record.month - 1) + '&year=' + record.year + '&creditPayment=' + record.id}>
+                <Icon name="external-link" size={14} />View Spendings
+              </a>
+            )}
             <button id="cp-detail-edit-btn" className="amb ok" onClick={() => onEdit(record)}><Icon name="pencil" size={14} />Edit</button>
           </div>
         </div>

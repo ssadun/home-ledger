@@ -173,14 +173,19 @@
             .catch(() => { /* names just fall back to the raw id */ })
         : Promise.resolve();
       Promise.all([loadCats, loadPayers, loadInstitutions, loadAccounts])
-        .then(() => window.HL_SPENDING_API.list())
+        .then(() => window.HL_SPENDING_API.list({ creditPaymentId: statementFilter }))
         .then(data => { if (alive) { setRows(data); setLoadError(null); } })
         .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })
         .finally(() => { if (alive) setLoading(false); });
       return () => { alive = false; };
     }, []);
     // Deep-link support: ?month=&year=&highlight= (e.g. from Recurring/Subscriptions linked rows)
+    // and ?creditPayment= for the exact spendings linked to an imported card statement.
     const URLP = React.useMemo(() => new URLSearchParams(window.location.search), []);
+    const statementFilter = React.useMemo(() => {
+      const id = URLP.get('creditPayment');
+      return id && /^\d+$/.test(id) ? Number(id) : null;
+    }, [URLP]);
     const [month, setMonth] = React.useState(() => { const m = URLP.has('month') ? +URLP.get('month') : NaN; return (m >= 0 && m <= 11) ? m : CURRENT_MONTH; });   // default current month (0-indexed)
     const [year, setYear] = React.useState(() => { const y = URLP.has('year') ? +URLP.get('year') : NaN; return (y >= 2000 && y <= 2100) ? y : CURRENT_YEAR; });
     const [type, setType] = React.useState('all');
@@ -396,6 +401,8 @@
               paymentSource={paymentSource} setPaymentSource={setPaymentSource} paymentSourceOptions={paymentSourceOptions}
               source={source} setSource={setSource}
               search={search} setSearch={setSearch}
+              statementFilter={statementFilter}
+              onClearStatementFilter={() => { window.location.href = 'Spending.html?month=' + month + '&year=' + year; }}
               onAdd={() => setModal({ mode: 'add', tx: {} })}
               onScan={() => setScan(true)}
               popActions={<button id="sp-add-fp-btn" className="action-modal-btn ok" onClick={() => setModal({ mode: 'add', tx: {} })}><Icon name="plus" size={14} />Add Spending</button>}

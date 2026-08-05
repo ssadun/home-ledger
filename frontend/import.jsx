@@ -506,7 +506,18 @@
         {result.creditPayments && result.creditPayments.length > 0 && (
           <div className="imp-done-cp" id="imp-done-credit-payments">
             <Icon name="credit-card" size={13} />
-            Created {result.creditPayments.length} Credit Payment{result.creditPayments.length !== 1 ? 's' : ''} with the statement attached: {result.creditPayments.join(', ')}
+            <span>
+              Created {result.creditPayments.length} Credit Payment{result.creditPayments.length !== 1 ? 's' : ''} with the statement attached: {result.creditPayments.map((cp, index) => (
+                <React.Fragment key={cp.id}>
+                  {index > 0 && ', '}
+                  <a className="imp-done-spending-link"
+                    href={'Spending.html?month=' + (cp.month - 1) + '&year=' + cp.year + '&creditPayment=' + cp.id}
+                    title={'View spendings for ' + cp.name}>
+                    {cp.name}<Icon name="external-link" size={11} />
+                  </a>
+                </React.Fragment>
+              ))}
+            </span>
           </div>
         )}
         {result.statements && result.statements.length > 0 && (
@@ -1251,7 +1262,7 @@
         return { accId: id, name: a ? a.name : id, cur: a ? a.cur : 'TRY', n: byAcc[id].n, delta: byAcc[id].delta, closingBalance: byAcc[id].closingBalance };
       });
       setResult({ count: outcome.imported, skipped: outcome.skipped || 0, accounts: perAccount.length, perAccount,
-        creditPayments: createdCP.map(c => c.name),
+        creditPayments: createdCP.map(c => ({ id: c.id, name: c.name, year: c.year, month: c.month })),
         statements: createdStatements.map(s => s.name) });
       refreshHost(importedRows, byAcc);
       setStep('done');

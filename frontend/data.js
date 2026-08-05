@@ -31,6 +31,10 @@
   };
 
   const PAYERS = ['Sadun', 'Handan'];
+  // Pre-hydration fallback so the very first render (before members-data.js's
+  // hydrateLedgerPayers() resolves) doesn't flash the wrong color. Mutated in
+  // place by hydrateLedgerPayers, same as PAYERS.
+  const PAYER_COLORS = { Sadun: 'var(--accent)', Handan: 'var(--lavender)' };
 
   function categoryLabel(key) {
     return (CATS[key] && CATS[key].label) || key || '';
@@ -125,6 +129,6 @@
   const CURRENT_YEAR = TODAY.getFullYear();
   const CURRENT_MONTH = TODAY.getMonth(); // 0-indexed (Jan = 0)
 
-  window.LEDGER = { FX, CATS, PAYERS, TX, TODAY, CURRENT_YEAR, CURRENT_MONTH };
+  window.LEDGER = { FX, CATS, PAYERS, PAYER_COLORS, TX, TODAY, CURRENT_YEAR, CURRENT_MONTH };
   window.HL_CATEGORY_OPTIONS = { entries: categoryEntries, options: categoryOptions, label: categoryLabel };
 })();

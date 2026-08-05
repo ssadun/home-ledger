@@ -136,7 +136,7 @@
   }
 
   // ── Filter bar ──────────────────────────────────────────────────────────
-  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, onAdd, onScan, extra, popActions }) {
+  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, statementFilter, onClearStatementFilter, onAdd, onScan, extra, popActions }) {
     const [open, setOpen] = React.useState(false);
     const [draft, setDraft] = React.useState({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source });
     const anchorRef = React.useRef(null);
@@ -177,9 +177,13 @@
       },
       paymentSource && paymentSource !== 'all' && { key: 'paymentSource', label: 'Payment Source', val: ((paymentSourceOptions || []).find(o => o.value === paymentSource) || {}).label || paymentSource, clear: () => setPaymentSource && setPaymentSource('all') },
       source !== 'all' && { key: 'source', label: 'Source', val: sourceLabel(source), clear: () => setSource('all') },
+      statementFilter != null && { key: 'statement', label: 'Statement', val: 'Card Payment #' + statementFilter, clear: onClearStatementFilter },
     ].filter(Boolean);
-    const clearAll = () => { setType('all'); setPayer('all'); setPayingFor('all'); setCat('all'); if (setPaymentSource) setPaymentSource('all'); setSource('all'); };
-    const clearDraft = () => setDraft({ type: 'all', payer: 'all', payingFor: 'all', cat: 'all', paymentSource: 'all', source: 'all' });
+    const clearAll = () => { setType('all'); setPayer('all'); setPayingFor('all'); setCat('all'); if (setPaymentSource) setPaymentSource('all'); setSource('all'); if (onClearStatementFilter) onClearStatementFilter(); };
+    const clearDraft = () => {
+      setDraft({ type: 'all', payer: 'all', payingFor: 'all', cat: 'all', paymentSource: 'all', source: 'all' });
+      if (onClearStatementFilter) onClearStatementFilter();
+    };
     const applyFilters = () => {
       setType(draft.type); setPayer(draft.payer); setPayingFor(draft.payingFor); setCat(draft.cat);
       if (setPaymentSource) setPaymentSource(draft.paymentSource);

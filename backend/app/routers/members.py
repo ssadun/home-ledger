@@ -1,6 +1,7 @@
 import secrets
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
@@ -8,6 +9,30 @@ from app.schemas import MemberCreate, MemberUpdate, MemberOut
 from app.services.auth import hash_password, get_current_user
 
 router = APIRouter(prefix="/api/members", tags=["members"])
+
+
+def ensure_member_color_column(db: Session) -> None:
+    """Add users.color on existing SQLite DBs and backfill it.
+
+    Fresh DBs get the column from SQLAlchemy metadata. Existing DBs need an
+    ALTER because this project intentionally does not use Alembic migrations.
+    Backfill preserves the display colors that used to be hardcoded by name
+    (Handan -> lavender, everyone else -> accent) so existing installs see no
+    visual change; going forward, color is fully member-configurable via the
+    Members config screen.
+    """
+    try:
+        cols = {row[1] for row in db.execute(text("PRAGMA table_info(users)")).fetchall()}
+        if "color" not in cols:
+            db.execute(text("ALTER TABLE users ADD COLUMN color VARCHAR"))
+        db.execute(text("""
+            UPDATE users
+            SET color = CASE WHEN full_name = 'Handan' OR full_name LIKE 'Handan %' THEN 'var(--lavender)' ELSE 'var(--accent)' END
+            WHERE color IS NULL
+        """))
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def _to_out(user: User) -> dict:
@@ -20,6 +45,7 @@ def _to_out(user: User) -> dict:
         "active": user.is_active if user.is_active is not None else True,
         "show_as_payer": user.show_as_payer if user.show_as_payer is not None else True,
         "email": user.email,
+        "color": user.color or "var(--accent)",
     }
 
 
@@ -90,6 +116,7 @@ def create_member(
         role=payload.role,
         is_active=payload.active,
         show_as_payer=payload.show_as_payer,
+        color=payload.color or "var(--accent)",
         hashed_password=hash_password(password or secrets.token_urlsafe(32)),
     )
     db.add(user)
@@ -130,6 +157,8 @@ def update_member(
         user.show_as_payer = data["show_as_payer"]
     if "email" in data and data["email"]:
         user.email = data["email"]
+    if "color" in data and data["color"]:
+        user.color = data["color"]
     if data.get("password"):
         user.hashed_password = hash_password(data["password"])
     db.commit()

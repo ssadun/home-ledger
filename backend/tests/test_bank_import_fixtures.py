@@ -128,6 +128,24 @@ class TestGarantiCreditCard:
         row = find_row(res["rows"], "ARÇELİK PAZA")
         assert row["category_key"] == "shopping"
 
+    def test_verbose_non_partner_heading_resets_section_tag(self, monkeypatch):
+        """Helper copy after the heading must not leak Ulaşım into later merchants."""
+        from app.services import bank_import
+
+        monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", [])
+        rows, _ = bank_import._parse_garanti_cc_pdf("""
+Ulaşım
+01 Temmuz 2026 ISTANBULKART 100,00
+BONUS PROGRAM ORTAKLARI DIŞI HARCAMALARINIZ - Bonus işyerlerini tercih edin, daha çok bonus kazanın!
+02 Temmuz 2026 TRENDYOL.COM 0,10 475,00
+""")
+
+        assert rows[0]["etiket"] == "Ulaşım"
+        assert rows[0]["category_key"] == "transport"
+        assert rows[1]["description"] == "TRENDYOL.COM"
+        assert rows[1]["etiket"] is None
+        assert rows[1]["category_key"] == "shopping"
+
 
 @pytest.mark.parametrize("filename,expected", GARANTI_CC_MONTHS.items())
 def test_all_bonus_statement_totals_remain_golden(parse_sample, filename, expected):
