@@ -6,8 +6,11 @@ description: Scaffold a new bank/card statement parser in backend/app/services/b
 # Add Bank Format
 
 Scaffolds a new statement parser for `backend/app/services/bank_import.py`, matching the exact
-recipe already documented in `CLAUDE.md` under **"Adding a new statement format"**. That section
-is the source of truth — re-read it before starting in case it has changed.
+recipe already documented in `backend/app/services/CLAUDE.md` under **"Adding a new statement
+format"**. That section is the source of truth — re-read it before starting in case it has changed.
+The classification rules that also govern frontend import code (casing, virman, KESİNTİ VE
+EKLERİ, diğer, Etiket precedence, IBAN normalization) live in the root `CLAUDE.md`'s "Supported
+Bank Import Formats" section — re-read that too.
 
 **This skill writes code.** Confirm the target bank/format name and statement type (PDF vs
 spreadsheet/CSV, bank account vs credit card vs investment) with the user before generating files
@@ -15,8 +18,8 @@ if it isn't already clear from the request.
 
 ## Before you start
 
-1. Read `CLAUDE.md`'s "Supported Bank Import Formats" section — it lists every existing detector,
-   parser, and their dispatch order. Do not duplicate an existing format.
+1. Read `backend/app/services/CLAUDE.md` — it lists every existing detector, parser, and their
+   dispatch order. Do not duplicate an existing format.
 2. Ask the user (or infer from a sample statement/screenshot if provided) for:
    - Bank/product name (e.g. `akbank`, `isbank`)
    - File type: PDF (free text vs real table) or spreadsheet/CSV

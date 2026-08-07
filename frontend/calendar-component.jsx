@@ -1,10 +1,14 @@
 // calendar-component.jsx — Home Ledger Calendar widget for Dashboard.
 // Aggregates Spending TX, Account Activity TX, and Recurring due dates onto a month grid.
-// Clicking a day shows event detail; clicking an event navigates to the source page.
+// Clicking a day shows event detail; clicking an event opens a read-only/edit
+// detail modal in place — the same modal each source page itself uses (tx-modal
+// for Spending, rec-modal for Recurring, atx-detail-modal styling for
+// Account Activity / credit-card due dates) — instead of navigating away.
 (function () {
   const Icon = window.Icon;
   const StyledSelect = window.StyledSelect;
   const { CATS, TX, FX } = window.LEDGER;
+  const { TxModal, DeleteConfirm, RecModal } = window;
 
   // Credit-card colour follows the user's Account Types setting (Config → Account
   // Types → Credit Card), not a hardcoded orange. Falls back to orange if unset.
@@ -178,6 +182,175 @@
     return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
   }
 
+  /* ── Event detail modal — routes each event to the modal its own source
+     page would show, instead of navigating away from the Dashboard ──────── */
+  function pageLabelOf(href) {
+    if (!href) return 'Source';
+    if (href.startsWith('Credit Payments')) return 'Credit Payments';
+    if (href.startsWith('Account Activity')) return 'Account Activity';
+    if (href.startsWith('Recurring')) return 'Recurring';
+    return 'Spending';
+  }
+
+  // Expense / Income — the real Spending edit form (tx-modal), wired to the
+  // same HL_SPENDING_API every other page uses; an edit made here sticks
+  // exactly like one made from the Spending page. Reloads on success so the
+  // whole Dashboard (totals, chips, this same calendar) reflects it.
+  function CalTxBridge({ tx, onClose }) {
+    const [del, setDel] = React.useState(null);
+    async function save(saved) {
+      try {
+        await window.HL_OP_NOTIFY.promise(
+          window.HL_SPENDING_API.update(saved.id, saved),
+          { pending: 'Updating transaction...', success: 'Transaction updated.', error: false }
+        );
+        window.location.reload();
+      } catch (e) {
+        window.HL_OP_NOTIFY.show('Could not update transaction: ' + ((e && e.message) || e), { type: 'error', timeout: 4200 });
+      }
+    }
+    async function confirmDel() {
+      try {
+        await window.HL_OP_NOTIFY.promise(
+          window.HL_SPENDING_API.remove(del.id),
+          { pending: 'Deleting transaction...', success: 'Transaction deleted.', error: false }
+        );
+        window.location.reload();
+      } catch (e) {
+        window.HL_OP_NOTIFY.show('Could not delete transaction: ' + ((e && e.message) || e), { type: 'error', timeout: 4200 });
+      }
+    }
+    return (
+      <React.Fragment>
+        <TxModal initial={tx} onClose={onClose} onSave={save} onDelete={setDel} />
+        {del && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDel} />}
+      </React.Fragment>
+    );
+  }
+
+  // Recurring "Upcoming Due" — the real Recurring edit form (rec-modal),
+  // wired to HL_RECURRING_API. Only used when the event is backed by an
+  // actual RecurringExpense record — a credit-card statement due date shares
+  // the same "Upcoming Due" badge but has no such record (falls through to
+  // CalReadOnlyDetail below instead).
+  function CalRecBridge({ rec, onClose }) {
+    const [del, setDel] = React.useState(null);
+    async function save(saved) {
+      try {
+        await window.HL_OP_NOTIFY.promise(
+          window.HL_RECURRING_API.update(saved.id, saved),
+          { pending: 'Updating recurring item...', success: 'Recurring item updated.', error: false }
+        );
+        window.location.reload();
+      } catch (e) {
+        window.HL_OP_NOTIFY.show('Could not update recurring item: ' + ((e && e.message) || e), { type: 'error', timeout: 4200 });
+      }
+    }
+    async function confirmDel() {
+      try {
+        await window.HL_OP_NOTIFY.promise(
+          window.HL_RECURRING_API.remove(del.id),
+          { pending: 'Deleting recurring item...', success: 'Recurring item deleted.', error: false }
+        );
+        window.location.reload();
+      } catch (e) {
+        window.HL_OP_NOTIFY.show('Could not delete recurring item: ' + ((e && e.message) || e), { type: 'error', timeout: 4200 });
+      }
+    }
+    return (
+      <React.Fragment>
+        <RecModal initial={rec} onClose={onClose} onSave={save} onDelete={setDel} />
+        {del && <DeleteConfirm tx={del} onClose={() => setDel(null)} onConfirm={confirmDel} />}
+      </React.Fragment>
+    );
+  }
+
+  // Account Activity + credit-card due-date fallback — both are read-only
+  // from the calendar (their edit forms live only on their own page, which
+  // isn't loaded on the Dashboard), so this mirrors Account Activity's own
+  // read-only atx-detail-modal chrome/classes rather than pulling in that
+  // whole page.
+  function CalReadOnlyDetail({ ev, date, onClose }) {
+    const isIn = ev.source === 'income' || (ev.source === 'account' && ev.direction === 'incoming');
+    const pm = ev.paymentMethod ? resolvePM(ev.paymentMethod) : null;
+    return (
+      <div className="backdrop" onMouseDown={(e) => { if (e.target.classList.contains('backdrop')) onClose(); }}>
+        <div className="modal atx-detail-modal">
+          <div className="modal-head">
+            <div className="modal-head-l">
+              <span className="modal-title"><Icon name={ev.catIcon || CAL_TYPES[ev.source].icon} size={17} />{ev.desc}</span>
+              <span className="modal-sub">{fmtDate(date)} {dowOf(date)}</span>
+            </div>
+            <button className="m-close" onClick={onClose}><Icon name="x" size={17} /></button>
+          </div>
+          <div className="modal-body">
+            <div className="detail-balance-hero">
+              <span className="detail-bal-label">{isIn ? 'Received' : 'Amount'}</span>
+              <span className={'atx-detail-amt ' + (isIn ? 'income' : 'expense')}>
+                {isIn ? '+' : '−'}{SYM[ev.cur] || '₺'}{grp(ev.rawAmt)}
+              </span>
+            </div>
+            <div className="detail-info-grid">
+              <div className="detail-info-item">
+                <span className="detail-info-k">Type</span>
+                <span className="detail-info-v">{CAL_TYPES[ev.source].label}</span>
+              </div>
+              {ev.catLabel && (
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Category</span>
+                  <span className="detail-info-v">{ev.catLabel}</span>
+                </div>
+              )}
+              {ev.accountName && (
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Account</span>
+                  <span className="detail-info-v">{ev.accountName}</span>
+                </div>
+              )}
+              {pm && (
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Payment Method</span>
+                  <span className="detail-info-v">{pm.label}</span>
+                </div>
+              )}
+              {ev.payer && (
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Payer</span>
+                  <span className="detail-info-v">{ev.payer}</span>
+                </div>
+              )}
+              {ev.payingFor && (
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Paying For</span>
+                  <span className="detail-info-v">{ev.payingFor}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="modal-foot">
+            <a className="amb ok" style={{ textDecoration: 'none' }} href={ev.href}>
+              <Icon name="external-link" size={14} />View in {pageLabelOf(ev.href)}
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Routes a clicked cal-event-row to whichever of the above the event's
+  // source actually supports.
+  function CalEventDetailModal({ ev, date, onClose }) {
+    if (ev.source === 'expense' || ev.source === 'income') {
+      const txRecord = TX.find(t => t.id === ev.id);
+      if (txRecord) return <CalTxBridge tx={txRecord} onClose={onClose} />;
+    }
+    if (ev.source === 'recurring') {
+      const recRecord = window.RECURRING_DATA && window.RECURRING_DATA.RECURRING.find(r => r.id === ev.id);
+      if (recRecord) return <CalRecBridge rec={recRecord} onClose={onClose} />;
+    }
+    return <CalReadOnlyDetail ev={ev} date={date} onClose={onClose} />;
+  }
+
   /* ── CalendarWidget ─────────────────────────────────────────────────── */
   function CalendarWidget({ initialYear, initialMonth }) {
     // Open on the real current month (production data is current); the mock
@@ -195,6 +368,10 @@
         : null
     );
     const [pm, setPm]       = React.useState('');   // '' = all payment methods
+    // Event selected for its detail modal (opened by clicking a cal-event-row) —
+    // routed per-source by CalEventDetailModal; replaces the old direct
+    // navigate-away-on-click behaviour.
+    const [detailEv, setDetailEv] = React.useState(null);
 
     const pmOptions = React.useMemo(() => paymentMethodOptions(), []);
     const events = React.useMemo(() => buildEvents(year, month, pm), [year, month, pm]);
@@ -343,8 +520,8 @@
               {selEvts.length > 0 ? (
                 <div className="cal-events-list">
                   {selEvts.map((ev, i) => (
-                    <a key={i} className="cal-event-row" href={ev.href}
-                      title={'View in ' + (ev.href && ev.href.startsWith('Credit Payments') ? 'Credit Payments' : ev.href && ev.href.startsWith('Account Activity') ? 'Account Activity' : ev.href && ev.href.startsWith('Recurring') ? 'Recurring' : 'Spending')}>
+                    <button key={i} type="button" className="cal-event-row" onClick={() => setDetailEv(ev)}
+                      title="View details">
                       <span className="cal-ev-icon" style={{
                         color: CAL_TYPES[ev.source].color,
                         background: 'color-mix(in srgb, ' + CAL_TYPES[ev.source].color + ' 12%, transparent)',
@@ -369,8 +546,8 @@
                           {SYM[ev.cur] || '₺'}{grp(ev.rawAmt)}
                         </span>
                       </div>
-                      <span className="cal-ev-go"><Icon name="external-link" size={11} /></span>
-                    </a>
+                      <span className="cal-ev-go"><Icon name="chevron-right" size={13} /></span>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -390,7 +567,8 @@
           )}
           </div>
           </div>
-        </div>
+          </div>
+          {detailEv && <CalEventDetailModal ev={detailEv} date={sel} onClose={() => setDetailEv(null)} />}
       </React.Fragment>
     );
   }

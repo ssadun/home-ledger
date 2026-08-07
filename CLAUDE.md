@@ -49,23 +49,7 @@ SQLite at `./data/home-ledger.db` on host (mounted to `/app/data/home-ledger.db`
 **No Alembic** — `Base.metadata.create_all()` runs at startup. To add columns, update `models.py` and recreate or manually `ALTER TABLE`. E.g. the push feature added `users.notify_lead_days`, which on an existing production DB needs: `ALTER TABLE users ADD COLUMN notify_lead_days INTEGER DEFAULT 0;` (the new `push_subscriptions` table itself needs no migration — `create_all()` creates missing tables for free). Likewise the Payer/Paying For visibility toggle added `users.show_as_payer`, needing: `ALTER TABLE users ADD COLUMN show_as_payer BOOLEAN DEFAULT 1;` Likewise the Payment Method visibility toggle for bank accounts added `accounts.show_in_payment_method`, needing: `ALTER TABLE accounts ADD COLUMN show_in_payment_method BOOLEAN DEFAULT 0;` Likewise the Account Activity row detail modal (shows when/what-file a row was imported from) added `transactions.source_filename`, needing: `ALTER TABLE transactions ADD COLUMN source_filename VARCHAR;` Likewise prepaid cards added `accounts.is_prepaid`, needing: `ALTER TABLE accounts ADD COLUMN is_prepaid BOOLEAN DEFAULT 0;` Likewise retirement plans added `accounts.pension`, needing: `ALTER TABLE accounts ADD COLUMN pension JSON;` Likewise the Statements archive added `transactions.statement_id`, needing: `ALTER TABLE transactions ADD COLUMN statement_id INTEGER;` (the `statements` table itself needs no migration). Likewise the Profile page added three columns to `users`, needing: `ALTER TABLE users ADD COLUMN avatar_path VARCHAR;` `ALTER TABLE users ADD COLUMN avatar_token VARCHAR;` `ALTER TABLE users ADD COLUMN language VARCHAR DEFAULT 'en';` plus `CREATE INDEX IF NOT EXISTS ix_users_avatar_token ON users(avatar_token);` (the index backs the by-token avatar lookup). Likewise Financial Institutions added `financial_institutions.short_name`; startup now idempotently runs `ALTER TABLE financial_institutions ADD COLUMN short_name VARCHAR` and backfills existing rows from `name`. Statement Value Mapping rule controls add `statement_mappings.match_scope`, `priority`, and `is_active`; `ensure_statement_mapping_columns()` adds/backfills them and creates the rule-order index idempotently at startup. Overnight bank accounts added `accounts.withholding_tax_rate`, handled by the Accounts startup column check/backfill. Likewise per-member Payer/Paying For display color added `users.color`; `ensure_member_color_column()` adds the VARCHAR column and backfills existing rows (Handan -> `var(--lavender)`, everyone else -> `var(--accent)`, preserving the colors that used to be hardcoded by name) idempotently at startup — going forward color is fully member-configurable via Configuration -> Members.
 Credit-card duplicate detection adds `credit_payments.period_from` and `credit_payments.period_to`; `ensure_credit_payment_period_columns()` adds both DATE columns idempotently at startup. New imports persist the exact parsed movement window, while older/manual rows continue to derive a fallback window from cutover dates.
 
-9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`, `statements`, `statement_mappings`, and `push_subscriptions`, added later — see Data Models below):
-
-| Table | Model |
-|---|---|
-| `users` | User (also household members) |
-| `transactions` | Transaction |
-| `categories` | Category |
-| `accounts` | Account |
-| `investments` | Investment |
-| `budgets` | Budget |
-| `recurring_expenses` | RecurringExpense |
-| `exchange_rates` | ExchangeRate |
-| `currency_rates` | CurrencyRate |
-| `statements` | Statement |
-| `statement_mappings` | StatementMapping |
-| `push_subscriptions` | PushSubscription |
-| `reminder_snoozes` | ReminderSnooze |
+9 tables, one per ORM model in `backend/app/models.py` (plus `credit_payments`, `statements`, `statement_mappings`, and `push_subscriptions`, added later — see Data Models below).
 
 ### Environment variables
 | Variable | Default | Notes |
@@ -90,16 +74,6 @@ Set the resulting base64url strings as `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` di
 ## Architecture
 
 ### Backend (`backend/app/`)
-
-```
-main.py        — FastAPI app, CORS, router registration, table creation on startup, APScheduler daily due-date check
-config.py      — Pydantic Settings (reads .env or env vars)
-database.py    — SQLAlchemy engine + get_db() dependency
-models.py      — ORM models
-schemas.py     — Pydantic request/response models
-routers/       — HTTP layer; one file per resource, all prefixed /api/<resource>
-services/      — Business logic decoupled from HTTP
-```
 
 **Pattern:** routers own HTTP validation + auth dependency; services own logic.
 
@@ -249,14 +223,6 @@ Two screens edit the same `users` rows, and the split is deliberate:
 | POST | `/refresh` | Force re-fetch from TCMB |
 | GET | `/history` | Last N days of rates (default 90) |
 
-### Investments — `/api/investments`
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | List user's investments |
-| POST | `/` | Add investment |
-| PATCH | `/{id}` | Update investment |
-| DELETE | `/{id}` | Delete investment |
-
 ### Bank Import — `/api/import`
 | Method | Path | Description |
 |---|---|---|
@@ -264,30 +230,6 @@ Two screens edit the same `users` rows, and the split is deliberate:
 | POST | `/confirm` | Confirm and save previewed rows to DB |
 | POST | `/confirm-investments` | Persist a reviewed broker portfolio (Midas) as `Investment` rows |
 | POST | `/confirm-pension` | Persist a reviewed BES statement: upsert the `pension` Account by contract no + rewrite its funds. Body `{pension, funds}` |
-
-### Categories — `/api/categories`
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | List default + user categories |
-| POST | `/` | Create category (name_tr, icon, color) |
-| PATCH | `/{cat_id}` | Update category |
-| DELETE | `/{cat_id}` | Delete category |
-
-### Budgets — `/api/budgets`
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | List budgets |
-| POST | `/` | Create budget (per category or global, monthly/yearly) |
-| PATCH | `/{bgt_id}` | Update budget |
-| DELETE | `/{bgt_id}` | Delete budget |
-
-### Recurring — `/api/recurring`
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | List recurring items |
-| POST | `/` | Create recurring item |
-| PATCH | `/{rec_id}` | Update recurring item |
-| DELETE | `/{rec_id}` | Delete recurring item |
 
 ### Accounts — `/api/accounts`
 | Method | Path | Description |
@@ -299,22 +241,6 @@ Two screens edit the same `users` rows, and the split is deliberate:
 | GET | `/{acc_id}/related` | What a delete would take with it: transaction count + date span (and how many are imports), credit payments, holdings, and the accounts that would merely lose their `linked_key`. Powers the delete dialog's cascade preview |
 | PATCH | `/{acc_id}` | Update account |
 | DELETE | `/{acc_id}` | Delete account **and everything that referenced it** → `{deleted:{transactions, credit_payments, investments, unlinked_accounts}}`. Returns 200 + body, not 204 — see _Account deletion cascade_ |
-
-### Members — `/api/members`
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | List household members (User rows) |
-| POST | `/` | Create member |
-| PATCH | `/{member_id}` | Update member |
-| DELETE | `/{member_id}` | Delete member |
-
-### Currencies — `/api/currencies`
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | List currencies + rates (seeded defaults) |
-| POST | `/` | Add currency |
-| PATCH | `/{currency_id}` | Update currency / rate |
-| DELETE | `/{currency_id}` | Delete currency |
 
 ### Statements — `/api/statements`
 Non-credit account statement archive (**Accounts → Statements**). Credit cards are rejected and belong to Card Payments; debit cards are allowed. See _Statements_ under Architecture.
@@ -422,42 +348,7 @@ Import is two-step: `/preview` (`parse_bank_file`) returns parsed rows for user 
 
 **Identity-only statements.** A preview may legitimately return **zero rows but a non-empty `accounts`** — a statement that identifies an account without listing movements (TEB dijital hesap cüzdanı for a dormant account; and any format whose row parser isn't written yet). `parse_bank_file` signals this with `kind:"identity"` plus `has_movements`, and the wizard switches to `mode:'identity'` (`ID_STEPS`, `IdentityStep` in `import.jsx`) — Choose File → Add Account, terminal, no Review/Import. Without that branch the frontend dead-ends on "No transactions could be parsed" at [import.jsx:803](frontend/import.jsx#L803) and **throws the parsed account identity away**, so a new identity-only parser must set `kind:"identity"` rather than just returning empty rows. `has_movements` is a flag, not a message, so the English UI doesn't render the backend's Turkish strings.
 
-### High-level dispatch (`parse_bank_file`)
-
-- **Spreadsheet / CSV** (`xls`, `xlsx`, `csv`): detect TEB's HTML-disguised `.xls` export first (`_is_teb_html_export` → `_parse_teb_html_export`), then try the Garanti multi-section grid export (`_is_garanti_export` → `_parse_garanti_export`) and Odea's raw-grid account format (`_is_odea_grid` → `_parse_odea_grid`), else load a DataFrame and route by column signature to `_parse_garanti` / `_parse_on_burgan` / `_parse_generic`.
-- **PDF**: extract text, then try each dedicated text-PDF parser **in the order below**; the first whose detector matches wins. If none match (or none yield rows), fall back to the generic table parser (`_parse_pdf` → `_parse_generic`), then scanned-PDF OCR (`_parse_pdf_ocr`, PyMuPDF + Tesseract `tur+eng`).
-
-### PDF statement parsers (dispatch order)
-
-| # | Format | Detector (`_is_…`) | Signature in text | Layout · Date | Amount format | Produces / quirks |
-|---|---|---|---|---|---|---|
-| 1 | **BES Birikim Özeti** (bireysel emeklilik / retirement plan) | `_is_bes_pdf` | folded `BES BIRIKIM OZETI` **and** (`SOZLESME NO` or `DEVLET KATKISI`) | Page-1 `Etiket : Değer` lines (two columns per line) + page-2 `Fon Performansları` block · `21.01.2026` | **`_parse_bes_amount`** — `.` is ALWAYS thousands (`17.020` = 17020) | `_parse_bes_pdf` → `kind:"pension"`; emits a **pension Account + one Investment per fund** (not transactions). Runs FIRST — the statement is Garanti-branded and would otherwise be caught by the card parser |
-| 2 | Midas portfolio | `_is_midas_pdf` | `midas menkul`, or `portföy özeti`+`hesap ekstresi` | PORTFÖY ÖZETİ table | `7.795,89 TRY` (3-alt regex) | **Investments** (not transactions) via `_parse_midas_holdings`; upsert by platform+ticker |
-
-Midas emits separate broker accounts by statement currency: TRY holdings use
-`Midas BIST & TEFAS`, while USD holdings use `Midas NASDAQ`. Both accounts keep
-`Midas Menkul Değerler A.Ş.` as their institution. The platform value must travel
-from preview through `import.jsx` into `/confirm-investments`; hard-coding `Midas`
-would merge the portfolios and make duplicate checks/archive records target the
-wrong account.
-| 3 | Garanti credit-card statement (full ekstre) | `_is_garanti_cc_pdf` | `hesap kesim tarihi` / `dönem borcunuz` / (`bonus`+`son ödeme tarihi`) | Free text (no table) · `02 Haziran 2026` (TR month name) | last `1.234,56` on line; suffix `+`/`-` → income, else expense | `_parse_garanti_cc_pdf`; emits card identity + `payment_due`/`total` → **creates a Credit Payment**. `ÖDEMENİZ… TEŞEKKÜR`→income/`credit-card-payment`; `DEVİR`→expense/`debt` (`_cc_classify`) |
-| 4 | Garanti **Dönemiçi İşlemler** (interim in-period card dump) | `_is_garanti_donemici_pdf` | folded `DONEMICI ISLEMLER` | Table `Tarih\|İşlem\|Etiket\|Bonus\|Tutar(TL)` · `23/07/2026` | Turkish `-5.151,22` (sign prefix) | `_parse_garanti_donemici_pdf`; amount = **Tutar column only** (empty Tutar = bonus-only row → skip; reconciles to "Toplam TL Harcama Tutarı"). Account flagged `interim:true` → **never creates a Credit Payment** |
-| 5 | Garanti **Hesap Hareketleri** (checking account) | `_is_garanti_hesap_pdf` | folded `HESAP HAREKETLERI` **and** (`GARANTIBBVA` or `HESAP NUMARASI`) | Table `Tarih\|Açıklama\|Etiket\|Tutar\|Bakiye` · `04.06.2026` | `+2.102,90 TL` (sign prefix, `TL` suffix) | `_parse_garanti_hesap_pdf`; **bank** account identity (IBAN/no/branch). Detector deliberately requires the Garanti signature so it doesn't grab ON files |
-| 6 | ON / Burgan **Hesap Hareketleri** (checking account) | `_is_on_burgan_pdf` | folded `BURGAN` or `ON HESAP VIRMAN` | Header `IBAN\|Bakiye` + table `Tarih\|Açıklama\|Tutar\|Bakiye` (header only p1; `None`-padded later pages; multi-line descs) · `02.07.2026` | **3-decimal** Turkish `-160.643,550`; `1,000` = **1.0** | `_parse_on_burgan_pdf` with **`_parse_on_amount`** (NOT the shared `_parse_amount`, which misreads `,ddd` as thousands). **bank** account identity via IBAN (`TR`+24 digits). The header balance is account-level closing balance and wins over net movement reconciliation |
-| 7 | Odea Bank **Hesap Hareketleri** (checking account / time deposit) | `_is_odea_pdf` / `_is_odea_grid` | folded `HESAP HAREKETLERI` + `AD SOYAD/UNVAN` + `TARIH ARALIGI` + `TUTAR(...)` + `BAKIYE(...)` | PDF/XLSX raw grid `Tarih\|İşlem\|Tutar(USD)\|Bakiye(USD)` · `29.07.2026 14:30` | Turkish 2-decimal with sign prefix (`+30.000,00`) and currency in header | `_parse_odea_pdf` / `_parse_odea_grid`; emits **bank** account identity via IBAN, derives account no, preserves PDF/XLSX compatibility by removing layout-only wraps in hyphenated account refs |
-| 8 | **TEB Dijital Hesap Cüzdanı** (checking account passbook) | `_is_teb_pdf` | folded `DIJITAL HESAP CUZDANI` **and** `TURK EKONOMI BANKASI` | Page-1 `Etiket: Değer` künye block + table `Sıra No\|Tarih\|Açıklama\|İşlem Tutarı\|Bakiye` (p2 = legal boilerplate) · `21/07/2026` | (not yet parsed — see quirks) | `_parse_teb_pdf` → **account identity ONLY, emits NO transaction rows.** Returns `kind:"identity"` + `has_movements` from its own **early return** in `parse_bank_file` — left to the `if not rows` chain it would fall through to the generic/OCR path and invent junk rows. All three sample cüzdans are dormant/newly-opened (header present, body empty, `Bakiye: 0,00`), so the row format is unverified: sign convention on `İşlem Tutarı`, decimal count, and description wrapping are all unknown, and guessing would post real transactions in the wrong direction. Add body parsing to `_parse_teb_pdf` once a cüzdan **with movements** is available |
-| — | Generic table fallback | — | (none matched) | any table pdfplumber finds | `_parse_amount` heuristic | `_parse_pdf`→`_parse_generic`; last resort before OCR |
-
-### Spreadsheet / CSV parsers
-
-| Format | Detector | Layout | Notes |
-|---|---|---|---|
-| TEB Internet Branch account export | `_is_teb_html_export` | UTF-8 HTML saved with `.xls` extension; account metadata plus `Tarih\|Valör\|Saat\|Açıklama\|Tutar\|Bakiye\|Dekont` | `_parse_teb_html_export`; uses the signed `Tutar`, preserves each post-transaction balance, and emits the bank account identity. Parsed with the standard-library `HTMLParser` because the file is not a BIFF workbook and `xlrd` rejects it |
-| Garanti multi-section export | `_is_garanti_export` | Raw cell grid; delayed header, multiple card/account sections | `_parse_garanti_export` — state machine; tags each row with `source` + `etiket`; emits account identities. If the header prints both `Bakiye` and `Kullanılabilir Bakiye`, `Bakiye` is the real `Account.balance`; `Kullanılabilir Bakiye - Bakiye` is the overdraft `credit_limit` |
-| Odea Bank account export | `_is_odea_grid` | Raw cell grid; account metadata above `Tarih\|İşlem\|Tutar(...)\|Bakiye(...)` | `_parse_odea_grid`; same account identity and rows as Odea PDF |
-| Garanti (single header) | column signature | `Tarih\|Açıklama\|Borç\|Alacak\|Bakiye` (or single `Tutar`) | `_parse_garanti` |
-| ON Burgan (single header) | column signature | Same shape, different column names | `_parse_on_burgan` |
-| Generic | heuristic | Guesses date + numeric columns | `_parse_generic` |
+**Dispatch order, per-format parsing details (detectors, table layouts, amount/date quirks per bank), the Turkish number/date cheat-sheet, and the step-by-step recipe for adding a new format now live in [backend/app/services/CLAUDE.md](backend/app/services/CLAUDE.md)** — it loads automatically whenever Claude works with files under that directory. Read it before touching `bank_import.py`.
 
 > **IBAN is stored in ONE canonical form — unspaced, upper-case, 26 characters max**, and the account number is derived from it. A Turkish IBAN is `TR` + 2 check + 5 bank + 1 reserved + 16 account digits; the leading part of that tail is zero padding, so the app uses the **LAST 6 digits** as the account number (the same tail the import wizard's dropdown labels show). **Account numbers are digits only** — except **card** numbers (`credit`/`debit`), which stay masked (`4870 **** **** 1011`) and are exempt from both rules.
 >
@@ -469,19 +360,6 @@ wrong account.
 > This is why ON/Burgan statements, which print only an IBAN, still arrive at the wizard with an account number. Same file: a bank-account draft is named after the **holder alone** (`Sadun Sevingen`, not `Burgan Bank · Sadun Sevingen`) — institution is its own field and the Accounts page already renders it next to the name; only card drafts keep `institution ••last4`.
 >
 > **Statement balances win over reconciliation.** When a parser emits `accounts[].balance`, `import.jsx` carries it as `closingBalance` and `statements-app.jsx` writes that exact value to `Account.balance`; it does **not** add the imported net movement. If an account-level balance is missing but rows include running balances, `parse_bank_file` fills the account balance from row balances as a fallback. Bank-specific header balances remain authoritative: ON/Burgan uses its top `IBAN | Bakiye`, while Garanti Hesap Hareketleri uses `Bakiye`; Garanti's `Kullanılabilir Bakiye` is `Bakiye + credit_limit` and must never replace the real balance.
-
-### Turkish number & date cheat-sheet
-
-- **Dates:** `15.03.2026`, `15/03/2026`, `2026-03-15`, `15-03-2026`, and TR month names `02 Haziran 2026` — all via `_parse_turkish_date`.
-- **Amounts:** Turkish uses `.` = thousands, `,` = decimal (`1.234,56` = 1234.56). The shared `_parse_amount` assumes **2-decimal** and treats a 3-digit `,ddd` as thousands — so **3-decimal banks (ON/Burgan) need `_parse_on_amount`**, and **whole-lira amounts printed without decimals (BES: `17.020 TL`, `10.000 TL`) need `_parse_bes_amount`** — `_parse_amount` reads those as `17.02` / `10.0`. Currency/sign may be a prefix (`-`, `+`) and/or suffix (`TL`, `TRY`, `USD`); strip non-numeric before parsing where needed. `_fold` normalizes Turkish diacritics/casing for keyword matching.
-
-### Adding a new statement format
-
-1. Add a `_is_<name>_pdf(text)` detector and a `_parse_<name>_pdf(content, text)` (or grid) parser in `bank_import.py`; reuse `_parse_turkish_date`, `_normalize_row`, `_fold`, and account-identity extraction.
-2. **Make the detector specific** so it doesn't shadow another bank (e.g. `HESAP HAREKETLERI` alone is ambiguous — Garanti's also requires `GARANTIBBVA`).
-3. Wire it into `parse_bank_file`'s PDF branch **in priority order** (`if not rows and text and _is_…`).
-4. Emit an `accounts` identity record (IBAN for banks, card number for cards). Set `interim:true` for non-billed/in-period card dumps so the frontend skips Credit Payment creation. **A missing `number` needs no work** — `parse_bank_file` fills it from the IBAN centrally (see the IBAN rule above).
-5. **Add a row to the tables above in the same commit**, and a golden fixture in `backend/tests/test_bank_import_fixtures.py` (sample file under `import/`) so the format can't silently regress. Then rebuild the backend image (baked, not mounted) and run `graphify update .`.
 
 > **Never convert the casing of imported line-item descriptions.** Preserve the bank's original text verbatim — no Title-casing, upper-casing, or lower-casing — for every source (bank accounts and cards alike). Some line items carry meaningful mixed casing (e.g. `Sadun Sevıngen--EFT-CEP ŞUBE`, `K.Kartı Ödeme`) that must survive the import exactly as sent.
 
