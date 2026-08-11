@@ -222,6 +222,8 @@ class TransactionOut(BaseModel):
     category: Optional[CategoryOut]
     receipt_path: Optional[str]
     credit_payment_id: Optional[int]
+    settles_credit_payment_id: Optional[int] = None
+    settles_account_key: Optional[str] = None
     source_filename: Optional[str]
     created_at: datetime
     model_config = {"from_attributes": True}
@@ -641,6 +643,13 @@ class CreditPaymentOut(BaseModel):
     currency: Currency
     statement_filename: Optional[str]
     linked_count: int = 0
+    # Settlement fields (Group 4, plans/UPCOMING_DUE_RECONCILE.md): which bank
+    # transaction(s) PAY OFF this bill, via Transaction.settles_credit_payment_id
+    # -- the opposite relationship from linked_count above ("spending ON this
+    # card"). Wired in credit_payments.py's _serialize() exactly like linked_count.
+    paid_total: float = 0.0
+    settlement_state: str = "unpaid"
+    settled_tx_ids: List[int] = []
     created_at: datetime
     model_config = {"from_attributes": True}
 

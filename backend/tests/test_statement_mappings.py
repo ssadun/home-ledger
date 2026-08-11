@@ -103,7 +103,48 @@ def test_bonus_alias_backfill_groups_tags_and_separates_description_rules():
     assert merchant.category_key == "dining"
     assert merchant.match_scope == "description"
     assert merchant.priority == 200
+
+    card_payment = db.query(StatementMapping).filter(
+        StatementMapping.etiket.contains("Kart Ödemesi")
+    ).one()
+    assert {part.strip() for part in card_payment.etiket.split(",")} >= {
+        "Kart Ödemesi", "K.Kartı Ödeme", "KREDİ KARTI BORCU", "KKBO",
+    }
+    assert card_payment.category_key == "credit-card-payment"
     db.close()
+
+
+def test_card_payment_alias_scoped_to_expense_direction(monkeypatch):
+    """K.Kartı Ödeme / KREDİ KARTI BORCU / KKBO show up on both the outgoing bank
+    payment (expense) and the incoming leg that funds it (income) — only the
+    expense leg should classify as credit-card-payment; the income leg falls
+    through to the normal bank-statement wire-transfer default. Classification
+    happens in `_normalize_row` at preview time (import_transactions/confirm just
+    persists whatever category_key preview already resolved)."""
+    from app.services import bank_import
+
+    monkeypatch.setattr(bank_import, "_ETIKET_RUNTIME", None)
+    _, db = _memory_session()
+    statement_mappings.seed_default_statement_mappings(db)
+    statement_mappings.ensure_statement_mapping_aliases(db)
+    bank_import.load_etiket_map(db)
+    try:
+        expense = bank_import._normalize_row(
+            "2026-08-04", "K.Kartı Ödeme 4870 **** **** 1011", -188146.94, account_type="bank",
+        )
+        income = bank_import._normalize_row(
+            "2026-08-04", "SADUN SEVİNGEN-KREDİ KARTI BORCU-FAST-1", 188146.94, account_type="bank",
+        )
+        short_token = bank_import._normalize_row(
+            "2026-08-05", "KKBO ÖDEMESİ", -500, account_type="bank",
+        )
+        assert expense["category_key"] == "credit-card-payment"
+        assert expense["type"] == "expense"
+        assert income["category_key"] == "wire-transfer"
+        assert income["type"] == "income"
+        assert short_token["category_key"] == "credit-card-payment"
+    finally:
+        db.close()
 
 
 def test_confirm_defaults_unmatched_rows_by_account_type():

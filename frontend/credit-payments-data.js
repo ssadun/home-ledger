@@ -23,6 +23,9 @@
       cur: row.currency || 'TRY',
       statementFilename: row.statement_filename || null,
       linkedCount: row.linked_count != null ? row.linked_count : 0,
+      paidTotal: row.paid_total != null ? row.paid_total : 0,
+      settlementState: row.settlement_state || 'unpaid',
+      settledTxIds: Array.isArray(row.settled_tx_ids) ? row.settled_tx_ids : [],
     };
   }
 
@@ -94,6 +97,15 @@
     return res.json();
   }
 
+  // Re-run the settlement resolver over this user's existing card-payment
+  // transactions. Re-runnable/idempotent on the backend; returns a tally
+  // {resolved, unresolved, already_resolved}.
+  async function reconcile() {
+    const res = await api()('/api/credit-payments/reconcile', { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to reconcile card payments (' + res.status + ')');
+    return res.json();
+  }
+
   async function checkOverlap(accountId, periodFrom, periodTo, accountKey = null) {
     const params = new URLSearchParams({
       account_id: accountId != null ? String(accountId) : '',
@@ -131,6 +143,7 @@
   window.HL_CREDIT_PAYMENTS_API = {
     list, create, update, remove,
     previewStatement, confirmStatement, checkOverlap, downloadStatement, creditCards,
+    reconcile,
     fromApi, toApi,
   };
   // Populated by the page after list() so the dashboard calendar can read it.

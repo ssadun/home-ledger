@@ -109,7 +109,7 @@
 .imp-rev-count{font-size:12px;color:var(--muted);font-weight:500}
 
 .imp-rev-table{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.imp-rev-thead,.imp-rev-row{display:grid;grid-template-columns:32px 148px 1fr 130px 132px 150px 30px;align-items:center;gap:8px}
+.imp-rev-thead,.imp-rev-row{display:grid;grid-template-columns:32px 148px 1fr 130px 132px 150px 160px 30px;align-items:center;gap:8px}
 .imp-rev-thead{padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border)}
 .imp-rev-thead span{font-size:var(--fs-label);font-weight:700;letter-spacing:1px;color:var(--muted)}
 .imp-rev-thead span.ar{text-align:right}
@@ -134,6 +134,8 @@
 .imp-date{font-variant-numeric:tabular-nums}
 .imp-desc{width:100%;min-width:0;box-sizing:border-box}
 .imp-cell-cat{min-width:0}
+.imp-cell-settle{min-width:0;display:flex;align-items:center;justify-content:center}
+.imp-settle-na{font-size:12px;color:var(--muted)}
 select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23545b7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");background-repeat:no-repeat;background-position:right 6px center}
 .imp-amt-wrap{display:flex;align-items:center;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg3);overflow:hidden}
 .imp-amt-wrap:focus-within{border-color:var(--accent)}
@@ -232,13 +234,14 @@ select.imp-cell{appearance:none;cursor:pointer;padding-right:22px;background-ima
   .imp-rev-thead{display:none}
   .imp-rev-table{border:none}
   .imp-rev-body{max-height:none}
-  .imp-rev-row{grid-template-columns:auto 1fr;grid-template-areas:'inc desc' 'date date' 'cat cat' 'amt amt' 'acc acc' 'del del';gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;background:var(--bg3)}
+  .imp-rev-row{grid-template-columns:auto 1fr;grid-template-areas:'inc desc' 'date date' 'cat cat' 'amt amt' 'acc acc' 'settle settle' 'del del';gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;background:var(--bg3)}
   .imp-inc{grid-area:inc}
   .imp-desc{grid-area:desc}
   .imp-date-wrap{grid-area:date}
   .imp-cell-cat{grid-area:cat}
   .imp-amt-wrap{grid-area:amt}
   .imp-acc{grid-area:acc}
+  .imp-cell-settle{grid-area:settle;justify-content:flex-start}
   .imp-del{grid-area:del;justify-self:end}
   /* Investment review → stacked cards */
   .imp-inv-summary{grid-template-columns:1fr}

@@ -146,6 +146,16 @@ class Transaction(Base):
     # Credit card statement this spending belongs to (auto-linked by card + cutover window)
     credit_payment_id = Column(Integer, ForeignKey("credit_payments.id"), nullable=True)
 
+    # Settlement link: this bank transaction PAYS OFF that CreditPayment (e.g. a
+    # "K.Kartı Ödeme"/"KREDİ KARTI BORCU" bank-account line). The opposite direction
+    # from credit_payment_id, which means "spending ON this card" and is bulk-deleted
+    # when its CreditPayment is deleted — these settlement columns must NEVER be
+    # touched by that cascade, since they point at real bank movements, not card
+    # spendings. settles_account_key mirrors the account_key convention used
+    # elsewhere (payment_method, CreditPayment.account_key) for frontend lookups.
+    settles_credit_payment_id = Column(Integer, nullable=True, index=True)
+    settles_account_key = Column(String, nullable=True)
+
     # Bank-account statement this movement belongs to (auto-linked by account +
     # statement period). The bank-account twin of credit_payment_id.
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=True)

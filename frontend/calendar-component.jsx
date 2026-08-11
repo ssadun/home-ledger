@@ -44,6 +44,17 @@
   };
   const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  // Settlement state tones for a merged "Upcoming Due" event (card bill or
+  // recurring item reconciled against a real settling transaction) - reuses
+  // the app's existing state colors rather than inventing new ones.
+  // 'unpaid' intentionally matches today's plain recurring/lavender look.
+  const SETTLE_STATE = {
+    paid:            { label: 'Paid',           color: 'var(--green)',  icon: 'check-circle-2' },
+    partial:         { label: 'Partly Paid',    color: 'var(--orange)', icon: 'circle-dashed' },
+    'under-minimum': { label: 'Below Minimum',  color: 'var(--red)',    icon: 'alert-triangle' },
+    unpaid:          { label: 'Unpaid',         color: 'var(--lavender)', icon: 'repeat' },
+  };
+
   /* ── Payment-method resolution (accounts + literal methods) ─────────── */
   const LITERAL_PM = {
     'credit-card': 'Credit Card', 'debit-card': 'Debit Card',
@@ -80,10 +91,81 @@
     const pfx = year + '-' + String(month + 1).padStart(2, '0');
     const add = (d, ev) => { (map[d] || (map[d] = [])).push(ev); };
 
+    // ── Settlement index — built once per call (already memoised at the
+    // call site via useMemo([year, month, pm])). Searches the FULL TX array,
+    // not just this month, since a settling transaction can land a few days
+    // into the neighbouring month.
+    //
+    // Card bills: the backend already resolved settles_credit_payment_id at
+    // import time (services/settlement.py) — pure group-by, no matching
+    // logic needed here.
+    const cardSettleTx = new Map(); // CreditPayment id -> settling tx[]
+    TX.forEach(tx => {
+      if (tx.settlesCreditPaymentId == null) return;
+      const list = cardSettleTx.get(tx.settlesCreditPaymentId) || [];
+      list.push(tx);
+      cardSettleTx.set(tx.settlesCreditPaymentId, list);
+    });
+
+    // Recurring bills: RecurringExpense has no settlement column at all, so
+    // this stays a weak heuristic (see plan's "Key risks") — same resolved
+    // payment method, due date within ±3 days, amount within 5%/₺2 (TRY) of
+    // the recurring amount. Picks the single nearest-by-amount (then
+    // nearest-by-date) candidate per item, and a tx already claimed by a
+    // card bill (or an earlier recurring item) is never reused.
+    const recSettleTx = new Map(); // RecurringExpense id -> [settling tx]
+    const settledTxIds = new Set();
+    cardSettleTx.forEach(list => list.forEach(tx => settledTxIds.add(tx.id)));
+    if (window.RECURRING_DATA) {
+      window.RECURRING_DATA.RECURRING.forEach(rec => {
+        if (rec.status !== 'active' || !rec.nextDue) return;
+        const recPm = resolvePM(rec.paymentMethod);
+        if (!recPm) return;
+        const recTryAmt = rec.tryAmount != null ? rec.tryAmount : toTRY(rec.amount, rec.cur);
+        const dueMs = new Date(rec.nextDue).getTime();
+        const tolerance = Math.max(recTryAmt * 0.05, 2);
+        let best = null, bestDeltaAmt = Infinity, bestDeltaDate = Infinity;
+        TX.forEach(tx => {
+          if (settledTxIds.has(tx.id)) return;
+          const txPm = resolvePM(tx.paymentMethod);
+          if (!txPm || txPm.key !== recPm.key) return;
+          const deltaDate = Math.abs(new Date(tx.date).getTime() - dueMs) / 86400000;
+          if (deltaDate > 3) return;
+          const txTry = tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur);
+          const deltaAmt = Math.abs(txTry - recTryAmt);
+          if (deltaAmt > tolerance) return;
+          if (deltaAmt < bestDeltaAmt || (deltaAmt === bestDeltaAmt && deltaDate < bestDeltaDate)) {
+            best = tx; bestDeltaAmt = deltaAmt; bestDeltaDate = deltaDate;
+          }
+        });
+        if (best) {
+          recSettleTx.set(rec.id, [best]);
+          settledTxIds.add(best.id);
+        }
+      });
+    }
+
     // 1. Spending TX
     // Data source: data.js → window.LEDGER.TX
     TX.forEach(tx => {
       if (!tx.date.startsWith(pfx)) return;
+      // A settled bill's payment already shows as its own merged "Upcoming
+      // Due" event (Block 3/4 below) — suppress the standalone Spending
+      // event so it isn't counted or shown twice. It's never lost: the
+      // merged event's detail modal lists it under "Settled by".
+      if (settledTxIds.has(tx.id)) return;
+      // A card statement's own "payment received" echo (e.g. "ÖDEMENİZ İÇİN
+      // TEŞEKKÜR EDERİZ"/"Cep Şube Ödeme" — income, category_key
+      // credit-card-payment, see bank_import.py's _cc_classify) is never a
+      // settling transaction itself (only an expense can pay off a bill —
+      // see services/settlement.py), so it never carries
+      // settlesCreditPaymentId and would otherwise slip past the check
+      // above and show as its own confusing extra "Upcoming Due" row: the
+      // original 3x-duplicate this whole feature exists to collapse (CP
+      // due-date projection + the real settling expense + this echo). It
+      // still shows in Spending/Reports as a normal transaction — only its
+      // calendar event is suppressed.
+      if (tx.cat === 'credit-card-payment' && tx.type === 'income') return;
       const pm = resolvePM(tx.paymentMethod);
       if (pmFilter && (!pm || pm.key !== pmFilter)) return;
       const c = CATS[tx.cat] || {};
@@ -127,7 +209,7 @@
         const pmAcct = accts.find(a => a.id === rec.paymentMethod);
         const pm = resolvePM(rec.paymentMethod);
         if (pmFilter && (!pm || pm.key !== pmFilter)) return;
-        add(rec.nextDue, {
+        const ev = {
           source: 'recurring', id: rec.id, desc: rec.name + ' - Due',
           amount: rec.tryAmount, cur: rec.cur, rawAmt: rec.amount,
           catLabel: c.label || rec.cat, catIcon: 'repeat', catColor: 'var(--lavender)',
@@ -136,7 +218,16 @@
           paymentMethodType: pmAcct ? pmAcct.type : null,
           pmKey: pm ? pm.key : null,
           href: 'Recurring.html?highlight=' + rec.id,
-        });
+        };
+        // Matched above by the amount+account+date-window heuristic — an
+        // unmatched item stays exactly today's plain "Upcoming Due" event.
+        const matched = recSettleTx.get(rec.id);
+        if (matched && matched.length) {
+          ev.settlementState = 'paid';
+          ev.paidTotal = matched.reduce((sum, tx) => sum + (tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur)), 0);
+          ev.matchedTxIds = matched.map(tx => tx.id);
+        }
+        add(rec.nextDue, ev);
       });
     }
 
@@ -147,7 +238,7 @@
         if (!rec.paymentDate || !rec.paymentDate.startsWith(pfx)) return;
         const pm = resolvePM(rec.accountKey || rec.accountId || rec.cardLabel);
         if (pmFilter && (!pm || pm.key !== pmFilter)) return;
-        add(rec.paymentDate, {
+        const ev = {
           // Merged into "Upcoming Due" (recurring); keeps the credit-card icon + Credit Payments link.
           source: 'recurring', id: rec.id, desc: (rec.name || 'Card Payment') + ' - Due',
           amount: rec.total, cur: rec.cur, rawAmt: rec.total,
@@ -155,7 +246,18 @@
           // Payment Method chip shows the account name (resolved), not the composite card label.
           paymentMethod: pm ? pm.label : (rec.cardLabel || null), pmKey: pm ? pm.key : null,
           href: 'Credit Payments.html?highlight=' + rec.id,
-        });
+        };
+        // Card bills group-by TX.settlesCreditPaymentId above; the paid
+        // total/state themselves come straight off the CreditPayment record
+        // (backend-computed in services/settlement.py — not recomputed here).
+        const matched = cardSettleTx.get(rec.id);
+        if (matched && matched.length) {
+          ev.settlementState = rec.settlementState || 'unpaid';
+          ev.paidTotal = rec.paidTotal || 0;
+          ev.minimumAmount = rec.minimum || 0;
+          ev.matchedTxIds = matched.map(tx => tx.id);
+        }
+        add(rec.paymentDate, ev);
       });
     }
 
@@ -273,7 +375,19 @@
   function CalReadOnlyDetail({ ev, date, onClose }) {
     const isIn = ev.source === 'income' || (ev.source === 'account' && ev.direction === 'incoming');
     const pm = ev.paymentMethod ? resolvePM(ev.paymentMethod) : null;
+    // A merged bill/recurring event carries matchedTxIds when it was reconciled
+    // against real settling transaction(s) — otherwise this stays exactly
+    // today's plain read-only detail with no extra sections.
+    const hasSettlement = Array.isArray(ev.matchedTxIds) && ev.matchedTxIds.length > 0;
+    const stateTone = hasSettlement && ev.settlementState && SETTLE_STATE[ev.settlementState];
+    const settlingTx = hasSettlement ? ev.matchedTxIds.map(id => TX.find(t => t.id === id)).filter(Boolean) : [];
+    const remaining = hasSettlement ? Math.max(0, (ev.amount || 0) - (ev.paidTotal || 0)) : null;
+    // Opens the same Spending edit form a settling transaction's own row
+    // would (CalTxBridge) — the suppressed Block-1 event is still reachable
+    // from here, so the money never looks like it "vanished".
+    const [settleTx, setSettleTx] = React.useState(null);
     return (
+      <React.Fragment>
       <div className="backdrop" onMouseDown={(e) => { if (e.target.classList.contains('backdrop')) onClose(); }}>
         <div className="modal atx-detail-modal">
           <div className="modal-head">
@@ -289,6 +403,13 @@
               <span className={'atx-detail-amt ' + (isIn ? 'income' : 'expense')}>
                 {isIn ? '+' : '−'}{SYM[ev.cur] || '₺'}{grp(ev.rawAmt)}
               </span>
+              {stateTone && (
+                <span className="cal-ev-state cal-settle-badge" style={{
+                  color: stateTone.color,
+                  background: 'color-mix(in srgb, ' + stateTone.color + ' 14%, transparent)' }}>
+                  <Icon name={stateTone.icon} size={11} />{stateTone.label}
+                </span>
+              )}
             </div>
             <div className="detail-info-grid">
               <div className="detail-info-item">
@@ -326,6 +447,44 @@
                 </div>
               )}
             </div>
+            {hasSettlement && (
+              <div className="detail-info-grid">
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Total Due</span>
+                  <span className="detail-info-v">{SYM[ev.cur] || '₺'}{grp(ev.amount)}</span>
+                </div>
+                {ev.minimumAmount != null && (
+                  <div className="detail-info-item">
+                    <span className="detail-info-k">Minimum Due</span>
+                    <span className="detail-info-v">{SYM[ev.cur] || '₺'}{grp(ev.minimumAmount)}</span>
+                  </div>
+                )}
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Paid</span>
+                  <span className="detail-info-v">{SYM[ev.cur] || '₺'}{grp(ev.paidTotal)}</span>
+                </div>
+                <div className="detail-info-item">
+                  <span className="detail-info-k">Remaining</span>
+                  <span className="detail-info-v">{SYM[ev.cur] || '₺'}{grp(remaining)}</span>
+                </div>
+              </div>
+            )}
+            {hasSettlement && settlingTx.length > 0 && (
+              <div className="cal-settled-by">
+                <span className="filter-label">Settled By</span>
+                <div className="cal-settled-list">
+                  {settlingTx.map(tx => (
+                    <button key={tx.id} type="button" className="cal-settled-row" onClick={() => setSettleTx(tx)}
+                      title="View transaction">
+                      <span className="cal-settled-date">{fmtDate(tx.date)}</span>
+                      <span className="cal-settled-desc">{tx.desc}</span>
+                      <span className="cal-settled-amt">{SYM[tx.cur] || '₺'}{grp(tx.amt)}</span>
+                      <Icon name="chevron-right" size={12} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="modal-foot">
             <a className="amb ok" style={{ textDecoration: 'none' }} href={ev.href}>
@@ -334,6 +493,8 @@
           </div>
         </div>
       </div>
+      {settleTx && <CalTxBridge tx={settleTx} onClose={() => setSettleTx(null)} />}
+      </React.Fragment>
     );
   }
 
@@ -519,19 +680,33 @@
               </div>
               {selEvts.length > 0 ? (
                 <div className="cal-events-list">
-                  {selEvts.map((ev, i) => (
+                  {selEvts.map((ev, i) => {
+                    // A settled bill/recurring item swaps its neutral "Upcoming
+                    // Due" tone for the reconciled state's — Paid/Partly Paid/
+                    // Below Minimum — everywhere else keeps today's per-source look.
+                    const stateTone = ev.settlementState && SETTLE_STATE[ev.settlementState];
+                    const evColor = stateTone ? stateTone.color : CAL_TYPES[ev.source].color;
+                    const evIcon = stateTone ? stateTone.icon : (ev.catIcon || CAL_TYPES[ev.source].icon);
+                    return (
                     <button key={i} type="button" className="cal-event-row" onClick={() => setDetailEv(ev)}
                       title="View details">
                       <span className="cal-ev-icon" style={{
-                        color: CAL_TYPES[ev.source].color,
-                        background: 'color-mix(in srgb, ' + CAL_TYPES[ev.source].color + ' 12%, transparent)',
-                        borderColor: 'color-mix(in srgb, ' + CAL_TYPES[ev.source].color + ' 35%, transparent)' }}>
-                        <Icon name={ev.catIcon || CAL_TYPES[ev.source].icon} size={13} />
+                        color: evColor,
+                        background: 'color-mix(in srgb, ' + evColor + ' 12%, transparent)',
+                        borderColor: 'color-mix(in srgb, ' + evColor + ' 35%, transparent)' }}>
+                        <Icon name={evIcon} size={13} />
                       </span>
                       <div className="cal-ev-info">
                         <span className="cal-ev-desc">{ev.desc}</span>
                         <span className="cal-ev-meta">
                           <span className={'cal-ev-badge cal-badge-' + ev.source}>{CAL_TYPES[ev.source].label}</span>
+                          {stateTone && (
+                            <span className="cal-ev-state" style={{
+                              color: stateTone.color,
+                              background: 'color-mix(in srgb, ' + stateTone.color + ' 14%, transparent)' }}>
+                              {stateTone.label}
+                            </span>
+                          )}
                           {ev.paymentMethod && (() => {
                             // Show only the account name (resolved label) — no icon.
                             const pm = resolvePM(ev.paymentMethod);
@@ -548,7 +723,8 @@
                       </div>
                       <span className="cal-ev-go"><Icon name="chevron-right" size={13} /></span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="cal-empty">

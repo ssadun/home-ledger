@@ -382,6 +382,18 @@ def _normalize_row(date: str, description: str, amount: float, balance=None, raw
     # description. Only sets the category; direction still follows the amount sign.
     if category_override is None:
         category_override = _statement_mapping_category(etiket, description)
+        # "Kart Ödemesi"/"K.Kartı Ödeme"/"KREDİ KARTI BORCU"/"KKBO" text shows up on
+        # BOTH legs of the same real-world event: the outgoing bank transaction that
+        # pays the credit card off (expense) and the incoming transfer that funds
+        # that payment (income). Only the expense leg is an actual card payment — an
+        # income-direction mapping match is discarded so it falls through to the
+        # normal bank-statement wire-transfer default below instead of mislabeling
+        # the funding transfer. Scoped to the mapping-sourced match only: a card
+        # statement's own "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ" payment-received line is
+        # legitimately income + credit-card-payment and comes from _cc_classify
+        # above, not from here.
+        if category_override == "credit-card-payment" and amount > 0:
+            category_override = None
     # Non-card statements default to Wire Transfer only after special rules and
     # Statement Value Mapping have failed. Card statements keep their own fallback:
     # unknown credit/debit expenses become Shopping below, while card income stays
@@ -754,6 +766,16 @@ def _parse_garanti_cc_pdf(text: str) -> tuple[list[dict], list[dict]]:
     if mtot:
         statement_total = _parse_amount(mtot.group(1))
 
+    # Minimum ödeme tutarı: "Dönem Borcunuz" satırının hemen altında, aynı sade
+    # "Etiket <tutar> TL" biçiminde durur ("Min. Ödeme Tutarı  71.326,00 TL") — the
+    # deeper "...Min. Ödeme Tutarınız" recap-table value row carries the same
+    # number but needs a fragile multi-line scan; this single-line match right next
+    # to the existing Dönem Borcunuz/mtot target is simpler and more robust.
+    minimum_amount = None
+    mmin = re.search(r"Min\.?\s+Ödeme\s+Tutar[ıi]\s+(\d{1,3}(?:\.\d{3})*,\d{2})", text)
+    if mmin:
+        minimum_amount = _parse_amount(mmin.group(1))
+
     active_section_tag = None
     for raw in text.splitlines():
         line = _WATERMARK_RE.sub(" ", raw).strip()
@@ -796,6 +818,7 @@ def _parse_garanti_cc_pdf(text: str) -> tuple[list[dict], list[dict]]:
             "iban": None, "branch": None, "holder": holder,
             "currency": "TRY", "institution": "garanti",
             "payment_due": payment_due, "total": statement_total,
+            "minimum": minimum_amount,
         })
     return rows, accounts
 
@@ -2474,6 +2497,7 @@ def import_transactions(
     from datetime import date as date_type
     from app.models import Account, Transaction as Tx, TransactionType, Currency
     from app.routers.transactions import _apply_rates
+    from app.services.settlement import resolve_card_account, resolve_bill
 
     imported = 0
     skipped = 0
@@ -2591,6 +2615,34 @@ def import_transactions(
                 skipped_indices.append(row_index)
                 continue
 
+            # Card-payment settlement link: only attempted for rows classified as an
+            # actual card payment (never for ordinary spending), and purely additive
+            # — an unresolved row leaves both columns None exactly as before this
+            # existed. settles_account_key on the row (Group 3's import wizard "Settles
+            # card…" picker) means the account is already known, so resolve_card_account()
+            # is skipped in favor of going straight to the bill window match.
+            # EXPENSE only: the same real-world payment also posts as an INCOME
+            # "credit-card-payment" row on the card's own statement (e.g.
+            # "ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ"/"Cep Şube Ödeme" — legitimately
+            # income+credit-card-payment via _cc_classify above). Resolving that
+            # income echo too would link it to the SAME bill as its expense
+            # counterpart and double paid_total.
+            settles_cp_id = None
+            settles_key = None
+            if category_key == "credit-card-payment" and tx_type == TransactionType.expense:
+                settle_account_key = row.get("settles_account_key")
+                if settle_account_key:
+                    settle_account = next(
+                        (a for a in owned_accounts if a.account_key == settle_account_key), None
+                    )
+                else:
+                    settle_account = resolve_card_account(desc, owned_accounts)
+                if settle_account is not None:
+                    settle_cp = resolve_bill(db, owner_id, settle_account, tx_date)
+                    if settle_cp is not None:
+                        settles_cp_id = settle_cp.id
+                        settles_key = settle_account.account_key
+
             tx = Tx(
                 owner_id=owner_id,
                 type=tx_type,
@@ -2603,6 +2655,8 @@ def import_transactions(
                 payer=row.get("payer"),
                 paying_for=row.get("paying_for"),
                 credit_payment_id=credit_payment_id,
+                settles_credit_payment_id=settles_cp_id,
+                settles_account_key=settles_key,
                 source_filename=source_filename,
                 note="banka_import",
             )

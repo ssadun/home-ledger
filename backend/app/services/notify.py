@@ -2,13 +2,16 @@ import json
 from datetime import date, timedelta
 
 from pywebpush import webpush, WebPushException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import (
-    Account, CreditPayment, PushSubscription, ReminderSnooze, RecurringExpense, User,
+    Account, CreditPayment, PushSubscription, ReminderSnooze, RecurringExpense,
+    Transaction, User,
 )
 from app.services.recurring import roll_forward_due_dates
+from app.services.settlement import settlement_state
 
 # Snooze durations offered by the notification action buttons, in days. The
 # /api/push/snooze route rejects anything not in this allowlist.
@@ -85,6 +88,21 @@ def _snooze_for(db: Session, owner_id: int, item_type: str, item_id: int):
     ).first()
 
 
+def _cp_is_paid(db: Session, cp: CreditPayment) -> bool:
+    """True when this bill's ``settlement_state`` is already "paid" — a fully
+    settled statement shouldn't keep nagging the user. Sums
+    ``Transaction.amount`` for rows linked via ``settles_credit_payment_id``
+    directly in SQL (no full-row fetch) rather than loading every settling
+    transaction, mirroring the same computation ``credit_payments.py``'s
+    ``_serialize()`` does for the API response."""
+    paid_total = (
+        db.query(func.sum(Transaction.amount))
+        .filter(Transaction.settles_credit_payment_id == cp.id)
+        .scalar()
+    ) or 0.0
+    return settlement_state(cp, paid_total) == "paid"
+
+
 def run_due_date_check(db: Session) -> dict:
     """Daily job body: for each user, push a reminder for any recurring bill/
     subscription or credit-card statement whose due date lands exactly on
@@ -128,6 +146,9 @@ def run_due_date_check(db: Session) -> dict:
         for cp in cps:
             if _snooze_for(db, user.id, "credit", cp.id):
                 continue
+            if _cp_is_paid(db, cp):
+                # Already fully settled — no reminder needed.
+                continue
             title, body, url = build_credit_message(db, cp, user)
             send_to_user(db, user, title=title, body=body, url=url,
                          item_type="credit", item_id=cp.id)
@@ -154,7 +175,7 @@ def run_due_date_check(db: Session) -> dict:
                     CreditPayment.id == snooze.item_id,
                     CreditPayment.owner_id == user.id,
                 ).first()
-                if cp is not None:
+                if cp is not None and not _cp_is_paid(db, cp):
                     title, body, url = build_credit_message(db, cp, user)
                     send_to_user(db, user, title=title, body=body, url=url,
                                  item_type="credit", item_id=cp.id)

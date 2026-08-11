@@ -452,6 +452,15 @@
           <option value="" disabled>Account…</option>
           {accounts.map(a => <option key={a.id} value={a.id}>{accLabel(a)}</option>)}
         </StyledSelect>
+        <div className="imp-cell-settle">
+          {row.needsCard ? (
+            <StyledSelect id={'imp-row-' + idx + '-settle-select'} className="imp-cell imp-settle" value={row.settlesAccKey || ''}
+              onChange={(e) => update(idx, { settlesAccKey: e.target.value || null })}>
+              <option value="">Settles card…</option>
+              {accounts.filter(a => a.type === 'credit').map(a => <option key={a.id} value={a.id}>{accLabel(a)}</option>)}
+            </StyledSelect>
+          ) : <span className="imp-settle-na" title="Not a credit-card payment row">—</span>}
+        </div>
         <button id={'imp-row-' + idx + '-delete-btn'} className="imp-del" onClick={() => remove(idx)} title="Remove row"><Icon name="trash-2" size={13} /></button>
       </div>
     );
@@ -462,9 +471,16 @@
     const remove = (i) => setRows(prev => prev.filter((_, j) => j !== i));
     const incl = rows.filter(r => r.include);
     const allOn = incl.length === rows.length && rows.length > 0;
+    const needsCardCount = rows.filter(r => r.needsCard).length;
 
     return (
       <div className="imp-pane imp-review">
+        {needsCardCount > 0 && (
+          <div className="imp-nomatch-banner" id="imp-settle-banner">
+            <Icon name="credit-card" size={14} />
+            {needsCardCount} row{needsCardCount !== 1 ? 's' : ''} look{needsCardCount === 1 ? 's' : ''} like credit-card payments — choose which card each settles.
+          </div>
+        )}
         <div className="imp-rev-head">
           <button id="imp-bulk-select-btn" className="imp-bulk" onClick={() => setRows(prev => prev.map(r => ({ ...r, include: !allOn })))}>
             <Icon name={allOn ? 'check-square' : 'square'} size={14} />{allOn ? 'Deselect all' : 'Select all'}
@@ -473,7 +489,7 @@
         </div>
         <div className="imp-rev-table">
           <div className="imp-rev-thead">
-            <span></span><span>DATE</span><span>DESCRIPTION</span><span>CATEGORY</span><span className="ar">AMOUNT</span><span>RELATED ACCOUNT</span><span></span>
+            <span></span><span>DATE</span><span>DESCRIPTION</span><span>CATEGORY</span><span className="ar">AMOUNT</span><span>RELATED ACCOUNT</span><span>SETTLES CARD</span><span></span>
           </div>
           <div className="imp-rev-body">
             {rows.map((r, i) => <ReviewRow key={r.key} row={r} idx={i} update={update} remove={remove} accounts={accounts} />)}
@@ -970,16 +986,25 @@
         const detectedAccount = (doc.statementAccounts || []).find(a => a.source === r[5]);
         const accountType = (linkedAccount && linkedAccount.type) || (detectedAccount && detectedAccount.type) || null;
         const isBank = accountType === 'bank' || accountType === 'overdraft' || bankSources.has(r[5]);
+        const cat = r[6] || guessCategory(r[1], r[2] >= 0, etiket, isBank, accountType) || null;
         return {
           key: 'r' + i,
           include: true,
           date: r[0],
           desc: r[1],
-          cat: r[6] || guessCategory(r[1], r[2] >= 0, etiket, isBank, accountType) || null,
+          cat,
           amount: r[2],
           cur: r[3],
           balance: r[7],
           accId: rowAccId,
+          // Credit-card-payment rows have no client-side way to know which card
+          // they settle — the backend resolves it at confirm time (card digits in
+          // the description, else the household's single-card fallback). Flag
+          // them so the review table can offer an optional "Settles card…"
+          // picker; leaving it unset is fine, and a wrong/unpicked card stays
+          // correctable later from the transaction detail modal.
+          needsCard: cat === 'credit-card-payment',
+          settlesAccKey: null,
         };
       });
       setRows(built);
@@ -1101,7 +1126,10 @@
       setError(null);
       const incl = rows.filter(r => r.include);
 
-      // Persist the reviewed rows as real transactions.
+      // Persist the reviewed rows as real transactions. `settles_account_key`
+      // is the household's own account_key (e.g. "acc-12") — only set when the
+      // user picked a card in the "Settles card…" column; omitted otherwise, so
+      // the backend falls back to its own resolve_card_account() heuristic.
       const backendRows = incl.map(r => ({
         date: r.date,
         amount: Math.abs(r.amount),
@@ -1111,6 +1139,7 @@
         category_key: r.cat || null,
         payment_method: r.accId || null,
         payer: ownerOf(r.accId),
+        settles_account_key: r.settlesAccKey || null,
       }));
 
       setBusy(true);

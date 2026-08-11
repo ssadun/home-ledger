@@ -33,6 +33,8 @@
       amt: row.amount,
       paymentMethod: row.payment_method || '',
       creditPaymentId: row.credit_payment_id != null ? row.credit_payment_id : null,
+      settlesCreditPaymentId: row.settles_credit_payment_id != null ? row.settles_credit_payment_id : null,
+      settlesAccountKey: row.settles_account_key || null,
       tryV: row.amount_try != null ? row.amount_try : null,
       usdV: row.amount_usd != null ? row.amount_usd : null,
     };

@@ -105,6 +105,21 @@
 .cal-ev-go{color:var(--muted);flex-shrink:0;transition:color .15s}
 .cal-event-row:hover .cal-ev-go{color:var(--accent)}
 
+/* Settlement state pill — merged card-bill/recurring "Upcoming Due" event,
+   reconciled against a real settling transaction (Paid/Partly Paid/Below
+   Minimum/Unpaid). Reuses the .cal-ev-badge sizing, just with a filled tone. */
+.cal-ev-state{font-size:10px;font-weight:700;letter-spacing:.2px;padding:2px 7px;border-radius:var(--radius-pill);display:inline-flex;align-items:center;gap:3px}
+.cal-settle-badge{margin-top:2px}
+
+/* Detail modal — "Settled by" list of the transaction(s) that paid this bill */
+.cal-settled-by{display:flex;flex-direction:column;gap:6px}
+.cal-settled-list{display:flex;flex-direction:column;gap:4px}
+.cal-settled-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border);cursor:pointer;color:var(--muted);font:inherit;text-align:left;transition:var(--transition)}
+.cal-settled-row:hover{background:var(--bg4);color:var(--accent)}
+.cal-settled-date{font-size:10px;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+.cal-settled-desc{flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-settled-amt{font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;font-variant-numeric:tabular-nums}
+
 /* Empty state */
 .cal-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:40px 20px;color:var(--muted);text-align:center}
 .cal-empty .et{font-size:14px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:1px}
@@ -152,4 +167,8 @@
   .cal-ev-val{font-size:11px}
   .cal-ev-go{display:none}
   .cal-nav-btn{width:28px;height:28px}
+  .cal-ev-state{font-size:9px;padding:2px 6px}
+  .cal-settled-row{padding:7px 9px;gap:8px}
+  .cal-settled-desc,.cal-settled-amt{font-size:11px}
+  .cal-settled-date{font-size:9px}
 }

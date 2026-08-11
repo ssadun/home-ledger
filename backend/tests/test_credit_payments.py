@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.database import get_db
 from app.models import Account, Base, CreditPayment, Transaction, User
 from app.routers import credit_payments, transactions
+from app.routers.credit_payments import _relink_spendings
 from app.services.auth import get_current_user
 
 
@@ -124,7 +125,10 @@ def test_delete_credit_payment_deletes_linked_spendings(api):
 
     response = client.delete(f"/api/credit-payments/{cp1.id}")
 
-    assert response.status_code == 204
+    assert response.status_code == 200
+    body = response.json()
+    assert body["deleted_spendings"] == 1
+    assert body["unlinked_settlements"] == 0
     assert db.query(CreditPayment).filter(CreditPayment.id == cp1.id).first() is None
     assert db.query(Transaction).filter(Transaction.id == linked_id).first() is None
     assert db.query(Transaction).filter(Transaction.id == unrelated_owner_id).first() is not None
@@ -331,3 +335,192 @@ def test_import_can_archive_overlap_without_stealing_existing_spendings(api):
     db.expire_all()
     assert db.get(Transaction, old_id).credit_payment_id == existing.id
     assert db.get(Transaction, new_id).credit_payment_id == archived.json()["id"]
+
+
+def _bank_account(owner_id, key="acc-bank"):
+    return Account(
+        owner_id=owner_id,
+        account_key=key,
+        name="Garanti Hesap",
+        type="bank",
+        currency="TRY",
+    )
+
+
+def _settling_tx(owner_id, cp_id, account_key, amount, desc="KREDİ KARTI BORCU"):
+    """A real bank transaction that PAYS OFF a bill -- settles_credit_payment_id,
+    never credit_payment_id (the opposite relationship)."""
+    return Transaction(
+        owner_id=owner_id,
+        type="expense",
+        amount=amount,
+        currency="TRY",
+        amount_try=amount,
+        amount_usd=0,
+        description=desc,
+        date=date(2026, 8, 6),
+        payment_method=account_key,
+        category_key="credit-card-payment",
+        settles_credit_payment_id=cp_id,
+        settles_account_key="acc-card",
+    )
+
+
+# -- Group 4: settlement link protection on delete --------------------------------
+
+def test_delete_credit_payment_unlinks_settling_transaction_without_deleting_it(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    bank = _bank_account(user1.id)
+    db.add_all([card, bank])
+    db.commit()
+    db.refresh(card)
+
+    cp = _payment(user1.id, card)
+    db.add(cp)
+    db.commit()
+    db.refresh(cp)
+
+    settling = _settling_tx(user1.id, cp.id, bank.account_key, 1000)
+    db.add(settling)
+    db.commit()
+    settling_id = settling.id
+
+    response = client.delete(f"/api/credit-payments/{cp.id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["unlinked_settlements"] == 1
+
+    db.expire_all()
+    still_there = db.query(Transaction).filter(Transaction.id == settling_id).first()
+    assert still_there is not None
+    assert still_there.settles_credit_payment_id is None
+
+
+def test_delete_credit_payment_with_no_settling_transactions_reports_zero(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    cp = _payment(user1.id, card)
+    db.add(cp)
+    db.commit()
+    db.refresh(cp)
+
+    response = client.delete(f"/api/credit-payments/{cp.id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["unlinked_settlements"] == 0
+    assert db.query(CreditPayment).filter(CreditPayment.id == cp.id).first() is None
+
+
+def test_relink_spendings_does_not_touch_settles_credit_payment_id(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    bank = _bank_account(user1.id)
+    db.add_all([card, bank])
+    db.commit()
+    db.refresh(card)
+
+    cp = _payment(user1.id, card)
+    db.add(cp)
+    db.commit()
+    db.refresh(cp)
+
+    # An ordinary card spending in the statement window -- _relink_spendings()
+    # is expected to attach credit_payment_id to this one.
+    spending = _tx(user1.id, None, "coffee")
+    # A settling bank transaction that already carries settles_credit_payment_id
+    # -- must survive untouched by a relink call for the same card/account.
+    settling = _settling_tx(user1.id, cp.id, bank.account_key, 1000)
+    db.add_all([spending, settling])
+    db.commit()
+    spending_id = spending.id
+    settling_id = settling.id
+
+    _relink_spendings(db, cp)
+
+    db.expire_all()
+    reloaded_spending = db.query(Transaction).filter(Transaction.id == spending_id).first()
+    reloaded_settling = db.query(Transaction).filter(Transaction.id == settling_id).first()
+
+    assert reloaded_spending.credit_payment_id == cp.id
+    assert reloaded_settling.settles_credit_payment_id == cp.id
+    assert reloaded_settling.credit_payment_id is None
+
+
+# -- Group 4: CreditPaymentOut settlement fields -----------------------------------
+
+def test_serialize_reports_paid_state_for_fully_settling_transaction(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    bank = _bank_account(user1.id)
+    db.add_all([card, bank])
+    db.commit()
+    db.refresh(card)
+
+    cp = _payment(user1.id, card)  # total_amount=1000
+    db.add(cp)
+    db.commit()
+    db.refresh(cp)
+
+    settling = _settling_tx(user1.id, cp.id, bank.account_key, 1000)
+    db.add(settling)
+    db.commit()
+    db.refresh(settling)
+
+    response = client.get("/api/credit-payments/")
+    assert response.status_code == 200
+    row = next(r for r in response.json() if r["id"] == cp.id)
+    assert row["settlement_state"] == "paid"
+    assert row["paid_total"] == 1000
+    assert row["settled_tx_ids"] == [settling.id]
+
+
+def test_serialize_reports_partial_state_for_partially_settling_transaction(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    bank = _bank_account(user1.id)
+    db.add_all([card, bank])
+    db.commit()
+    db.refresh(card)
+
+    cp = _payment(user1.id, card)  # total_amount=1000, minimum_amount=100
+    db.add(cp)
+    db.commit()
+    db.refresh(cp)
+
+    settling = _settling_tx(user1.id, cp.id, bank.account_key, 400)
+    db.add(settling)
+    db.commit()
+    db.refresh(settling)
+
+    response = client.get("/api/credit-payments/")
+    assert response.status_code == 200
+    row = next(r for r in response.json() if r["id"] == cp.id)
+    assert row["settlement_state"] == "partial"
+    assert row["paid_total"] == 400
+    assert row["settled_tx_ids"] == [settling.id]
+
+
+def test_serialize_reports_unpaid_state_with_no_settling_transactions(api):
+    client, db, current, user1, user2 = api
+    card = _card(user1.id, "acc-card")
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+
+    cp = _payment(user1.id, card)
+    db.add(cp)
+    db.commit()
+    db.refresh(cp)
+
+    response = client.get("/api/credit-payments/")
+    assert response.status_code == 200
+    row = next(r for r in response.json() if r["id"] == cp.id)
+    assert row["settlement_state"] == "unpaid"
+    assert row["paid_total"] == 0
+    assert row["settled_tx_ids"] == []

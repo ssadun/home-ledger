@@ -12,6 +12,7 @@ from app.schemas import CreditPaymentCreate, CreditPaymentUpdate, CreditPaymentO
 from app.services.auth import get_current_user
 from app.services.ocr import save_upload
 from app.services.bank_import import parse_bank_file, import_transactions
+from app.services.settlement import backfill as backfill_settlements, settlement_state
 
 router = APIRouter(prefix="/api/credit-payments", tags=["credit-payments"])
 
@@ -87,7 +88,14 @@ def ensure_credit_payment_period_columns(db: Session) -> None:
 
 
 def _relink_spendings(db: Session, rec: CreditPayment) -> None:
-    """Recompute which spendings belong to this statement (card + cutover window)."""
+    """Recompute which spendings belong to this statement (card + cutover window).
+
+    Owns ``Transaction.credit_payment_id`` ONLY -- "spending ON this card" -- and
+    must never touch ``settles_credit_payment_id`` ("this row PAYS OFF a bill", the
+    opposite relationship). That column is owned by ``services/settlement.py``'s
+    resolver/backfill and the import-confirm path; conflating the two here would
+    corrupt real bank transactions every time a statement window is edited.
+    """
     # Detach any previously-linked rows so a changed window doesn't keep stale links.
     db.query(Transaction).filter(
         Transaction.owner_id == rec.owner_id,
@@ -168,6 +176,20 @@ def _serialize(db: Session, rec: CreditPayment) -> CreditPaymentOut:
         .filter(Transaction.credit_payment_id == rec.id)
         .count()
     )
+    # Settlement fields: which bank transaction(s) PAY OFF this bill (the opposite
+    # relationship from credit_payment_id/linked_count above -- see settlement.py's
+    # module docstring). Transaction.amount is stored as a positive magnitude (sign
+    # convention lives in `type`, not the amount itself -- see routers/transactions.py
+    # _apply_rates()), so summing it directly already yields a positive "paid" total,
+    # exactly what settlement_state() expects.
+    settling_txs = (
+        db.query(Transaction)
+        .filter(Transaction.settles_credit_payment_id == rec.id)
+        .all()
+    )
+    rec.paid_total = sum(tx.amount or 0.0 for tx in settling_txs)
+    rec.settlement_state = settlement_state(rec, rec.paid_total)
+    rec.settled_tx_ids = [tx.id for tx in settling_txs]
     return CreditPaymentOut.model_validate(rec)
 
 
@@ -216,6 +238,19 @@ def check_credit_payment_overlap(
         )
     ]
     return {"count": len(matches), "matches": matches}
+
+
+@router.post("/reconcile")
+def reconcile_credit_payments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-run the settlement resolver over this user's existing
+    credit-card-payment transactions. Re-runnable: rows already linked are left
+    untouched (see settlement.backfill's idempotency note); rows that stay
+    unresolved are simply retried the next time this is called. Returns a tally,
+    not the individual rows — {resolved, unresolved, already_resolved}."""
+    return backfill_settlements(db, current_user.id)
 
 
 @router.post("/", response_model=CreditPaymentOut, status_code=201)
@@ -287,15 +322,35 @@ def update_credit_payment(
     return _serialize(db, rec)
 
 
-@router.delete("/{cp_id}", status_code=204)
+@router.delete("/{cp_id}", status_code=200)
 def delete_credit_payment(cp_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rec = _get_owned(db, cp_id, current_user)
     # Card statement rows belong to the statement record. Deleting the Card
     # Payment removes those imported spendings instead of leaving orphaned rows.
-    db.query(Transaction).filter(
-        Transaction.owner_id == current_user.id,
-        Transaction.credit_payment_id == rec.id,
-    ).delete(synchronize_session=False)
+    deleted_spendings = (
+        db.query(Transaction)
+        .filter(
+            Transaction.owner_id == current_user.id,
+            Transaction.credit_payment_id == rec.id,
+        )
+        .delete(synchronize_session=False)
+    )
+    # Settling bank transactions are real movements out of a bank account, not
+    # card spendings -- they must survive the delete. Only the link is cleared,
+    # via settles_credit_payment_id (settlement.py's resolver output). We leave
+    # settles_account_key alone: it records which card account the transaction
+    # settles, independent of which specific bill matched it, so a re-run of
+    # POST /reconcile (backfill()) can immediately re-resolve it against another
+    # bill for the same card without having to re-derive the account from the
+    # description/digits again.
+    unlinked_settlements = (
+        db.query(Transaction)
+        .filter(
+            Transaction.owner_id == current_user.id,
+            Transaction.settles_credit_payment_id == rec.id,
+        )
+        .update({Transaction.settles_credit_payment_id: None}, synchronize_session=False)
+    )
     # Remove the stored statement file.
     if rec.statement_path:
         try:
@@ -304,6 +359,10 @@ def delete_credit_payment(cp_id: int, db: Session = Depends(get_db), current_use
             pass
     db.delete(rec)
     db.commit()
+    return {
+        "deleted_spendings": deleted_spendings,
+        "unlinked_settlements": unlinked_settlements,
+    }
 
 
 # ── Statement attachment ─────────────────────────────────────────────────────────

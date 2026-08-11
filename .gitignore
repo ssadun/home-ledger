@@ -58,4 +58,4 @@ test-results/
 frontend/shots
 
 # Playwright test artifacts (symlink to claude-playwright/test-results)
-.pw-artifacts
+.pw-artifacts/

@@ -163,6 +163,13 @@ def ensure_statement_mapping_aliases(db: Session) -> None:
         ("Market", ["Süpermarket"]),
         ("Eğlence / Hobi", ["Eğlence"]),
         ("Elektronik", ["Bilgisayar"]),
+        # Description-shape aliases for banks with no Etiket column (ON/Burgan, QNB,
+        # TEB…) whose card-payment line reads "K.Kartı Ödeme"/"KREDİ KARTI BORCU"/
+        # "KKBO" instead of Garanti's structured "Kart Ödemesi" tag. The category is
+        # scoped to the expense leg only in bank_import._normalize_row — the same
+        # text also appears on the incoming funding transfer, which must not be
+        # mislabeled as a card payment.
+        ("Kart Ödemesi", ["K.Kartı Ödeme", "KREDİ KARTI BORCU", "KKBO"]),
     ]
     rows = db.query(StatementMapping).filter(StatementMapping.lang == "tr").all()
     existing_keys = {

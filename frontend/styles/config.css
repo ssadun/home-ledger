@@ -47,6 +47,9 @@
 .cfg-act-btn.delete:hover{background:rgba(239,68,68,.12);border-color:var(--red)}
 .cfg-act-btn.history{color:var(--gold);border-color:rgba(251,191,36,.4)}
 .cfg-act-btn.history:hover{background:rgba(251,191,36,.1);border-color:var(--gold)}
+/* Categories → credit-card-payment row: deep-link to Statement Value Mapping */
+.cfg-act-btn.link{color:var(--sky);border-color:rgba(56,189,248,.4)}
+.cfg-act-btn.link:hover{background:rgba(56,189,248,.12);border-color:var(--sky)}
 /* History action relocated into the editor modal footer (Currencies) */
 .cfg-modal-foot-left{display:flex;gap:9px;margin-right:auto}
 .amb.history{color:var(--gold);border-color:rgba(251,191,36,.4)}

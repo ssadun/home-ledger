@@ -3,7 +3,7 @@ from datetime import date
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import extract, func
+from sqlalchemy import extract, func, text
 from app.database import get_db
 from app.models import Transaction, ExchangeRate, User
 from app.schemas import TransactionCreate, TransactionOut, TransactionUpdate
@@ -12,6 +12,29 @@ from app.services.ocr import save_upload, extract_text_from_image, parse_receipt
 from app.services.prepaid import apply_transaction as apply_prepaid, transaction_state as prepaid_transaction_state
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
+
+
+def ensure_transaction_settlement_columns(db: Session) -> None:
+    """Add the card-payment settlement link columns to an existing SQLite database.
+
+    settles_credit_payment_id / settles_account_key record that THIS bank
+    transaction pays off a CreditPayment — the opposite direction from
+    credit_payment_id ("spending ON this card"), which the CreditPayment delete
+    cascade bulk-deletes. Kept on separate columns so that cascade never touches
+    a real bank movement. Fresh databases get both via Base.metadata.create_all();
+    this idempotent migration backfills an existing one.
+    """
+    if db.bind.dialect.name != "sqlite":
+        return
+    cols = {row[1] for row in db.execute(text("PRAGMA table_info(transactions)")).fetchall()}
+    if "settles_credit_payment_id" not in cols:
+        db.execute(text("ALTER TABLE transactions ADD COLUMN settles_credit_payment_id INTEGER"))
+    if "settles_account_key" not in cols:
+        db.execute(text("ALTER TABLE transactions ADD COLUMN settles_account_key VARCHAR"))
+    db.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_tx_settles_cp ON transactions(settles_credit_payment_id)"
+    ))
+    db.commit()
 
 
 def _apply_rates(tx: Transaction, db: Session):

@@ -6,6 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.database import engine, SessionLocal
 from app.models import Base
 from app.routers import auth, transactions, rates, investments, bank_import, categories, budgets, recurring, accounts, members, currencies, credit_payments, statements, statement_mappings, institutions, local_holidays, push, assets, holdings, net_worth, ui_logs
+from app.routers.transactions import ensure_transaction_settlement_columns
 from app.services.notify import run_due_date_check
 from app.services.tcmb import refresh_currency_rates_from_previous_tcmb
 
@@ -38,6 +39,7 @@ try:
     accounts.ensure_account_bank_columns(_seed_db)
     members.ensure_member_color_column(_seed_db)
     credit_payments.ensure_credit_payment_period_columns(_seed_db)
+    ensure_transaction_settlement_columns(_seed_db)
     ensure_show_in_recurring_column(_seed_db)
     seed_default_categories(_seed_db)
     # Backfill categories added after the initial seed (idempotent on existing DBs).

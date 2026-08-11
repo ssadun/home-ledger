@@ -100,6 +100,7 @@
     const [detail, setDetail] = React.useState(null);       // record obj
     const [formModal, setFormModal] = React.useState(null);  // {mode, record}
     const [del, setDel] = React.useState(null);              // record to delete
+    const [reconciling, setReconciling] = React.useState(false);
     const [importWiz, setImportWiz] = React.useState(() => {
       const q = new URLSearchParams(window.location.search);
       return q.get('import') ? { preAccId: q.get('account') || null } : null;
@@ -290,6 +291,33 @@
         });
     }
 
+    // Re-runs the backend settlement resolver over existing card-payment
+    // transactions (idempotent — already-linked rows are left untouched) and
+    // surfaces the returned tally. Reloads the list afterward so any freshly
+    // resolved settlement_state/paid_total badges show up without a manual
+    // refresh, matching the reload-on-success convention the calendar bridges
+    // already use.
+    function handleReconcile() {
+      if (reconciling) return;
+      setReconciling(true);
+      window.HL_OP_NOTIFY.show('Reconciling card payments...', { type: 'pending' });
+      CP_API.reconcile()
+        .then(tally => {
+          const resolved = tally.resolved || 0;
+          const unresolved = tally.unresolved || 0;
+          const alreadyResolved = tally.already_resolved || 0;
+          const msg = `Reconciled: ${resolved} newly linked, ${alreadyResolved} already linked` +
+            (unresolved ? `, ${unresolved} unresolved.` : '.');
+          window.HL_OP_NOTIFY.show(msg, { type: 'success', timeout: 4200 });
+          setReconciling(false);
+          if (resolved > 0) reload();
+        })
+        .catch(err => {
+          setReconciling(false);
+          window.HL_OP_NOTIFY.show('Could not reconcile card payments: ' + err.message, { type: 'error', timeout: 4200 });
+        });
+    }
+
     return (
       <div className="app">
         <Sidebar active="credit-payments" />
@@ -303,6 +331,9 @@
                 </div>
               </div>
               <div className="head-actions cp-head-actions">
+                <button id="cp-reconcile-btn" className="action-modal-btn ok" disabled={reconciling} onClick={handleReconcile}>
+                  <Icon name="refresh-cw" size={14} />{reconciling ? 'Reconciling…' : 'Reconcile'}
+                </button>
                 <button id="cp-import-btn" className="action-modal-btn scan" onClick={() => setImportWiz({ preAccId: null })}><Icon name="file-down" size={14} />Import Statement</button>
               </div>
             </div>

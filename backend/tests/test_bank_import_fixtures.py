@@ -89,6 +89,7 @@ class TestGarantiCreditCard:
         acc = res["accounts"][0]
         assert acc["payment_due"] == "2026-02-05"
         assert acc["total"] == pytest.approx(178313.25)
+        assert acc["minimum"] == pytest.approx(71326.00)
         assert not acc.get("interim")
 
     def test_payment_line_is_income(self, res):

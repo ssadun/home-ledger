@@ -966,6 +966,24 @@
     );
   }
 
+  // Deep-link support: a query param matching one of a section's own select-type
+  // field keys pre-sets that facet filter on load (e.g. Categories → "Import
+  // Keywords" links to Statement Value Mapping.html?category_key=credit-card-payment).
+  // Read once — CfgSectionTable is remounted (key={view}) per section, so this only
+  // ever needs to seed the very first `facets` state.
+  function cfgDeepLinkFacets(section) {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const facets = {};
+      (section.fields || []).forEach(f => {
+        if (f.type === 'select' && q.has(f.key)) facets[f.key] = q.get(f.key);
+      });
+      return facets;
+    } catch (e) {
+      return {};
+    }
+  }
+
   // ── Detail section table — sortable, resizable, drag-reorderable; rows open the editor ──
   function CfgSectionTable({ section, items, onEdit, onAdd, onTcmb, onBatchDelete }) {
     const { useResizableColumns, ColResizer, FitColumnsButton, ResetOrderButton, ExportData } = window;
@@ -993,12 +1011,13 @@
     const searchCols = React.useMemo(
       () => section.columns.map(c => c.key).filter(k => !['password', 'icon', 'color'].includes(k)),
       [section]);
-    // CSV export columns: section's own columns minus sensitive/non-text ones.
+    // CSV export columns: section's own columns minus sensitive/non-text ones and
+    // the categories-only "Import Keywords" action cell, which has no real value.
     const exportCols = React.useMemo(
-      () => section.columns.filter(c => c.key !== 'password').map(c => ({ key: c.key, label: c.label })),
+      () => section.columns.filter(c => c.key !== 'password' && c.key !== 'importKeywords').map(c => ({ key: c.key, label: c.label })),
       [section]);
     const [search, setSearch] = React.useState('');
-    const [facets, setFacets] = React.useState({});
+    const [facets, setFacets] = React.useState(() => cfgDeepLinkFacets(section));
     const today = React.useMemo(() => new Date(todayYMD() + 'T00:00:00'), []);
     const [periodYear, setPeriodYear] = React.useState(today.getFullYear());
     const [page, setPage] = React.useState(1);
@@ -1359,24 +1378,56 @@
       });
       return meta;
     }, [sectionData.categories]);
+    // How many Statement Value Mapping rules currently point at the
+    // credit-card-payment category — feeds the "Import Keywords (n)" deep-link
+    // button injected into the categories table below. `statement-mappings-data.js`
+    // must be loaded on this page (Categories.html) for the useEffect above to
+    // populate sectionData['statement-mappings']; until it resolves this is just 0.
+    const creditCardPaymentMappingCount = React.useMemo(
+      () => (sectionData['statement-mappings'] || []).filter(m => m.category_key === 'credit-card-payment').length,
+      [sectionData['statement-mappings']]
+    );
     const section = React.useMemo(() => {
       const base = view ? SECTIONS.find(s => s.id === view) : null;
-      if (!base || base.id !== 'statement-mappings') return base;
-      return {
-        ...base,
-        columns: base.columns.map(c => c.key === 'category_key'
-          ? { ...c, render: v => {
-              const category = categoryMeta[v];
-              return category
-                ? <span className="cfg-category-cell"><Icon name={category.icon} size={14} color={category.color} /><span className="cfg-category-label">{category.label}</span></span>
-                : v;
-            } }
-          : c),
-        fields: base.fields.map(f => f.key === 'category_key'
-          ? { ...f, options: categoryOptions }
-          : f),
-      };
-    }, [view, categoryOptions, categoryMeta]);
+      if (!base) return base;
+      if (base.id === 'statement-mappings') {
+        return {
+          ...base,
+          columns: base.columns.map(c => c.key === 'category_key'
+            ? { ...c, render: v => {
+                const category = categoryMeta[v];
+                return category
+                  ? <span className="cfg-category-cell"><Icon name={category.icon} size={14} color={category.color} /><span className="cfg-category-label">{category.label}</span></span>
+                  : v;
+              } }
+            : c),
+          fields: base.fields.map(f => f.key === 'category_key'
+            ? { ...f, options: categoryOptions }
+            : f),
+        };
+      }
+      // Categories only: the credit-card-payment row gets a deep-link button to
+      // Statement Value Mapping, pre-filtered to its category_key. Scoped to this
+      // one row/section, so every other category row renders nothing in this cell.
+      if (base.id === 'categories') {
+        return {
+          ...base,
+          columns: [
+            ...base.columns,
+            {
+              key: 'importKeywords', label: 'Actions', size: 210, minSize: 170, maxSize: 260,
+              render: (v, row) => row.key !== 'credit-card-payment' ? null : (
+                <button type="button" id="cfg-import-keywords-btn" className="cfg-act-btn link"
+                  onClick={(e) => { e.stopPropagation(); window.location.href = 'Statement Value Mapping.html?category_key=credit-card-payment'; }}>
+                  <Icon name="file-symlink" size={13} />Import Keywords ({creditCardPaymentMappingCount})
+                </button>
+              ),
+            },
+          ],
+        };
+      }
+      return base;
+    }, [view, categoryOptions, categoryMeta, creditCardPaymentMappingCount]);
     const items = view ? (sectionData[view] || []) : [];
 
     function sectionLabel(fallback) {
