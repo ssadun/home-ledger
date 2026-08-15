@@ -41,6 +41,7 @@ try:
     credit_payments.ensure_credit_payment_period_columns(_seed_db)
     ensure_transaction_settlement_columns(_seed_db)
     ensure_show_in_recurring_column(_seed_db)
+    recurring.ensure_match_keyword_column(_seed_db)
     seed_default_categories(_seed_db)
     # Backfill categories added after the initial seed (idempotent on existing DBs).
     ensure_category(_seed_db, "credit-card-payment", "Credit Card Payment", "transfer", "credit-card", "var(--orange)")

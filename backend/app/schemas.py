@@ -483,6 +483,7 @@ class RecurringCreate(BaseModel):
     paying_for: Optional[str] = None
     payment_method: Optional[str] = None
     description: Optional[str] = None
+    match_keyword: Optional[str] = None
     last_paid: Optional[date] = None
     next_due: Optional[date] = None
     history: Optional[list] = None
@@ -504,6 +505,7 @@ class RecurringUpdate(BaseModel):
     paying_for: Optional[str] = None
     payment_method: Optional[str] = None
     description: Optional[str] = None
+    match_keyword: Optional[str] = None
     last_paid: Optional[date] = None
     next_due: Optional[date] = None
     history: Optional[list] = None

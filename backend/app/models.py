@@ -321,6 +321,14 @@ class RecurringExpense(Base):
     paying_for = Column(String)
     payment_method = Column(String)             # account id, e.g. "acc-13"
     description = Column(String)
+    # Optional description-substring override for the Dashboard calendar's
+    # recurring<->transaction matching heuristic. When set, a transaction whose
+    # description contains this word links to the bill regardless of which
+    # account it posts from -- the same "keyword beats account" design already
+    # used for credit-card settlement resolution (see services/settlement.py) --
+    # so a bill that changes paying account over time (alimony, support
+    # payments) doesn't silently fall out of the match.
+    match_keyword = Column(String)
     last_paid = Column(Date)
     next_due = Column(Date)
     history = Column(JSON, default=list)         # [{date, amount, status, note?}, ...]

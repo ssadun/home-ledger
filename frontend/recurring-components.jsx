@@ -324,6 +324,7 @@
       cur: initial.cur || 'TRY',
       amount: initial.amount != null ? String(initial.amount) : '',
       paymentMethod: initial.paymentMethod || '',
+      matchKeyword: initial.matchKeyword || '',
     });
     const [invalid, setInvalid] = React.useState({});
     const [formErr, setFormErr] = React.useState('');
@@ -348,6 +349,7 @@
         startDate: f.startDate, endDate: f.endDate || null,
         payer: f.payer, payingFor: f.payingFor, cur: f.cur, amount: amtNum,
         paymentMethod: f.paymentMethod,
+        matchKeyword: f.matchKeyword.trim(),
         tryAmount: tryV,
         usdAmount: +(amtNum * FX[f.cur].toUSD).toFixed(2),
       };
@@ -496,6 +498,15 @@
                       <option>TRY</option><option>USD</option><option>EUR</option>
                     </StyledSelect>
                   </div>
+                </div>
+              </div>
+
+              {/* Row 7: Match Keyword (optional) */}
+              <div className="form-grid">
+                <div className="form-field full">
+                  <span className="field-label">Match Keyword <span style={{ color: 'var(--muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
+                  <input id="rec-modal-match-keyword-input" className="field-input" placeholder="e.g. NAFAKASI" value={f.matchKeyword} onChange={e => set('matchKeyword', e.target.value)} />
+                  <span className="field-hint">If set, a transaction whose description contains this word links to this bill on the calendar regardless of which account it posts from — use this when the paying account might change (alimony, support payments, anything not always paid from the same place).</span>
                 </div>
               </div>
 

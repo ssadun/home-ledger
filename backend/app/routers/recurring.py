@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.database import get_db
 from app.models import RecurringExpense, User
 from app.schemas import RecurringCreate, RecurringUpdate, RecurringOut
@@ -8,6 +9,16 @@ from app.services.auth import get_current_user
 from app.services.recurring import refresh_next_due, roll_forward_due_dates
 
 router = APIRouter(prefix="/api/recurring", tags=["recurring"])
+
+
+def ensure_match_keyword_column(db: Session) -> None:
+    """Add the optional calendar-matching override to an existing SQLite database."""
+    if db.bind.dialect.name != "sqlite":
+        return
+    cols = {row[1] for row in db.execute(text("PRAGMA table_info(recurring_expenses)")).fetchall()}
+    if "match_keyword" not in cols:
+        db.execute(text("ALTER TABLE recurring_expenses ADD COLUMN match_keyword VARCHAR"))
+    db.commit()
 
 
 @router.get("/", response_model=List[RecurringOut])

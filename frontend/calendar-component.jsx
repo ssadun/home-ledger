@@ -22,6 +22,14 @@
     return fx && fx.toTRY != null ? +(amt * fx.toTRY).toFixed(2) : (amt || 0);
   }
 
+  // Turkish-safe case/diacritic fold, mirroring backend's _fold()/_TR_FOLD in
+  // bank_import.py, so a recurring item's matchKeyword matches a transaction
+  // description regardless of Turkish casing (İ/I/ı/i, ş/ğ/ü/ö/ç).
+  const TR_FOLD_MAP = { 'ı': 'i', 'İ': 'i', 'i': 'i', 'I': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c', 'â': 'a' };
+  function trFold(s) {
+    return String(s || '').split('').map(ch => TR_FOLD_MAP[ch] || ch).join('').toUpperCase();
+  }
+
   // Combined balance across every account (bank, credit, debit, cash, wallet,
   // investment) converted to TRY. Credit-card balances arrive negative
   // (negative balances), so the sum nets to the household's current total worth.
@@ -113,31 +121,69 @@
     // the recurring amount. Picks the single nearest-by-amount (then
     // nearest-by-date) candidate per item, and a tx already claimed by a
     // card bill (or an earlier recurring item) is never reused.
+    //
+    // A bill's paying account can change over time (e.g. alimony/support
+    // payments), which silently breaks the payment-method match above with
+    // no visible symptom until someone notices the calendar stopped
+    // merging. When rec.matchKeyword is set, matching switches to a
+    // description-substring search (Turkish-safe fold) instead, and does
+    // NOT require the same payment method or an amount within tolerance —
+    // the keyword alone is treated as a strong-enough signal for identity.
+    // It's still bound by the same ±3 day date window so a keyword doesn't
+    // reach across unrelated months. Primary rank is nearest-by-date; amount
+    // is used only as a tie-break between same-day keyword matches (see
+    // below), never to filter out a candidate, so the match stays resilient
+    // to the real amount drifting over time (e.g. a raised support payment).
     const recSettleTx = new Map(); // RecurringExpense id -> [settling tx]
     const settledTxIds = new Set();
     cardSettleTx.forEach(list => list.forEach(tx => settledTxIds.add(tx.id)));
     if (window.RECURRING_DATA) {
       window.RECURRING_DATA.RECURRING.forEach(rec => {
         if (rec.status !== 'active' || !rec.nextDue) return;
-        const recPm = resolvePM(rec.paymentMethod);
-        if (!recPm) return;
-        const recTryAmt = rec.tryAmount != null ? rec.tryAmount : toTRY(rec.amount, rec.cur);
+        const keyword = rec.matchKeyword ? trFold(rec.matchKeyword.trim()) : '';
         const dueMs = new Date(rec.nextDue).getTime();
-        const tolerance = Math.max(recTryAmt * 0.05, 2);
-        let best = null, bestDeltaAmt = Infinity, bestDeltaDate = Infinity;
-        TX.forEach(tx => {
-          if (settledTxIds.has(tx.id)) return;
-          const txPm = resolvePM(tx.paymentMethod);
-          if (!txPm || txPm.key !== recPm.key) return;
-          const deltaDate = Math.abs(new Date(tx.date).getTime() - dueMs) / 86400000;
-          if (deltaDate > 3) return;
-          const txTry = tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur);
-          const deltaAmt = Math.abs(txTry - recTryAmt);
-          if (deltaAmt > tolerance) return;
-          if (deltaAmt < bestDeltaAmt || (deltaAmt === bestDeltaAmt && deltaDate < bestDeltaDate)) {
-            best = tx; bestDeltaAmt = deltaAmt; bestDeltaDate = deltaDate;
-          }
-        });
+        let best = null;
+        if (keyword) {
+          // Real household data has same-day near-duplicates for a keyword
+          // (e.g. the support payment itself plus a same-day bank commission
+          // line "…NAFAKASI BEDELI-KOM" for a few TL) — nearest-by-date alone
+          // ties between them. Amount-closeness to the recurring item's own
+          // amount is used ONLY to break that tie, never to filter out a
+          // candidate (unlike the no-keyword branch's hard tolerance check),
+          // preserving resilience to the real amount drifting over time.
+          const recTryAmt = rec.tryAmount != null ? rec.tryAmount : toTRY(rec.amount, rec.cur);
+          let bestDeltaDate = Infinity, bestDeltaAmt = Infinity;
+          TX.forEach(tx => {
+            if (settledTxIds.has(tx.id)) return;
+            const deltaDate = Math.abs(new Date(tx.date).getTime() - dueMs) / 86400000;
+            if (deltaDate > 3) return;
+            if (!trFold(tx.desc).includes(keyword)) return;
+            const txTry = tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur);
+            const deltaAmt = Math.abs(txTry - recTryAmt);
+            if (deltaDate < bestDeltaDate || (deltaDate === bestDeltaDate && deltaAmt < bestDeltaAmt)) {
+              best = tx; bestDeltaDate = deltaDate; bestDeltaAmt = deltaAmt;
+            }
+          });
+        } else {
+          const recPm = resolvePM(rec.paymentMethod);
+          if (!recPm) return;
+          const recTryAmt = rec.tryAmount != null ? rec.tryAmount : toTRY(rec.amount, rec.cur);
+          const tolerance = Math.max(recTryAmt * 0.05, 2);
+          let bestDeltaAmt = Infinity, bestDeltaDate = Infinity;
+          TX.forEach(tx => {
+            if (settledTxIds.has(tx.id)) return;
+            const txPm = resolvePM(tx.paymentMethod);
+            if (!txPm || txPm.key !== recPm.key) return;
+            const deltaDate = Math.abs(new Date(tx.date).getTime() - dueMs) / 86400000;
+            if (deltaDate > 3) return;
+            const txTry = tx.tryV != null ? tx.tryV : toTRY(tx.amt, tx.cur);
+            const deltaAmt = Math.abs(txTry - recTryAmt);
+            if (deltaAmt > tolerance) return;
+            if (deltaAmt < bestDeltaAmt || (deltaAmt === bestDeltaAmt && deltaDate < bestDeltaDate)) {
+              best = tx; bestDeltaAmt = deltaAmt; bestDeltaDate = deltaDate;
+            }
+          });
+        }
         if (best) {
           recSettleTx.set(rec.id, [best]);
           settledTxIds.add(best.id);
