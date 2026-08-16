@@ -7,11 +7,36 @@
   const ImportWizard = window.ImportWizard;
   const CP_API = window.HL_CREDIT_PAYMENTS_API;
   const { CreditPaymentTable, CreditPaymentFormModal, CreditPaymentDetail, DeleteCreditPaymentConfirm, Pagination } = window;
+  const ExportData = window.ExportData;
+  const { useResizableColumns } = window;
+
+  // size = default width; minSize / maxSize = drag constraints (px), enforced by TanStack
+  const CP_COLS = [
+    { key: 'statement', label: 'Statement', size: 220, minSize: 150, maxSize: 420 },
+    { key: 'card', label: 'Card', size: 190, minSize: 140, maxSize: 360 },
+    { key: 'cutover', label: 'Cutover', size: 130, minSize: 96, maxSize: 240 },
+    { key: 'paymentDue', label: 'Payment Due', size: 140, minSize: 96, maxSize: 240 },
+    { key: 'total', label: 'Total', num: true, size: 130, minSize: 105, maxSize: 240 },
+    { key: 'minimum', label: 'Minimum', num: true, size: 130, minSize: 105, maxSize: 240 },
+    { key: 'spendings', label: 'Spendings', num: true, size: 110, minSize: 90, maxSize: 200 },
+  ];
+
+  // ── CSV export schema ──
+  const EXPORT_COLS = [
+    { key: 'name', label: 'Statement' },
+    { key: 'cardLabel', label: 'Card', get: r => r.cardLabel || r.accountKey || '' },
+    { key: 'cutoverDate', label: 'Cutover' },
+    { key: 'paymentDate', label: 'Payment Due' },
+    { key: 'cur', label: 'Currency' },
+    { key: 'total', label: 'Total' },
+    { key: 'minimum', label: 'Minimum' },
+    { key: 'linkedCount', label: 'Spendings' },
+  ];
 
   // ── Filter bar ────────────────────────────────────────────────────────────
   // Same structure/classes as Account Activity's bar, but the only period filter
   // is a Year stepper (no month) — statements are filtered by their statement year.
-  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards }) {
+  function CreditPaymentFilterBar({ year, onYearStep, cardFilter, setCardFilter, search, setSearch, cards, extra }) {
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
@@ -50,6 +75,7 @@
               <input id="cp-filter-search-input" className="search-input" placeholder="Statement or card…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
           </div>
+          {extra}
           <div className="filter-field ff-filters">
             <span className="filter-label"><Icon name="sliders-horizontal" size={11} />Filters</span>
             <div className="filters-anchor" ref={anchorRef}>
@@ -121,6 +147,14 @@
     React.useEffect(() => { try { localStorage.setItem('hl-rows-per-page', String(perPage)); } catch (e) {} }, [perPage]);
     function yearStep(d) { setYear(y => y + d); }
 
+    // ── column resizing (TanStack Table) — widths persist in localStorage ──
+    const rz = useResizableColumns({ columns: CP_COLS, storageKey: 'hl-credit-payments-colwidths' });
+    const [sort, setSort] = React.useState({ col: 'paymentDue', dir: 'desc' });
+    function toggleSort(col) {
+      if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
+      setSort(s => s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'desc' });
+    }
+
     // Rows after filtering; records without a statement year always pass the year check.
     const visible = React.useMemo(() => records.filter(r => {
       if (r.year != null && r.year !== year) return false;
@@ -133,12 +167,30 @@
       return true;
     }), [records, year, cardFilter, search]);
 
-    const total = visible.length;
+    // ── sort ──
+    const SORT_FIELD = { statement: 'name', card: 'cardLabel', cutover: 'cutoverDate', paymentDue: 'paymentDate', total: 'total', minimum: 'minimum', spendings: 'linkedCount' };
+    const sorted = React.useMemo(() => {
+      const arr = [...visible];
+      const { col, dir } = sort;
+      const field = SORT_FIELD[col] || col;
+      arr.sort((a, b) => {
+        let av = a[field], bv = b[field];
+        if (av == null) av = '';
+        if (bv == null) bv = '';
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = String(bv).toLowerCase(); }
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return arr;
+    }, [visible, sort]);
+
+    const total = sorted.length;
     const pages = Math.max(1, Math.ceil(total / perPage));
     const curPage = Math.min(page, pages);
     const start = (curPage - 1) * perPage;
     const end = Math.min(start + perPage, total);
-    const pageRows = visible.slice(start, end);
+    const pageRows = sorted.slice(start, end);
 
     // Filter and page-size changes restart pagination and clear page selections.
     React.useEffect(() => { setPage(1); setSelected(new Set()); }, [year, cardFilter, search, perPage]);
@@ -341,7 +393,15 @@
               year={year} onYearStep={yearStep}
               cardFilter={cardFilter} setCardFilter={setCardFilter}
               search={search} setSearch={setSearch}
-              cards={cards} />
+              cards={cards}
+              extra={<ExportData entity="credit-payments" entityLabel="Card Payments"
+                period={String(year)}
+                columns={EXPORT_COLS} rows={sorted} allRows={records} inline
+                tableTools={<React.Fragment>
+                  <window.ColumnVisibilityButton columns={rz.allColumns} hiddenColumns={rz.hiddenColumns} onChange={rz.setColumnVisible} />
+                  <window.FitColumnsButton onClick={rz.resetSizes} />
+                  <window.ResetOrderButton onClick={rz.resetOrder} disabled={rz.isDefaultOrder} />
+                </React.Fragment>} />} />
           </header>
 
           <div className="cp-body">
@@ -357,9 +417,13 @@
             )}
             <CreditPaymentTable
               records={pageRows}
+              columns={rz.orderedColumns}
+              tableRef={rz.tableRef}
+              colSizeVars={rz.colSizeVars}
+              headersById={rz.headersById}
+              getReorderProps={rz.getReorderProps}
+              sort={sort} onSort={toggleSort}
               onRowClick={setDetail}
-              onEdit={(r) => setFormModal({ mode: 'edit', record: r })}
-              onDelete={setDel}
               selectable selected={selected} onToggleSelect={toggleSelect}
               allSelected={allSelected} someSelected={someSelected} onToggleSelectAll={toggleSelectAll} />
             <Pagination page={curPage} pages={pages} total={total} start={start} end={end}

@@ -27,7 +27,6 @@
   white-space: nowrap;
 }
 .cp-table th.num, .cp-table td.num { text-align: right; }
-.cp-table th.cp-th-actions { text-align: right; }
 .cp-table tbody td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
@@ -52,9 +51,6 @@
   min-width: 26px; padding: 2px 8px; border-radius: var(--radius-pill, 999px);
   background: rgba(79, 142, 247, .12); color: var(--accent); font-weight: 600; font-size: 12px;
 }
-
-.cp-td-actions { text-align: right; white-space: nowrap; }
-.cp-td-actions .list-btn { margin-left: 6px; }
 
 /* ── Mass-delete checkbox column ─────────────────────────────────────────── */
 .cp-table th.cp-th-select,
@@ -189,8 +185,7 @@
   /* Folded into the detail modal */
   .cp-table td[data-label="Cutover"],
   .cp-table td[data-label="Minimum"],
-  .cp-table td[data-label="Spendings"],
-  .cp-table td.cp-td-actions { display: none; }
+  .cp-table td[data-label="Spendings"] { display: none; }
 
   .cp-table tbody tr.cp-row.row-selected { border-color: var(--accent); background: rgba(79, 142, 247, .08); }
   .cp-table tbody tr.cp-row.row-selected td { background: none; }

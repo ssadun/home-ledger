@@ -10,7 +10,17 @@
   const fmtDate = (s) => s || '–';
 
   // ── Records table ─────────────────────────────────────────────────────────
-  function CreditPaymentTable({ records, onRowClick, onEdit, onDelete, selectable, selected, onToggleSelect, allSelected, someSelected, onToggleSelectAll }) {
+  const CP_DEFAULT_COLS = [
+    { key: 'statement', label: 'STATEMENT' },
+    { key: 'card', label: 'CARD' },
+    { key: 'cutover', label: 'CUTOVER' },
+    { key: 'paymentDue', label: 'PAYMENT DUE' },
+    { key: 'total', label: 'TOTAL', num: true },
+    { key: 'minimum', label: 'MINIMUM', num: true },
+    { key: 'spendings', label: 'SPENDINGS', num: true },
+  ];
+
+  function CreditPaymentTable({ records, columns, tableRef, colSizeVars, headersById, getReorderProps, sort, onSort, onRowClick, selectable, selected, onToggleSelect, allSelected, someSelected, onToggleSelectAll }) {
     if (!records.length) {
       return (
         <div className="cp-empty" id="cp-empty-state">
@@ -20,9 +30,44 @@
         </div>
       );
     }
+    const cols = columns && columns.length ? columns : CP_DEFAULT_COLS;
+    const cells = {
+      statement: (r) => (
+        <td key="statement" data-label="Statement">
+          {/* .cp-name-t is the ellipsis target — an anonymous text node
+              inside the flex .cp-name cannot take text-overflow, and the
+              name has to truncate in the compact mobile card. */}
+          <span className="cp-name"><Icon name="file-text" size={14} /><span className="cp-name-t">{r.name || '–'}</span></span>
+        </td>
+      ),
+      card: (r) => (
+        <td key="card" data-label="Card">
+          {r.cardNamePart ? (
+            <span className="cp-card">
+              {r.cardInst && <span className="cp-card-inst">{r.cardInst}</span>}
+              {r.cardInst && <span className="cp-card-dot">·</span>}
+              <span className="cp-card-name">{r.cardNamePart}</span>
+            </span>
+          ) : (r.cardLabel || r.accountKey || '–')}
+        </td>
+      ),
+      cutover: (r) => <td key="cutover" data-label="Cutover">{fmtDate(r.cutoverDate)}</td>,
+      paymentDue: (r) => <td key="paymentDue" data-label="Payment Due"><span className="cp-due">{fmtDate(r.paymentDate)}</span></td>,
+      total: (r) => <td key="total" className="num" data-label="Total">{money(r.cur, r.total)}</td>,
+      minimum: (r) => <td key="minimum" className="num" data-label="Minimum">{money(r.cur, r.minimum)}</td>,
+      spendings: (r) => (
+        <td key="spendings" className="num" data-label="Spendings">
+          <span className="cp-chip">{r.linkedCount}</span>
+        </td>
+      ),
+    };
     return (
-      <div className="cp-table-wrap">
-        <table className="cp-table" id="cp-table">
+      <div className="cp-table-wrap table-scroll">
+        <table ref={tableRef} className="ledger-table cp-table resizable selectable zebra dens-compact" id="cp-table" style={colSizeVars}>
+          <colgroup>
+            {selectable && <col className="col-select" />}
+            {cols.map(c => <col key={c.key} style={{ width: 'var(--rz-' + c.key + ')' }} />)}
+          </colgroup>
           <thead>
             <tr>
               {selectable && (
@@ -32,14 +77,18 @@
                     onChange={onToggleSelectAll} aria-label="Select all credit payments" />
                 </th>
               )}
-              <th>STATEMENT</th>
-              <th>CARD</th>
-              <th>CUTOVER</th>
-              <th>PAYMENT DUE</th>
-              <th className="num">TOTAL</th>
-              <th className="num">MINIMUM</th>
-              <th className="num">SPENDINGS</th>
-              <th className="cp-th-actions">ACTIONS</th>
+              {cols.map(c => (
+                <th key={c.key} className={(c.num ? 'num ' : '') + (sort && sort.col === c.key ? 'sorted' : '')}
+                    title="Drag To Reorder · Click To Sort"
+                    {...(getReorderProps ? getReorderProps(c.key) : {})}
+                    onClick={() => onSort && onSort(c.key)}>
+                  <span className="th-inner">
+                    <span className="th-label">{c.label}</span>
+                    <span className="sort-arrow">{sort && sort.col === c.key ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}</span>
+                  </span>
+                  <window.ColResizer header={headersById && headersById[c.key]} />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -51,36 +100,7 @@
                       onChange={() => {}} aria-label="Select row" />
                   </td>
                 )}
-                <td data-label="Statement">
-                  {/* .cp-name-t is the ellipsis target — an anonymous text node
-                      inside the flex .cp-name cannot take text-overflow, and the
-                      name has to truncate in the compact mobile card. */}
-                  <span className="cp-name"><Icon name="file-text" size={14} /><span className="cp-name-t">{r.name || '–'}</span></span>
-                </td>
-                <td data-label="Card">
-                  {r.cardNamePart ? (
-                    <span className="cp-card">
-                      {r.cardInst && <span className="cp-card-inst">{r.cardInst}</span>}
-                      {r.cardInst && <span className="cp-card-dot">·</span>}
-                      <span className="cp-card-name">{r.cardNamePart}</span>
-                    </span>
-                  ) : (r.cardLabel || r.accountKey || '–')}
-                </td>
-                <td data-label="Cutover">{fmtDate(r.cutoverDate)}</td>
-                <td data-label="Payment Due"><span className="cp-due">{fmtDate(r.paymentDate)}</span></td>
-                <td className="num" data-label="Total">{money(r.cur, r.total)}</td>
-                <td className="num" data-label="Minimum">{money(r.cur, r.minimum)}</td>
-                <td className="num" data-label="Spendings">
-                  <span className="cp-chip">{r.linkedCount}</span>
-                </td>
-                <td className="cp-td-actions" onClick={(e) => e.stopPropagation()}>
-                  <button id={'cp-edit-' + r.id} className="list-btn blue" onClick={() => onEdit(r)}>
-                    <Icon name="pencil" size={12} />Edit
-                  </button>
-                  <button id={'cp-delete-' + r.id} className="list-btn red" onClick={() => onDelete(r)}>
-                    <Icon name="trash-2" size={12} />Delete
-                  </button>
-                </td>
+                {cols.map(c => cells[c.key] && cells[c.key](r))}
               </tr>
             ))}
           </tbody>
