@@ -506,7 +506,6 @@
                 <div className="form-field full">
                   <span className="field-label">Match Keyword <span style={{ color: 'var(--muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></span>
                   <input id="rec-modal-match-keyword-input" className="field-input" placeholder="e.g. NAFAKASI" value={f.matchKeyword} onChange={e => set('matchKeyword', e.target.value)} />
-                  <span className="field-hint">If set, a transaction whose description contains this word links to this bill on the calendar regardless of which account it posts from — use this when the paying account might change (alimony, support payments, anything not always paid from the same place).</span>
                 </div>
               </div>
 
