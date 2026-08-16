@@ -185,7 +185,7 @@
     if (!rec) return null;
     const c = CATS[rec.cat] || CATS.subscriptions;
     return (
-      <div className="backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="backdrop">
         <div className="modal rec-history-modal">
           <div className="modal-head">
             <div className="modal-head-l">
@@ -368,7 +368,7 @@
     dayOptions.push(-1); // last day
 
     return (
-      <div className="backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="backdrop">
         <div className="modal rec-modal">
           <div className="modal-head">
             <div className="modal-head-l">
