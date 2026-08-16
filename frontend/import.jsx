@@ -213,6 +213,23 @@
     };
   }
 
+  function addOneDay(iso) {
+    const d = new Date(iso + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Calendar-safe "one month earlier", day-clamped (e.g. 2026-03-31 → 2026-02-28) —
+  // mirrors the backend's own _minus_one_month() fallback in credit_payments.py.
+  function subtractOneMonth(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1, 1));
+    date.setUTCMonth(date.getUTCMonth() - 1);
+    const daysInMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    date.setUTCDate(Math.min(d, daysInMonth));
+    return date.toISOString().slice(0, 10);
+  }
+
   function closingBalanceForAccount(doc, rows, accKey, resolveSource) {
     const ident = (doc.statementAccounts || []).find(s => resolveSource(s.source) === accKey);
     if (ident && ident.balance != null) return Number(ident.balance);
@@ -1122,6 +1139,121 @@
       setStep('done');
     }
 
+    // Create (or backfill) Credit Payments for accounts whose rows from this file
+    // are present in the DB, whether just-inserted or already-existing duplicates —
+    // "Statement Already Exists" (all rows are duplicates of a prior import) must
+    // still let a not-yet-created Card Payment get created and claim those existing
+    // rows via the backend's _relink_spendings(), not just silently stop. Guards
+    // against creating a second Credit Payment for the same account+cutover on a
+    // repeated import attempt by checking the account's existing records first.
+    async function backfillCreditPayments(relevantAccountIds, incl, doc, accounts, resolveSource, pickedFile) {
+      const createdCP = [];
+      if (!window.HL_CREDIT_PAYMENTS_API) return createdCP;
+      let existingCPs = [];
+      try { existingCPs = await window.HL_CREDIT_PAYMENTS_API.list(); } catch (e) { /* best-effort */ }
+      const existingKey = (accId, cutover) => accId + '::' + cutover;
+      const existingSet = new Set(
+        existingCPs.filter(cp => cp.cutoverDate).map(cp => existingKey(cp.accountId, cp.cutoverDate)));
+
+      // Credit-card statement summary → create a dedicated Credit Payments record
+      // (with the uploaded extract attached) instead of a loose "Credit Card Payment"
+      // spending. The backend auto-links every imported purchase in the statement
+      // window to the record, so the extract is viewable on the Credit Payments page.
+      const stmts = (doc.statementAccounts || []).filter(
+        rec => rec.type === 'credit' && rec.payment_due && rec.total);
+      for (const rec of stmts) {
+        const cardId = resolveSource(rec.source);        // 'acc-N' account key
+        const acct = accounts.find(a => a.id === cardId);
+        if (!acct || !relevantAccountIds.has(cardId)) continue;
+        // Persist the statement's Last Payment Date on the card (unchanged behavior).
+        try {
+          await window.HL_ACCOUNTS_API.update(acct._dbId, { ...acct, paymentDue: rec.payment_due });
+        } catch (e) { /* non-fatal */ }
+        // "Dönemiçi İşlemler" (interim, in-period) dumps are not a billed statement —
+        // their total is a running period sum, not the final debt — so never create a
+        // Credit Payment record from them (the purchase rows are still imported above).
+        if (rec.interim) continue;
+        try {
+          // Cutover ≈ the statement's last transaction date for this card; the backend
+          // links purchases dated within (cutover − 1 month, cutover] to the record.
+          const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
+          const periodFrom = cardDates[0] || null;
+          const cutover = cardDates.length ? cardDates[cardDates.length - 1] : rec.payment_due;
+          if (existingSet.has(existingKey(acct._dbId, cutover))) continue;
+          const [cy, cm] = String(cutover || rec.payment_due).split('-');
+          const cp = await window.HL_CREDIT_PAYMENTS_API.create({
+            accountId: acct._dbId,
+            year: Number(cy),
+            month: Number(cm),
+            periodFrom,
+            periodTo: cutover,
+            cutoverDate: cutover,
+            paymentDate: rec.payment_due,
+            total: rec.total,
+            minimum: rec.minimum || rec.min_payment || 0,
+            cur: rec.currency || 'TRY',
+          }, { allowOverlap: true });
+          // Attach the uploaded statement to the record (stores the file; does not
+          // re-import rows). Skipped on the sample-document path where there is no file.
+          if (pickedFile) {
+            try { await window.HL_CREDIT_PAYMENTS_API.previewStatement(cp.id, pickedFile); }
+            catch (e) { /* attachment failed; the record + its links still stand */ }
+          }
+          createdCP.push(cp);
+          existingSet.add(existingKey(acct._dbId, cutover));
+        } catch (e) { /* non-fatal: purchases already imported, just no CP record */ }
+      }
+
+      // Multi-period future dumps (e.g. Garanti "Gelecek Dönem İşlemler") carry no
+      // single total/due date on the card identity above — instead each future
+      // statement cutoff is a separate entry in `future_periods`. Create one Credit
+      // Payment per period, chaining each period's window off the previous one's
+      // cutover (exact, since both come from the same file) so `_relink_spendings()`
+      // claims exactly the right purchases into each record. Non-fatal throughout:
+      // the purchase rows are already saved above regardless of what happens here.
+      const periodStmts = (doc.statementAccounts || []).filter(
+        rec => rec.type === 'credit' && Array.isArray(rec.future_periods) && rec.future_periods.length);
+      for (const rec of periodStmts) {
+        const cardId = resolveSource(rec.source);
+        const acct = accounts.find(a => a.id === cardId);
+        if (!acct || !relevantAccountIds.has(cardId)) continue;
+        let prevCutover = null;
+        for (const period of rec.future_periods) {
+          if (existingSet.has(existingKey(acct._dbId, period.cutover))) { prevCutover = period.cutover; continue; }
+          try {
+            const [py, pm] = period.cutover.split('-');
+            const cp = await window.HL_CREDIT_PAYMENTS_API.create({
+              accountId: acct._dbId,
+              year: Number(py),
+              month: Number(pm),
+              // First period: don't leave this null and rely on the backend's
+              // "most recent previous Credit Payment" fallback — if an earlier
+              // statement was never imported (a real gap), that fallback reaches
+              // past the gap and sweeps unrelated older spending into this period.
+              // A calendar-month-back estimate from this period's own cutover is
+              // always available and never over-reaches.
+              periodFrom: prevCutover ? addOneDay(prevCutover) : subtractOneMonth(period.cutover),
+              periodTo: period.cutover,
+              cutoverDate: period.cutover,
+              paymentDate: period.payment_due,
+              total: period.total,
+              minimum: 0,
+              cur: rec.currency || 'TRY',
+            }, { allowOverlap: true });
+            if (pickedFile) {
+              try { await window.HL_CREDIT_PAYMENTS_API.previewStatement(cp.id, pickedFile); }
+              catch (e) { /* attachment failed; the record + its links still stand */ }
+            }
+            createdCP.push(cp);
+            existingSet.add(existingKey(acct._dbId, period.cutover));
+          } catch (e) { /* non-fatal: purchases already imported, just no CP record for this period */ }
+          prevCutover = period.cutover;
+        }
+      }
+
+      return createdCP;
+    }
+
     async function commit() {
       setError(null);
       const incl = rows.filter(r => r.include);
@@ -1153,6 +1285,14 @@
       }
       if (!outcome.imported) {
         if (outcome.skipped === incl.length) {
+          // Every row already existed from a prior import — no NEW transactions, but
+          // this file's Card Payment(s) may still be missing (e.g. the first import
+          // ran before this format created them, or the account wasn't resolved yet).
+          // Backfill using every reviewed row's account, since "already imported" is
+          // exactly the case where relying on freshly-inserted rows finds nothing.
+          const allAccountIds = new Set(incl.map(r => r.accId));
+          try { await backfillCreditPayments(allAccountIds, incl, doc, accounts, resolveSource, pickedFile); }
+          catch (e) { /* non-fatal: the duplicate-transactions warning below still shows */ }
           setDuplicateWarning({ allTransactionsExist: true, skipped: outcome.skipped });
         } else {
           setError((outcome.errors || []).join(' ') || 'No transactions could be imported.');
@@ -1169,53 +1309,10 @@
 
       // Credit-card statement summary → create a dedicated Credit Payments record
       // (with the uploaded extract attached) instead of a loose "Credit Card Payment"
-      // spending. The backend auto-links every imported purchase in the statement
-      // window to the record, so the extract is viewable on the Credit Payments page.
-      // Non-fatal: the purchase rows are already saved above.
-      const createdCP = [];
-      const stmts = (doc.statementAccounts || []).filter(
-        rec => rec.type === 'credit' && rec.payment_due && rec.total);
-      for (const rec of stmts) {
-        const cardId = resolveSource(rec.source);        // 'acc-N' account key
-        const acct = accounts.find(a => a.id === cardId);
-        if (!acct || !importedAccountIds.has(cardId)) continue;
-        // Persist the statement's Last Payment Date on the card (unchanged behavior).
-        try {
-          await window.HL_ACCOUNTS_API.update(acct._dbId, { ...acct, paymentDue: rec.payment_due });
-        } catch (e) { /* non-fatal */ }
-        // "Dönemiçi İşlemler" (interim, in-period) dumps are not a billed statement —
-        // their total is a running period sum, not the final debt — so never create a
-        // Credit Payment record from them (the purchase rows are still imported above).
-        if (rec.interim) continue;
-        if (!window.HL_CREDIT_PAYMENTS_API) continue;
-        try {
-          // Cutover ≈ the statement's last transaction date for this card; the backend
-          // links purchases dated within (cutover − 1 month, cutover] to the record.
-          const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
-          const periodFrom = cardDates[0] || null;
-          const cutover = cardDates.length ? cardDates[cardDates.length - 1] : rec.payment_due;
-          const [cy, cm] = String(cutover || rec.payment_due).split('-');
-          const cp = await window.HL_CREDIT_PAYMENTS_API.create({
-            accountId: acct._dbId,
-            year: Number(cy),
-            month: Number(cm),
-            periodFrom,
-            periodTo: cutover,
-            cutoverDate: cutover,
-            paymentDate: rec.payment_due,
-            total: rec.total,
-            minimum: rec.minimum || rec.min_payment || 0,
-            cur: rec.currency || 'TRY',
-          }, { allowOverlap: true });
-          // Attach the uploaded statement to the record (stores the file; does not
-          // re-import rows). Skipped on the sample-document path where there is no file.
-          if (pickedFile) {
-            try { await window.HL_CREDIT_PAYMENTS_API.previewStatement(cp.id, pickedFile); }
-            catch (e) { /* attachment failed; the record + its links still stand */ }
-          }
-          createdCP.push(cp);
-        } catch (e) { /* non-fatal: purchases already imported, just no CP record */ }
-      }
+      // spending, plus one record per period for multi-period future dumps. See
+      // backfillCreditPayments() above — shared with the all-duplicate-transactions
+      // early return, so a re-import can still create/backfill these.
+      const createdCP = await backfillCreditPayments(importedAccountIds, incl, doc, accounts, resolveSource, pickedFile);
 
       // Non-credit account statements are archived as Statement records with the
       // uploaded file attached — the account twin of the Credit Payment above. Credit

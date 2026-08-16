@@ -25,6 +25,7 @@ GARANTI_CC_MONTHS = {
 }
 GARANTI_DONEMICI = "26.07-Donemici Islemler - TL.pdf"
 GARANTI_DONEMICI_BONUS = "garanti-bonus-Donemici Islemler - TL.pdf"
+GARANTI_GELECEK_DONEM = "26.09 - Gelecek Donem Islemler - TL.pdf"
 ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
 ON_BURGAN_FULL = "ON TL Hesap Hareketleri.pdf"
 MIDAS = "Midas_Ekstre_Mayıs_2026.pdf"
@@ -166,6 +167,101 @@ def test_all_bonus_interim_totals_remain_golden(parse_sample, filename, rows, in
     assert result["total_rows"] == rows
     assert result["income_total"] == pytest.approx(income)
     assert result["expense_total"] == pytest.approx(expense)
+
+
+# --------------------------------------------------------------------------
+# Garanti "Gelecek Dönem İşlemler" (future-period, not-yet-billed installments)
+# — _parse_garanti_gelecek_donem_pdf
+# --------------------------------------------------------------------------
+
+class TestGarantiGelecekDonem:
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def res(parse_sample):
+        return parse_sample(GARANTI_GELECEK_DONEM)
+
+    def test_totals(self, res):
+        assert res["bank_detected"] == "garanti (gelecek dönem işlemler PDF)"
+        assert res["total_rows"] == 5
+        assert res["income_total"] == pytest.approx(0.0)
+        assert res["expense_total"] == pytest.approx(41974.47)
+
+    def test_card_identity_is_interim_with_no_billed_totals(self, res):
+        """Spans multiple future cutoffs, so there is no single billed total/due date."""
+        assert len(res["accounts"]) == 1
+        acc = res["accounts"][0]
+        assert acc["type"] == "credit"
+        assert acc["number"] == "4870 **** **** 1011"
+        assert acc["holder"] == "SADUN SEVİNGEN"
+        assert acc["currency"] == "TRY"
+        assert acc["institution"] == "garanti"
+        assert acc["payment_due"] is None
+        assert acc["total"] is None
+        assert acc.get("interim") is True
+
+    def test_installment_rows_carry_etiket_and_category(self, res):
+        row = find_row(res["rows"], "ARÇELİK PAZA")
+        assert row["date"] == "2026-08-27"
+        assert row["amount"] == pytest.approx(2222.22)
+        assert row["type"] == "expense"
+        assert row["etiket"] == "Elektronik"
+        assert row["category_key"] == "shopping"
+
+    def test_reparsing_yields_identical_rows(self, parse_sample):
+        """A not-yet-billed installment can print again in next month's future dump —
+        import-time dedup keys on (date, amount, type, currency, description, account),
+        independent of which statement produced the row. That only works if re-parsing
+        the same source produces byte-identical rows, which this locks in."""
+        first = parse_sample(GARANTI_GELECEK_DONEM)
+        second = parse_sample(GARANTI_GELECEK_DONEM)
+        assert first["rows"] == second["rows"]
+
+    def test_zero_future_installments_returns_identity_not_fabricated_rows(self, monkeypatch):
+        """A card with nothing rolling into a future period is routine, not an error —
+        the transaction table is legitimately empty. Without an explicit identity
+        early-return, an empty `rows` falls through parse_bank_file's `if not rows`
+        chain into the generic table parser, which would misread the "Gelecek Dönem
+        Özet Borç Bilgileri" summary table (its own HESAP KESİM TARİHİ / SON ÖDEME
+        TARİHİ / TL / USD / EUR columns) as fabricated transaction rows."""
+        from app.services import bank_import
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / "import" / GARANTI_GELECEK_DONEM
+        if not path.exists():
+            pytest.skip(f"sample statement missing: {path}")
+        content = path.read_bytes()
+
+        real_parser = bank_import._parse_garanti_gelecek_donem_pdf
+        def empty_parser(content, text):
+            _, accounts = real_parser(content, text)
+            return [], accounts
+        monkeypatch.setattr(bank_import, "_parse_garanti_gelecek_donem_pdf", empty_parser)
+
+        result = bank_import.parse_bank_file(content, GARANTI_GELECEK_DONEM)
+        assert result["kind"] == "identity"
+        assert result["total_rows"] == 0
+        assert result["rows"] == []
+        assert result["has_movements"] is False
+        assert len(result["accounts"]) == 1
+        assert result["bank_detected"] == "garanti (gelecek dönem işlemler PDF)"
+
+    def test_detector_priority_over_cc_ekstre_signature(self, res):
+        """The future-dump's own summary table prints 'HESAP KESİM TARİHİ ... SON
+        ÖDEME TARİHİ', the same phrase _is_garanti_cc_pdf's signature looks for.
+        This format must still win — it is checked before the free-text cc-ekstre
+        parser precisely so a Turkish-casing accident isn't load-bearing."""
+        assert res["bank_detected"] == "garanti (gelecek dönem işlemler PDF)"
+        assert res["total_rows"] == 5
+
+    def test_future_periods_summary_table(self, res):
+        """The 'Gelecek Dönem Özet Borç Bilgileri' table prints one row per future
+        statement cutoff; the second row's cutover cell is dropped by pdfplumber
+        (a known quirk of this file) and must be derived, not left blank."""
+        acc = res["accounts"][0]
+        assert acc["future_periods"] == [
+            {"cutover": "2026-09-26", "payment_due": "2026-10-06", "total": pytest.approx(33474.76)},
+            {"cutover": "2026-10-25", "payment_due": "2026-11-04", "total": pytest.approx(8499.71)},
+        ]
 
 
 # --------------------------------------------------------------------------

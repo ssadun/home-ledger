@@ -24,8 +24,9 @@ Her parser normalize edilmiş şu formata çıktı üretir:
 import io
 import csv
 import re
+import calendar
 import unicodedata
-from datetime import datetime
+from datetime import datetime, date as date_cls, timedelta
 from html.parser import HTMLParser
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -83,6 +84,19 @@ def _parse_turkish_date(value: str) -> Optional[str]:
             except ValueError:
                 return None
     return None
+
+
+def _shift_iso_month(iso: str, months: int) -> str:
+    """Shift an ISO 'YYYY-MM-DD' string by whole calendar months, clamping the day
+    (e.g. 2026-01-31 shifted +1 → 2026-02-28). Used to derive a missing statement
+    cutover from a neighboring one — cutovers land ~1 month apart, and months have
+    different lengths so a fixed day-delta would drift."""
+    year, month, day = (int(p) for p in iso.split("-"))
+    total = month - 1 + months
+    year += total // 12
+    month = total % 12 + 1
+    day = min(day, calendar.monthrange(year, month)[1])
+    return f"{year:04d}-{month:02d}-{day:02d}"
 
 
 def _parse_amount(value) -> Optional[float]:
@@ -931,6 +945,170 @@ def _parse_garanti_donemici_pdf(content: bytes, text: str) -> tuple[list[dict], 
             # yürüyen toplamıdır, kesin borç değil. Bu yüzden frontend bundan
             # Credit Payment kaydı ÜRETMEZ (bkz. import.jsx CP-oluşturma döngüsü).
             "interim": True,
+        })
+    return rows, accounts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Garanti BBVA "Gelecek Dönem İşlemler" (henüz faturalanmamış taksitler — PDF)
+# ─────────────────────────────────────────────────────────────────────────────
+# Dönemiçi'nin ileriye dönük eşdeğeri: kartta devam eden taksitlerin, GELECEK
+# (bir veya daha fazla) dönemde faturalanacak parçalarını listeler. Birden çok
+# gelecek dönemin özet borcunu ("Gelecek Dönem Özet Borç Bilgileri" tablosu)
+# içerebildiğinden tek bir "dönem borcu/kesim/ödeme" özeti anlamlı değildir —
+# bu yüzden dönemiçi'nin aksine payment_due/total ÇIKARILMAZ. Satır tablosu
+# birebir aynı şekildedir: Tarih | İşlem | Etiket | Bonus | Tutar (TL).
+# Kesin bir ekstre değildir (bkz. yukarıdaki dönemiçi notu) → "interim": True,
+# Credit Payment ÜRETMEZ. Aynı taksit satırı (tarih+açıklama+tutar aynı) ileride
+# gerçek ekstre veya bir sonraki ay tekrar gelecek-dönem dökümünde çıksa da,
+# transaction dedup'ı (import_transactions → transaction_key) dönemden bağımsız
+# olduğu için otomatik olarak tekilleştirilir; ekstra kod gerekmez.
+_GELECEK_DONEM_CUR_RE = re.compile(r"Gelecek\s+D[öo]nem\s+[İIi]şlemler\s*-\s*([A-Za-z]{2,3})")
+
+
+def _is_garanti_gelecek_donem_pdf(text: str) -> bool:
+    """Garanti 'Gelecek Dönem İşlemler' dökümü mü? (diakritikten bağımsız)."""
+    return "GELECEK DONEM ISLEMLER" in _fold(text)
+
+
+def _parse_garanti_gelecek_donem_pdf(content: bytes, text: str) -> tuple[list[dict], list[dict]]:
+    """Garanti 'Gelecek Dönem İşlemler' PDF'ini işlem satırları + kart kimliğine çevirir.
+
+    Tablo yapısı dönemiçi ile birebir aynıdır (bkz. yukarıdaki not); tek fark
+    kart kimliğine payment_due/total eklenmemesidir (birden çok gelecek dönem
+    olabildiğinden tek bir özet anlamlı değildir).
+    """
+    rows: list[dict] = []
+
+    card = None
+    m = _DONEMICI_CARD_RE.search(text)
+    if m:
+        card = re.sub(r"\s+", " ", m.group(1)).strip()
+    holder = None
+    mh = _DONEMICI_HOLDER_RE.search(text)
+    if mh:
+        holder = " ".join(mh.group(1).split())
+
+    mcur = _GELECEK_DONEM_CUR_RE.search(text)
+    currency = _detect_currency(mcur.group(1)) if mcur else "TRY"
+
+    try:
+        import pdfplumber
+    except ImportError:
+        return rows, []
+
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                if not table:
+                    continue
+                header_idx = None
+                amount_i = None
+                for i, r in enumerate(table):
+                    folded = [_fold(str(c or "")) for c in r]
+                    joined = " ".join(folded)
+                    if "TARIH" in joined and "TUTAR" in joined:
+                        header_idx = i
+                        for k, c in enumerate(folded):
+                            if "TUTAR" in c:
+                                amount_i = k
+                        break
+                if header_idx is None or amount_i is None:
+                    continue
+                for r in table[header_idx + 1:]:
+                    cells = [str(c or "").strip() for c in r]
+                    if not cells:
+                        continue
+                    date = _parse_turkish_date(cells[0])
+                    if not date:
+                        continue
+                    amount = _parse_amount(cells[amount_i]) if amount_i < len(cells) else None
+                    if not amount:            # Tutar boş → bonus-only satır, TL harcaması yok
+                        continue
+                    desc = " ".join(cells[1].split()) if len(cells) > 1 else ""
+                    etiket = " ".join(cells[2].split()) if len(cells) > 2 else ""
+                    etiket = re.sub(r"\s*/\s*", " / ", etiket)
+                    rows.append(_normalize_row(
+                        date, desc, amount, currency=currency, etiket=etiket, source=card,
+                        account_type="credit",
+                    ))
+
+        # "Gelecek Dönem Özet Borç Bilgileri" — prints one row per future statement
+        # cutoff (a card's ongoing installments can roll into more than one future
+        # ekstre). Kept as nested data on the single card identity below rather than
+        # one identity record per period, so the import wizard still asks the user
+        # to map this card exactly once (see DetectStep/IdentityStep in import.jsx,
+        # which key their confirmation rows on distinct `source`).
+        future_periods: list[dict] = []
+        for page in pdf.pages:
+            for table in page.extract_tables():
+                if not table:
+                    continue
+                summary_header_idx = None
+                for i, r in enumerate(table):
+                    joined = " ".join(_fold(str(c or "")) for c in r)
+                    if "HESAP KESIM TARIHI" in joined and "SON ODEME TARIHI" in joined:
+                        summary_header_idx = i
+                        break
+                if summary_header_idx is None:
+                    continue
+                for r in table[summary_header_idx + 1:]:
+                    cells = [str(c or "").strip() for c in r]
+                    if len(cells) < 2:
+                        continue
+                    payment_due = _parse_turkish_date(cells[1])
+                    total = _parse_amount(cells[2]) if len(cells) > 2 else None
+                    if not payment_due and not total:
+                        continue
+                    cutover = _parse_turkish_date(cells[0]) if cells[0] else None
+                    future_periods.append({
+                        "cutover": cutover, "payment_due": payment_due, "total": total,
+                    })
+
+        # pdfplumber sometimes drops the first cell on a continuation row (the sample
+        # file's second period prints no HESAP KESİM TARİHİ), so a missing cutover
+        # must be derived rather than left blank. Statement cutovers on this card do
+        # not always land exactly one calendar month apart (26.09.2026 → 25.10.2026,
+        # not 26.10.2026), so a flat month-shift from a neighboring period's cutover
+        # can land on the wrong day. The gap between a period's OWN cutover and its
+        # own payment_due is a fixed billing policy and reproduces the exact real
+        # cutover; fall back to a calendar-month shift off a neighbor only if no row
+        # has both dates to compute that gap from (defensive — every real statement
+        # seen so far has at least one full row).
+        known_gap = next(
+            (
+                (date_cls.fromisoformat(p["payment_due"]) - date_cls.fromisoformat(p["cutover"])).days
+                for p in future_periods
+                if p["cutover"] and p["payment_due"]
+            ),
+            None,
+        )
+        for idx, period in enumerate(future_periods):
+            if period["cutover"]:
+                continue
+            if known_gap is not None and period["payment_due"]:
+                due = date_cls.fromisoformat(period["payment_due"])
+                period["cutover"] = (due - timedelta(days=known_gap)).isoformat()
+                continue
+            nxt = next((p["cutover"] for p in future_periods[idx + 1:] if p["cutover"]), None)
+            if nxt:
+                period["cutover"] = _shift_iso_month(nxt, -1)
+                continue
+            prev = next((p["cutover"] for p in reversed(future_periods[:idx]) if p["cutover"]), None)
+            if prev:
+                period["cutover"] = _shift_iso_month(prev, 1)
+        future_periods = [p for p in future_periods if p["cutover"]]
+        future_periods.sort(key=lambda p: p["cutover"])
+
+    accounts: list[dict] = []
+    if card:
+        accounts.append({
+            "source": card, "type": "credit", "number": card, "card_number": card,
+            "iban": None, "branch": None, "holder": holder,
+            "currency": currency, "institution": "garanti",
+            "payment_due": None, "total": None,
+            "interim": True,
+            "future_periods": future_periods,
         })
     return rows, accounts
 
@@ -2367,7 +2545,36 @@ def parse_bank_file(content: bytes, filename: str, bank_hint: str = "auto", db=N
                 "has_movements": moved,
                 "errors": notes,
             }
-        if text and _is_garanti_cc_pdf(text):
+        # Gelecek Dönem İşlemler → BES/TEB gibi kart/hesap çözümleyicilerinden
+        # (özellikle _is_garanti_cc_pdf) ÖNCE kontrol edilir: özet tablosu
+        # "HESAP KESİM TARİHİ ... SON ÖDEME TARİHİ" ifadesini basar ve
+        # _is_garanti_cc_pdf'in imzasıyla örtüşebilir — bugün örtüşmemesi
+        # yalnızca Python'ın Türkçe-duyarsız str.lower()'ının "İ"yi noktalı
+        # ayrı bir karaktere çevirmesi gibi kırılgan bir tesadüfe dayanıyor,
+        # bu yüzden sıralama BES/TEB'deki gibi kasıtlı yapılır, tesadüfe
+        # bırakılmaz. Ayrıca bir kartın gelecek dönemde devam eden taksidi
+        # yoksa işlem tablosu boş olabilir (rutin bir durum) — bu durum
+        # "if not rows" zincirine bırakılırsa jenerik tablo ayrıştırıcısı
+        # özet borç tablosunu sahte işlem satırlarına çevirir; TEB gibi satır
+        # yoksa kendi dalında erken döner.
+        if text and _is_garanti_gelecek_donem_pdf(text):
+            rows, accounts = _parse_garanti_gelecek_donem_pdf(content, text)
+            if not rows:
+                _normalize_account_identity(accounts)
+                return {
+                    "kind": "identity",
+                    "bank_detected": "garanti (gelecek dönem işlemler PDF)",
+                    "total_rows": 0,
+                    "income_total": 0.0,
+                    "expense_total": 0.0,
+                    "date_range": {"from": None, "to": None},
+                    "rows": [],
+                    "accounts": accounts,
+                    "has_movements": False,
+                    "errors": [] if accounts else ["Gelecek dönem işlem bilgisi okunamadı."],
+                }
+            bank_detected = "garanti (gelecek dönem işlemler PDF)"
+        if not rows and text and _is_garanti_cc_pdf(text):
             rows, accounts = _parse_garanti_cc_pdf(text)
             bank_detected = "garanti (kredi kartı PDF)"
         if not rows and text and _is_garanti_donemici_pdf(text):
