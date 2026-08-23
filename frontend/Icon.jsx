@@ -69,6 +69,7 @@
     const btnRef = React.useRef(null);
     const menuRef = React.useRef(null);              // the portaled dropdown
     const searchRef = React.useRef(null);
+    const searchFocusedRef = React.useRef(false);
 
     // Flatten <option>/<optgroup> children into a positional item list.
     const items = [];
@@ -136,6 +137,12 @@
         const t = e && e.target;
         if (t instanceof Node && menuRef.current &&
             (menuRef.current === t || menuRef.current.contains(t))) return;
+        // Mobile virtual keyboards resize the viewport (window fires 'resize'
+        // with target===window, so it can't be caught by the Node check above)
+        // — closing the menu here would yank focus off the search input and
+        // dismiss the keyboard the instant it opens. Only treat it as a real
+        // "shift that requires repositioning" while the search box isn't focused.
+        if (e && e.type === 'resize' && searchFocusedRef.current) return;
         setOpen(false);
       };
       document.addEventListener('mousedown', onDoc);
@@ -207,6 +214,8 @@
                 <input ref={searchRef} className="ss-search-input" value={query}
                   placeholder={searchPlaceholder || 'Search...'}
                   onChange={e => setQuery(e.target.value)}
+                  onFocus={() => { searchFocusedRef.current = true; }}
+                  onBlur={() => { searchFocusedRef.current = false; }}
                   onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }} />
               </div>
             )}
