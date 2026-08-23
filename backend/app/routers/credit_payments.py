@@ -13,6 +13,7 @@ from app.services.auth import get_current_user
 from app.services.ocr import save_upload
 from app.services.bank_import import parse_bank_file, import_transactions
 from app.services.settlement import backfill as backfill_settlements, settlement_state
+from app.services.statement_naming import compute_statement_name
 
 router = APIRouter(prefix="/api/credit-payments", tags=["credit-payments"])
 
@@ -41,16 +42,6 @@ def _card_refs(rec: CreditPayment) -> list[str]:
     if rec.account_key:
         refs.append(rec.account_key)
     return refs
-
-
-def _compute_name(db: Session, rec: CreditPayment) -> str:
-    card = None
-    if rec.account_id is not None:
-        card = db.query(Account).filter(Account.id == rec.account_id).first()
-    label = (card.card_name or card.name) if card else "Card"
-    yy = rec.period_year or 0
-    mm = rec.period_month or 0
-    return f"{yy:04d}.{mm:02d} - {label}"
 
 
 def _period_start(db: Session, rec: CreditPayment) -> Optional[date_type]:
@@ -273,7 +264,7 @@ def create_credit_payment(
             db, current_user.id, rec.account_id, rec.account_key,
             rec.period_from, rec.period_to,
         ))
-    rec.name = _compute_name(db, rec)
+    rec.name = compute_statement_name(db, rec)
     db.add(rec)
     db.commit()
     db.refresh(rec)
@@ -312,7 +303,7 @@ def update_credit_payment(
         ).first()
         if card:
             rec.account_key = card.account_key
-    rec.name = _compute_name(db, rec)
+    rec.name = compute_statement_name(db, rec)
     db.commit()
     db.refresh(rec)
     # Re-link if anything affecting the window changed.

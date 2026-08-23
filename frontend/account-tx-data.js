@@ -76,6 +76,8 @@
       amt, cur, tryV,
       createdAt: tx.created_at || null,
       sourceFilename: tx.source_filename || null,
+      statementId: tx.statement_id != null ? tx.statement_id : null,
+      statementLabel: tx.statement_label || null,
     };
   }
 

@@ -34,6 +34,7 @@ from app.routers.institutions import (
     ensure_short_name_column,
     normalize_institution_names,
 )
+from app.services.statement_naming import backfill_statement_names
 _seed_db = SessionLocal()
 try:
     accounts.ensure_account_bank_columns(_seed_db)
@@ -68,6 +69,11 @@ try:
     # Heal institution names padded with whitespace, which break the name-based
     # match from accounts.institution and duplicate the entry in the picker.
     normalize_institution_names(_seed_db)
+    # One-time (idempotent, re-runnable) migration of existing CreditPayment/
+    # Statement records to the new "YY-MM LABEL" name format (see
+    # services/statement_naming.py). Runs after institutions are seeded/
+    # normalized above so short_name lookups resolve correctly.
+    backfill_statement_names(_seed_db)
 finally:
     _seed_db.close()
 

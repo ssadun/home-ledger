@@ -45,6 +45,7 @@
     if (window.INVESTMENTS_DATA && Array.isArray(window.INVESTMENTS_DATA.HOLDINGS)) fillArray(window.INVESTMENTS_DATA.HOLDINGS, []);
     if (window.RECURRING_DATA && Array.isArray(window.RECURRING_DATA.RECURRING)) fillArray(window.RECURRING_DATA.RECURRING, []);
     if (window.CREDIT_PAYMENTS_DATA && Array.isArray(window.CREDIT_PAYMENTS_DATA.RECORDS)) fillArray(window.CREDIT_PAYMENTS_DATA.RECORDS, []);
+    if (window.STATEMENTS_DATA && Array.isArray(window.STATEMENTS_DATA.RECORDS)) fillArray(window.STATEMENTS_DATA.RECORDS, []);
   }
 
   // ── Per-source hydrators (each a no-op when its client/placeholder is absent) ──
@@ -122,6 +123,14 @@
     fillArray(window.CREDIT_PAYMENTS_DATA.RECORDS, labeled);
   }
 
+  // Non-credit account Statements (bank/overdraft/debit/wallet/cash/invest/pension).
+  // Only needed by the Dashboard calendar's "Statement" filter today; a no-op
+  // everywhere else since STATEMENTS_DATA is absent on pages that don't need it.
+  async function hydrateStatements() {
+    if (!(window.HL_STATEMENTS_API && window.STATEMENTS_DATA)) return;
+    fillArray(window.STATEMENTS_DATA.RECORDS, await window.HL_STATEMENTS_API.list());
+  }
+
   // Run every available hydrator. CATS + FX go first because recurring rows
   // derive their TRY/USD amounts from LEDGER.FX at map time. Report-owned live
   // data is cleared before any API call, so failed calls render as missing data
@@ -145,11 +154,11 @@
       guard('recurring', hydrateRecurring),
     ]);
     // After accounts so credit-payment rows can resolve their card label.
-    await guard('credit-payments', hydrateCreditPayments);
+    await Promise.all([guard('credit-payments', hydrateCreditPayments), guard('statements', hydrateStatements)]);
   }
 
   window.HL_HYDRATE = {
     all, hydrateCats, hydrateFx, hydratePayers, hydrateTx, hydrateBudgets, hydrateAccounts, hydrateInvestments, hydrateRecurring,
-    hydrateCreditPayments, clearReportData, state,
+    hydrateCreditPayments, hydrateStatements, clearReportData, state,
   };
 })();

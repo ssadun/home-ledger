@@ -224,6 +224,11 @@ class TransactionOut(BaseModel):
     credit_payment_id: Optional[int]
     settles_credit_payment_id: Optional[int] = None
     settles_account_key: Optional[str] = None
+    statement_id: Optional[int] = None
+    # Read-only display label derived from the linked CreditPayment/Statement's
+    # `name` (see services/statement_naming.py) -- wired in routers/transactions.py's
+    # _attach_statement_labels(), never stored on the Transaction row itself.
+    statement_label: Optional[str] = None
     source_filename: Optional[str]
     created_at: datetime
     model_config = {"from_attributes": True}

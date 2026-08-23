@@ -35,6 +35,10 @@
       creditPaymentId: row.credit_payment_id != null ? row.credit_payment_id : null,
       settlesCreditPaymentId: row.settles_credit_payment_id != null ? row.settles_credit_payment_id : null,
       settlesAccountKey: row.settles_account_key || null,
+      statementId: row.statement_id != null ? row.statement_id : null,
+      // Read-only display label for the ekstre (CreditPayment/Statement) this row
+      // is linked to -- never edited from the client, only shown.
+      statementLabel: row.statement_label || null,
       tryV: row.amount_try != null ? row.amount_try : null,
       usdV: row.amount_usd != null ? row.amount_usd : null,
     };
@@ -65,15 +69,35 @@
     if (opts.offset != null) params.set('offset', String(opts.offset));
     if (opts.year != null) params.set('year', String(opts.year));
     if (opts.month != null) params.set('month', String(opts.month));
+    if (opts.dateFrom) params.set('date_from', opts.dateFrom);
+    if (opts.dateTo) params.set('date_to', opts.dateTo);
     if (opts.type) params.set('type', opts.type);
     if (opts.categoryKey) params.set('category_key', opts.categoryKey);
     if (opts.payer) params.set('payer', opts.payer);
     if (opts.qDesc) params.set('q_desc', opts.qDesc);
     if (opts.creditPaymentId != null) params.set('credit_payment_id', String(opts.creditPaymentId));
+    if (opts.statementId != null) params.set('statement_id', String(opts.statementId));
     const res = await api()('/api/transactions/?' + params.toString(), { method: 'GET' });
     if (!res.ok) throw new Error('Failed to load transactions (' + res.status + ')');
     const data = await res.json();
     return data.map(fromApi);
+  }
+
+  // Pages through every match for `opts` (200 at a time, the backend's hard
+  // cap) instead of the single page `list()` returns. Needed once a caller can
+  // legitimately want more than 200 rows at once -- e.g. Spending's editable
+  // Period range can span up to 12 months, easily exceeding one page.
+  async function listAll(opts) {
+    const limit = 200;
+    let offset = 0;
+    const out = [];
+    for (;;) {
+      const page = await list({ ...opts, limit, offset });
+      out.push(...page);
+      if (page.length < limit) break;
+      offset += limit;
+    }
+    return out;
   }
 
   async function create(tx) {
@@ -102,5 +126,5 @@
     return true;
   }
 
-  window.HL_SPENDING_API = { list, create, update, remove, fromApi, toApi };
+  window.HL_SPENDING_API = { list, listAll, create, update, remove, fromApi, toApi };
 })();

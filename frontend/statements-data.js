@@ -124,6 +124,11 @@
     return all.filter(a => STATEMENT_TYPES.indexOf(a.type) !== -1);
   }
 
+  // Kept empty by default; populated in place by ledger-hydrate.js's
+  // hydrateStatements() for pages (Dashboard calendar) that need a live list of
+  // Statement records without owning the whole Statements page.
+  window.STATEMENTS_DATA = { RECORDS: [] };
+
   window.HL_STATEMENTS_API = {
     list, create, update, remove,
     checkOverlap, attachFile, downloadFile, statementAccounts,

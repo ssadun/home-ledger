@@ -136,13 +136,13 @@
   }
 
   // ── Filter bar ──────────────────────────────────────────────────────────
-  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, statementFilter, onClearStatementFilter, onAdd, onScan, extra, popActions }) {
+  function FilterBar({ month, year, onMonthStep, type, setType, payer, setPayer, payingFor, setPayingFor, cat, setCat, paymentSource, setPaymentSource, paymentSourceOptions, source, setSource, search, setSearch, statementFilter, onClearStatementFilter, stmtSource, setStmtSource, stmtSourceOptions, onAdd, onScan, extra, popActions }) {
     const [open, setOpen] = React.useState(false);
-    const [draft, setDraft] = React.useState({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source });
+    const [draft, setDraft] = React.useState({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source, stmtSource: stmtSource || 'all' });
     const anchorRef = React.useRef(null);
     React.useEffect(() => {
-      if (open) setDraft({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source });
-    }, [open, type, payer, payingFor, cat, paymentSource, source]);
+      if (open) setDraft({ type, payer, payingFor, cat, paymentSource: paymentSource || 'all', source, stmtSource: stmtSource || 'all' });
+    }, [open, type, payer, payingFor, cat, paymentSource, source, stmtSource]);
     React.useEffect(() => {
       if (!open) return;
       // StyledSelect options are portaled to <body>; selecting one must not
@@ -178,16 +178,18 @@
       paymentSource && paymentSource !== 'all' && { key: 'paymentSource', label: 'Payment Source', val: ((paymentSourceOptions || []).find(o => o.value === paymentSource) || {}).label || paymentSource, clear: () => setPaymentSource && setPaymentSource('all') },
       source !== 'all' && { key: 'source', label: 'Source', val: sourceLabel(source), clear: () => setSource('all') },
       statementFilter != null && { key: 'statement', label: 'Statement', val: 'Card Payment #' + statementFilter, clear: onClearStatementFilter },
+      stmtSource && stmtSource !== 'all' && { key: 'stmtSource', label: 'Statement', val: ((stmtSourceOptions || []).find(o => o.value === stmtSource) || {}).label || stmtSource, clear: () => setStmtSource && setStmtSource('all') },
     ].filter(Boolean);
-    const clearAll = () => { setType('all'); setPayer('all'); setPayingFor('all'); setCat('all'); if (setPaymentSource) setPaymentSource('all'); setSource('all'); if (onClearStatementFilter) onClearStatementFilter(); };
+    const clearAll = () => { setType('all'); setPayer('all'); setPayingFor('all'); setCat('all'); if (setPaymentSource) setPaymentSource('all'); setSource('all'); if (setStmtSource) setStmtSource('all'); if (onClearStatementFilter) onClearStatementFilter(); };
     const clearDraft = () => {
-      setDraft({ type: 'all', payer: 'all', payingFor: 'all', cat: 'all', paymentSource: 'all', source: 'all' });
+      setDraft({ type: 'all', payer: 'all', payingFor: 'all', cat: 'all', paymentSource: 'all', source: 'all', stmtSource: 'all' });
       if (onClearStatementFilter) onClearStatementFilter();
     };
     const applyFilters = () => {
       setType(draft.type); setPayer(draft.payer); setPayingFor(draft.payingFor); setCat(draft.cat);
       if (setPaymentSource) setPaymentSource(draft.paymentSource);
       setSource(draft.source);
+      if (setStmtSource) setStmtSource(draft.stmtSource);
       setOpen(false);
     };
 
@@ -252,6 +254,12 @@
                     <Select id="filter-payment-source-select" label="Payment Source" icon="wallet-cards" value={draft.paymentSource} onChange={(value) => setDraft(d => ({ ...d, paymentSource: value }))}>
                       <option value="all">All Payment Sources</option>
                       {(paymentSourceOptions || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </Select>
+                  )}
+                  {setStmtSource && (
+                    <Select id="filter-statement-select" label="Statement" icon="file-text" value={draft.stmtSource} onChange={(value) => setDraft(d => ({ ...d, stmtSource: value }))}>
+                      <option value="all">All Statements</option>
+                      {(stmtSourceOptions || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </Select>
                   )}
                   <Select id="filter-source-select" label="Source" icon="repeat" value={draft.source} onChange={(value) => setDraft(d => ({ ...d, source: value }))}>
@@ -470,6 +478,22 @@
                 </div>
               </div>
             </div>
+
+            {/* Ekstre / Statement — read-only, only shown when this row is linked
+               to a CreditPayment or Statement (see services/statement_naming.py).
+               Never editable: the link is derived server-side from the account +
+               period window at import/statement time, not set by hand here.
+               Placed last: it's supplementary provenance info, not something the
+               user edits, so it shouldn't compete with the actual form fields. */}
+            {editing && initial.statementLabel && (
+              <div className="form-field full">
+                <span className="field-label">Statement</span>
+                <div className="src-rec-link" style={{ cursor: 'default' }} title="This transaction is linked to an imported statement">
+                  <Icon name="file-text" size={13} />
+                  <span className="src-rec-name">{initial.statementLabel}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <window.HL_FORM.FormError message={formErr} id="tx-modal-form-error" />

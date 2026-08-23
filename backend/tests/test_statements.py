@@ -90,7 +90,7 @@ def test_debit_card_can_be_entered_as_account_statement():
         response = client.post("/api/statements/", json=_payload(debit.id))
         assert response.status_code == 201
         assert response.json()["account_id"] == debit.id
-        assert response.json()["name"] == "2026.07 - Debit Card"
+        assert response.json()["name"] == "26-07 DEBIT CARD"
     finally:
         db.close()
 
@@ -128,7 +128,7 @@ def test_statement_overlap_check_is_date_range_based():
         body = response.json()
         assert body["count"] == 1
         assert body["matches"][0]["id"] == existing.json()["id"]
-        assert body["matches"][0]["name"] == "2026.07 - Debit Card"
+        assert body["matches"][0]["name"] == "26-07 DEBIT CARD"
     finally:
         db.close()
 

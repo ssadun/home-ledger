@@ -75,6 +75,7 @@
         { key: 'amt', label: 'Amount' },
         { key: 'tryV', label: 'Amount (TRY)' },
         { key: 'usdV', label: 'Amount (USD)' },
+        { key: 'statementLabel', label: 'Statement', get: r => r.statementLabel || '' },
       ],
     },
     {
@@ -90,6 +91,7 @@
         { key: 'cur', label: 'Currency' },
         { key: 'amt', label: 'Amount' },
         { key: 'tryV', label: 'Amount (TRY)' },
+        { key: 'statementLabel', label: 'Statement', get: t => t.statementLabel || '' },
       ],
     },
     {

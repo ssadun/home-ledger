@@ -356,6 +356,12 @@
                 <span className="detail-info-k">Description</span>
                 <span className="detail-info-v">{tx.desc || '–'}</span>
               </div>
+              {tx.statementLabel && (
+                <div className="detail-info-item detail-info-full">
+                  <span className="detail-info-k"><Icon name="file-text" size={11} />Statement</span>
+                  <span className="detail-info-v">{tx.statementLabel}</span>
+                </div>
+              )}
               <div className="detail-info-item detail-info-full">
                 <span className="detail-info-k"><Icon name="clock" size={11} />Added</span>
                 <span className="detail-info-v">{fmtAddedAt(tx.createdAt) || 'Unknown'}</span>
@@ -396,6 +402,7 @@
     { key: 'cur', label: 'Currency' },
     { key: 'amt', label: 'Amount' },
     { key: 'tryV', label: 'Amount (TRY)' },
+    { key: 'statementLabel', label: 'Statement', get: tx => tx.statementLabel || '' },
   ];
 
   // ══════════════════════════════════════════════════════════════════════════

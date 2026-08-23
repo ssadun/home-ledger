@@ -3,6 +3,16 @@
   const Icon = window.Icon;
   const { CATS } = window.LEDGER;
 
+  // Turkish-safe case/diacritic fold, mirroring backend's _fold()/_TR_FOLD in
+  // bank_import.py — ç/Ç→c, ş/Ş→s, ğ/Ğ→g, ö/Ö→o, ü/Ü→u, ı/İ/I/i→i, then upper-
+  // cases so two folded strings compare equal regardless of source casing.
+  // Shared here (rather than duplicated per file) so every diacritic-tolerant
+  // search/match in the app folds identically.
+  const TR_FOLD_MAP = { 'ı': 'i', 'İ': 'i', 'i': 'i', 'I': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c', 'â': 'a' };
+  function trFold(s) {
+    return String(s || '').split('').map(ch => TR_FOLD_MAP[ch] || ch).join('').toUpperCase();
+  }
+
   // ── Formatting helpers ─────────────────────────────────────────────────
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -193,5 +203,5 @@
     );
   }
 
-  Object.assign(window, { PayerBadge, PayingForCell, CategoryCell, AmountCell, ConvCell, PaymentMethodCell, TxRow });
+  Object.assign(window, { PayerBadge, PayingForCell, CategoryCell, AmountCell, ConvCell, PaymentMethodCell, TxRow, trFold });
 })();

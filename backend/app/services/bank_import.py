@@ -881,10 +881,12 @@ def _parse_garanti_donemici_pdf(content: bytes, text: str) -> tuple[list[dict], 
         holder = " ".join(mh.group(1).split())
 
     payment_due = None
+    cutover_date = None
     statement_total = None
     ms = _DONEMICI_SUMMARY_RE.search(text)
     if ms:
         statement_total = _parse_amount(ms.group(1))
+        cutover_date = _parse_turkish_date(ms.group(2))  # hesap kesim tarihi
         payment_due = _parse_turkish_date(ms.group(3))   # son ödeme tarihi
 
     mcur = _DONEMICI_CUR_RE.search(text)
@@ -940,10 +942,12 @@ def _parse_garanti_donemici_pdf(content: bytes, text: str) -> tuple[list[dict], 
             "source": card, "type": "credit", "number": card, "card_number": card,
             "iban": None, "branch": None, "holder": holder,
             "currency": currency, "institution": "garanti",
-            "payment_due": payment_due, "total": statement_total,
+            "payment_due": payment_due, "total": statement_total, "cutover": cutover_date,
             # Dönem-içi döküm gerçek (kesilmiş) ekstre değildir; "total" cari dönem
-            # yürüyen toplamıdır, kesin borç değil. Bu yüzden frontend bundan
-            # Credit Payment kaydı ÜRETMEZ (bkz. import.jsx CP-oluşturma döngüsü).
+            # yürüyen toplamıdır, kesin borç değil. Frontend yine de açık dönem için
+            # bir placeholder Credit Payment oluşturur (total/minimum=0, gerçek ekstre
+            # gelince üzerine yazılır) — "cutover" (HESAP KESİM TARİHİ) bu placeholder'ın
+            # dönemini belirlemek için kullanılır (bkz. import.jsx CP-oluşturma döngüsü).
             "interim": True,
         })
     return rows, accounts

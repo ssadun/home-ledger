@@ -1170,16 +1170,78 @@
           await window.HL_ACCOUNTS_API.update(acct._dbId, { ...acct, paymentDue: rec.payment_due });
         } catch (e) { /* non-fatal */ }
         // "Dönemiçi İşlemler" (interim, in-period) dumps are not a billed statement —
-        // their total is a running period sum, not the final debt — so never create a
-        // Credit Payment record from them (the purchase rows are still imported above).
-        if (rec.interim) continue;
+        // "total" is a running period sum, not the final debt. Still create a
+        // placeholder Credit Payment for the open period so it's visible/findable
+        // on the Card Payments page and its spendings are grouped under a real
+        // record, rather than sitting invisibly unlinked until the real (billed)
+        // ekstre eventually arrives and supersedes it. Keyed by the file's own
+        // HESAP KESİM TARİHİ (rec.cutover), NOT the derived last-transaction-date
+        // used below for a real ekstre — the interim dump's own last row can lag
+        // the formal cutoff by a few days, while the printed kesim tarihi is exact.
+        if (rec.interim) {
+          if (!rec.cutover) continue;   // no cutover parsed -> nothing to key the period on
+          try {
+            if (existingSet.has(existingKey(acct._dbId, rec.cutover))) continue;
+            const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
+            const periodFrom = cardDates[0] || subtractOneMonth(rec.cutover);
+            const [iy, im] = rec.cutover.split('-');
+            const cp = await window.HL_CREDIT_PAYMENTS_API.create({
+              accountId: acct._dbId,
+              year: Number(iy),
+              month: Number(im),
+              periodFrom,
+              periodTo: rec.cutover,
+              cutoverDate: rec.cutover,
+              paymentDate: rec.payment_due,
+              // rec.total IS a real, meaningful figure here (the statement's own
+              // printed running total) -- just not the FINAL billed debt, so show
+              // it rather than a misleading 0. Dönemiçi dumps never print a
+              // minimum payment at all (that only appears on the real ekstre),
+              // so minimum=0 doubles as the "not yet billed" marker the real-
+              // ekstre branch below checks for when deciding whether to update.
+              total: rec.total || 0,
+              minimum: 0,
+              cur: rec.currency || 'TRY',
+            }, { allowOverlap: true });
+            if (pickedFile) {
+              try { await window.HL_CREDIT_PAYMENTS_API.previewStatement(cp.id, pickedFile); }
+              catch (e) { /* attachment failed; the record + its links still stand */ }
+            }
+            createdCP.push(cp);
+            existingSet.add(existingKey(acct._dbId, rec.cutover));
+          } catch (e) { /* non-fatal: purchases already imported, just no CP record */ }
+          continue;
+        }
         try {
           // Cutover ≈ the statement's last transaction date for this card; the backend
           // links purchases dated within (cutover − 1 month, cutover] to the record.
           const cardDates = incl.filter(r => r.accId === cardId).map(r => r.date).filter(Boolean).sort();
           const periodFrom = cardDates[0] || null;
           const cutover = cardDates.length ? cardDates[cardDates.length - 1] : rec.payment_due;
-          if (existingSet.has(existingKey(acct._dbId, cutover))) continue;
+          // A billed ekstre for the same cutover as an earlier interim placeholder
+          // (see rec.interim above) must REPLACE its running-total/minimum=0
+          // stand-in with the real figures now that they're known, not silently
+          // no-op. Keyed on minimum (not total) -- the placeholder's total is a
+          // real running sum by this point (not 0), but a Dönemiçi dump never
+          // prints a minimum payment at all, so minimum=0 is what actually marks
+          // "not yet billed" here; a genuine final ekstre's minimum is virtually
+          // never 0.
+          const already = existingCPs.find(cp => cp.accountId === acct._dbId && cp.cutoverDate === cutover);
+          if (already) {
+            if (!already.minimum) {
+              try {
+                const updated = await window.HL_CREDIT_PAYMENTS_API.update(already.id, {
+                  ...already, total: rec.total, minimum: rec.minimum || rec.min_payment || 0,
+                  paymentDate: rec.payment_due,
+                });
+                if (pickedFile) {
+                  try { await window.HL_CREDIT_PAYMENTS_API.previewStatement(updated.id, pickedFile); }
+                  catch (e) { /* attachment failed; the record + its links still stand */ }
+                }
+              } catch (e) { /* non-fatal: purchases already imported/linked either way */ }
+            }
+            continue;
+          }
           const [cy, cm] = String(cutover || rec.payment_due).split('-');
           const cp = await window.HL_CREDIT_PAYMENTS_API.create({
             accountId: acct._dbId,

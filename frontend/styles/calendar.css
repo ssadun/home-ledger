@@ -65,6 +65,14 @@
 .cal-day.out.selected{border-color:transparent;background:none}
 .cal-day.has-events:not(.selected):not(.out){background:var(--bg2)}
 
+/* Statement-filter grid expansion: real, clickable adjacent-month days (see
+   gridDays()'s extraWeeksBefore/After) -- distinct from plain alignment
+   padding (.out with no .ext, which stays non-interactive/near-invisible). */
+.cal-day.ext{opacity:.55;cursor:pointer}
+.cal-day.ext:hover{opacity:.85;background:var(--bg4);border-color:var(--border2)}
+.cal-day.ext.has-events:not(.selected){opacity:.8;background:var(--bg2)}
+.cal-day.ext.selected{opacity:1;background:color-mix(in srgb, var(--accent) 12%, transparent);border-color:var(--accent)}
+
 /* Dots */
 .cal-dots{display:flex;gap:3px;justify-content:center}
 .cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}

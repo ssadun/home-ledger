@@ -14,6 +14,7 @@ from app.models import (
 from app.schemas import StatementCreate, StatementUpdate, StatementOut
 from app.services.auth import get_current_user
 from app.services.ocr import save_upload
+from app.services.statement_naming import compute_statement_name
 
 router = APIRouter(prefix="/api/statements", tags=["statements"])
 
@@ -32,17 +33,6 @@ def _account_refs(rec: Statement) -> list[str]:
     if rec.account_key:
         refs.append(rec.account_key)
     return refs
-
-
-def _compute_name(db: Session, rec: Statement) -> str:
-    """Standard record name: "YYYY.MM - Account Name"."""
-    acc = None
-    if rec.account_id is not None:
-        acc = db.query(Account).filter(Account.id == rec.account_id).first()
-    label = acc.name if acc else "Account"
-    yy = rec.period_year or 0
-    mm = rec.period_month or 0
-    return f"{yy:04d}.{mm:02d} - {label}"
 
 
 def _range_overlap(start_a: Optional[date_type], end_a: Optional[date_type], start_b: Optional[date_type], end_b: Optional[date_type]) -> bool:
@@ -235,7 +225,7 @@ def create_statement(
             db, current_user.id, rec.account_id, rec.account_key,
             rec.period_from, rec.period_to,
         ))
-    rec.name = _compute_name(db, rec)
+    rec.name = compute_statement_name(db, rec)
     db.add(rec)
     db.commit()
     db.refresh(rec)
@@ -277,7 +267,7 @@ def update_statement(
     if "account_id" in data and not payload.account_key:
         rec.account_key = None
         _backfill_account_key(db, rec, current_user.id)
-    rec.name = _compute_name(db, rec)
+    rec.name = compute_statement_name(db, rec)
     db.commit()
     db.refresh(rec)
     if {"account_id", "account_key", "period_from", "period_to"} & set(data.keys()):

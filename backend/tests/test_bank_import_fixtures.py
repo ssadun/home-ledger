@@ -25,6 +25,10 @@ GARANTI_CC_MONTHS = {
 }
 GARANTI_DONEMICI = "26.07-Donemici Islemler - TL.pdf"
 GARANTI_DONEMICI_BONUS = "garanti-bonus-Donemici Islemler - TL.pdf"
+# The real on-disk sample (no "26.07-" prefix, unlike the GARANTI_DONEMICI constant
+# above, which names a file that isn't in import/ and so is always skipped) — used
+# to lock in the account-identity shape, including "cutover" (HESAP KESİM TARİHİ).
+GARANTI_DONEMICI_REAL = "Donemici Islemler - TL.pdf"
 GARANTI_GELECEK_DONEM = "26.09 - Gelecek Donem Islemler - TL.pdf"
 ON_BURGAN = "on-Hesap Hareketleri-tl.pdf"
 ON_BURGAN_FULL = "ON TL Hesap Hareketleri.pdf"
@@ -167,6 +171,47 @@ def test_all_bonus_interim_totals_remain_golden(parse_sample, filename, rows, in
     assert result["total_rows"] == rows
     assert result["income_total"] == pytest.approx(income)
     assert result["expense_total"] == pytest.approx(expense)
+
+
+class TestGarantiDonemici:
+    """Account-identity shape for the real on-disk Dönemiçi sample, including the
+    new "cutover" (HESAP KESİM TARİHİ) field the app now uses to key a placeholder
+    Credit Payment for the still-open period -- see import.jsx's
+    backfillCreditPayments() and CLAUDE.md's Card Payments section."""
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def res(parse_sample):
+        return parse_sample(GARANTI_DONEMICI_REAL)
+
+    def test_totals(self, res):
+        assert res["total_rows"] == 59
+        assert res["income_total"] == pytest.approx(125794.82)
+        assert res["expense_total"] == pytest.approx(121031.07)
+
+    def test_card_identity_carries_cutover_and_interim_total(self, res):
+        assert len(res["accounts"]) == 1
+        acc = res["accounts"][0]
+        assert acc["type"] == "credit"
+        assert acc["number"] == "4870 **** **** 1011"
+        assert acc["holder"] == "SADUN SEVİNGEN"
+        assert acc["currency"] == "TRY"
+        assert acc["institution"] == "garanti"
+        assert acc.get("interim") is True
+        # HESAP KESİM TARİHİ ("25.08.2026") -> the period this placeholder Credit
+        # Payment gets keyed on, NOT the SON ÖDEME TARİHİ below.
+        assert acc["cutover"] == "2026-08-25"
+        assert acc["payment_due"] == "2026-09-04"
+        # A running period total, not a final billed debt -- present, but the
+        # placeholder Credit Payment created from it still stores total=0 (see
+        # import.jsx) until the real (billed) ekstre replaces it.
+        assert acc["total"] == pytest.approx(120000.16)
+
+    def test_bonus_sample_carries_cutover_too(self, parse_sample):
+        res = parse_sample(GARANTI_DONEMICI_BONUS)
+        acc = res["accounts"][0]
+        assert acc["cutover"] == "2026-06-26"
+        assert acc["payment_due"] == "2026-07-06"
 
 
 # --------------------------------------------------------------------------

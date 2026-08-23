@@ -22,13 +22,10 @@
     return fx && fx.toTRY != null ? +(amt * fx.toTRY).toFixed(2) : (amt || 0);
   }
 
-  // Turkish-safe case/diacritic fold, mirroring backend's _fold()/_TR_FOLD in
-  // bank_import.py, so a recurring item's matchKeyword matches a transaction
-  // description regardless of Turkish casing (İ/I/ı/i, ş/ğ/ü/ö/ç).
-  const TR_FOLD_MAP = { 'ı': 'i', 'İ': 'i', 'i': 'i', 'I': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u', 'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c', 'â': 'a' };
-  function trFold(s) {
-    return String(s || '').split('').map(ch => TR_FOLD_MAP[ch] || ch).join('').toUpperCase();
-  }
+  // Turkish-safe case/diacritic fold (İ/I/ı/i, ş/ğ/ü/ö/ç), so a recurring item's
+  // matchKeyword matches a transaction description regardless of Turkish casing.
+  // Shared with the Spending search box — see components.jsx's trFold().
+  const trFold = window.trFold;
 
   // Combined balance across every account (bank, credit, debit, cash, wallet,
   // investment) converted to TRY. Credit-card balances arrive negative
@@ -92,12 +89,63 @@
     return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
   }
 
+  // ── Statement (ekstre) filter: Card Payments + Statements records, keyed
+  // 'cp:<id>' | 'st:<id>' -- same key shape as Spending's own stmtKey() filter
+  // (spending-app.jsx), so a value picked here would filter identically there.
+  function statementFilterOptions() {
+    const out = [];
+    if (window.CREDIT_PAYMENTS_DATA) {
+      window.CREDIT_PAYMENTS_DATA.RECORDS.forEach(r => out.push({ key: 'cp:' + r.id, label: r.name || ('Card Payment #' + r.id) }));
+    }
+    if (window.STATEMENTS_DATA) {
+      window.STATEMENTS_DATA.RECORDS.forEach(r => out.push({ key: 'st:' + r.id, label: r.name || ('Statement #' + r.id) }));
+    }
+    // Record names are "YY-MM LABEL" (see services/statement_naming.py), so a
+    // plain descending label sort already puts the newest statements first.
+    return out.sort((a, b) => b.label.localeCompare(a.label));
+  }
+
+  // Full date range spanned by a selected statement's own matched
+  // transactions (+ its due date, for a card bill) -- used to decide how many
+  // extra calendar weeks the grid needs to show, independent of which month
+  // is currently in view.
+  function statementDateRange(stFilter) {
+    if (!stFilter) return null;
+    const [kind, idStr] = stFilter.split(':');
+    const id = Number(idStr);
+    const dates = [];
+    TX.forEach(tx => {
+      if (kind === 'cp' && tx.creditPaymentId === id) dates.push(tx.date);
+      else if (kind === 'st' && tx.statementId === id) dates.push(tx.date);
+    });
+    if (kind === 'cp' && window.CREDIT_PAYMENTS_DATA) {
+      const rec = window.CREDIT_PAYMENTS_DATA.RECORDS.find(r => r.id === id);
+      if (rec && rec.paymentDate) dates.push(rec.paymentDate);
+    }
+    if (!dates.length) return null;
+    dates.sort();
+    return { min: dates[0], max: dates[dates.length - 1] };
+  }
+
   /* ── Build unified event map { dateStr → [...events] } ─────────────── */
   // pmFilter: a resolvePM key ('' = all methods) restricting which events show.
-  function buildEvents(year, month, pmFilter) {
+  // stFilter: a statementFilterOptions() key ('cp:<id>' | 'st:<id>', '' = all
+  // statements). When set, every source below drops its normal month-prefix
+  // test and instead matches ONLY that statement's own linked
+  // transactions/due-date, regardless of which month is currently in view --
+  // the whole calendar becomes a drill-into-this-statement view, so the
+  // existing month summary chips below (computed from this same events map)
+  // automatically become "selected statement's totals" with no extra code.
+  function buildEvents(year, month, pmFilter, stFilter) {
     const map = {};
     const pfx = year + '-' + String(month + 1).padStart(2, '0');
     const add = (d, ev) => { (map[d] || (map[d] = [])).push(ev); };
+
+    let stKind = null, stId = null;
+    if (stFilter) {
+      const [k, idStr] = stFilter.split(':');
+      stKind = k; stId = Number(idStr);
+    }
 
     // ── Settlement index — built once per call (already memoised at the
     // call site via useMemo([year, month, pm])). Searches the FULL TX array,
@@ -194,7 +242,11 @@
     // 1. Spending TX
     // Data source: data.js → window.LEDGER.TX
     TX.forEach(tx => {
-      if (!tx.date.startsWith(pfx)) return;
+      if (stFilter) {
+        const matches = stKind === 'cp' ? tx.creditPaymentId === stId
+          : stKind === 'st' ? tx.statementId === stId : false;
+        if (!matches) return;
+      } else if (!tx.date.startsWith(pfx)) return;
       // A settled bill's payment already shows as its own merged "Upcoming
       // Due" event (Block 3/4 below) — suppress the standalone Spending
       // event so it isn't counted or shown twice. It's never lost: the
@@ -230,7 +282,11 @@
     if (window.ACCT_TX_DATA) {
       const { ACCT_TX, ACCT_TX_TYPES } = window.ACCT_TX_DATA;
       ACCT_TX.forEach(atx => {
-        if (!atx.date.startsWith(pfx)) return;
+        if (stFilter) {
+          const matches = stKind === 'cp' ? atx.creditPaymentId === stId
+            : stKind === 'st' ? atx.statementId === stId : false;
+          if (!matches) return;
+        } else if (!atx.date.startsWith(pfx)) return;
         const t = ACCT_TX_TYPES[atx.txType] || {};
         const pm = resolvePM(atx.accountName);
         if (pmFilter && (!pm || pm.key !== pmFilter)) return;
@@ -246,7 +302,10 @@
 
     // 3. Recurring upcoming due dates (active items only)
     // Data source: recurring-data.js → window.RECURRING_DATA
-    if (window.RECURRING_DATA) {
+    // A RecurringExpense has no CreditPayment/Statement link at all, so this
+    // whole source is suppressed while a statement filter is active -- there
+    // is nothing in it that could belong to the selected ekstre.
+    if (!stFilter && window.RECURRING_DATA) {
       const accts = (window.ACCOUNTS_DATA && window.ACCOUNTS_DATA.ACCOUNTS) || [];
       window.RECURRING_DATA.RECURRING.forEach(rec => {
         if (rec.status !== 'active' || !rec.nextDue) return;
@@ -279,11 +338,16 @@
 
     // 4. Credit-card statement payment due dates
     // Data source: credit-payments-data.js → window.CREDIT_PAYMENTS_DATA
+    // A Statement (bank/wallet/etc.) has no due date of its own, so a 'st:'
+    // filter selection skips this source entirely -- only a 'cp:' selection
+    // (and then only ITS OWN due date) ever shows here.
     if (window.CREDIT_PAYMENTS_DATA) {
       window.CREDIT_PAYMENTS_DATA.RECORDS.forEach(rec => {
-        if (!rec.paymentDate || !rec.paymentDate.startsWith(pfx)) return;
+        if (stFilter) {
+          if (stKind !== 'cp' || rec.id !== stId || !rec.paymentDate) return;
+        } else if (!rec.paymentDate || !rec.paymentDate.startsWith(pfx)) return;
         const pm = resolvePM(rec.accountKey || rec.accountId || rec.cardLabel);
-        if (pmFilter && (!pm || pm.key !== pmFilter)) return;
+        if (!stFilter && pmFilter && (!pm || pm.key !== pmFilter)) return;
         const ev = {
           // Merged into "Upcoming Due" (recurring); keeps the credit-card icon + Credit Payments link.
           source: 'recurring', id: rec.id, desc: (rec.name || 'Card Payment') + ' - Due',
@@ -311,17 +375,57 @@
   }
 
   /* ── Compute calendar grid cells (Mon-start) ───────────────────────── */
-  function gridDays(year, month) {
+  // range: optional { min, max } ISO dates (see statementDateRange()) that must
+  // be visible on the grid -- when the selected statement's own transactions
+  // fall outside the viewed month, the grid grows by whole extra weeks (real,
+  // clickable, faded ".ext" days) at whichever end needs it, capped at
+  // MAX_EXTRA_WEEKS per side so an unusually long-lived statement can't blow
+  // the grid up indefinitely (its off-grid days simply don't render; the
+  // month summary chips still total the WHOLE statement regardless, since
+  // they're computed straight off buildEvents(), not off this grid).
+  const MAX_EXTRA_WEEKS = 2;
+  function gridDays(year, month, range) {
     const first = new Date(year, month, 1);
     const total = new Date(year, month + 1, 0).getDate();
     let dow = first.getDay() - 1; if (dow < 0) dow = 6;
 
+    let extraWeeksBefore = 0, extraWeeksAfter = 0;
+    if (range) {
+      const monthStart = pfxDate(year, month, 1);
+      const monthEnd = pfxDate(year, month, total);
+      if (range.min < monthStart) {
+        const daysBack = Math.ceil((new Date(monthStart) - new Date(range.min)) / 86400000);
+        extraWeeksBefore = Math.min(MAX_EXTRA_WEEKS, Math.ceil(daysBack / 7));
+      }
+      if (range.max > monthEnd) {
+        const daysFwd = Math.ceil((new Date(range.max) - new Date(monthEnd)) / 86400000);
+        extraWeeksAfter = Math.min(MAX_EXTRA_WEEKS, Math.ceil(daysFwd / 7));
+      }
+    }
+
     const out = [];
-    const prevLast = new Date(year, month, 0).getDate();
-    for (let i = dow - 1; i >= 0; i--) out.push({ day: prevLast - i, inMonth: false, date: null });
+    if (extraWeeksBefore > 0) {
+      const leadCount = dow + extraWeeksBefore * 7;
+      for (let i = leadCount; i >= 1; i--) {
+        const d = new Date(year, month, 1 - i);
+        out.push({ day: d.getDate(), inMonth: false, extended: true, date: pfxDate(d.getFullYear(), d.getMonth(), d.getDate()) });
+      }
+    } else {
+      const prevLast = new Date(year, month, 0).getDate();
+      for (let i = dow - 1; i >= 0; i--) out.push({ day: prevLast - i, inMonth: false, date: null });
+    }
+
     for (let d = 1; d <= total; d++) {
       out.push({ day: d, inMonth: true, date: pfxDate(year, month, d) });
     }
+
+    if (extraWeeksAfter > 0) {
+      for (let i = 1; i <= extraWeeksAfter * 7; i++) {
+        const d = new Date(year, month, total + i);
+        out.push({ day: d.getDate(), inMonth: false, extended: true, date: pfxDate(d.getFullYear(), d.getMonth(), d.getDate()) });
+      }
+    }
+
     const rem = out.length % 7;
     if (rem) for (let i = 1; i <= 7 - rem; i++) out.push({ day: i, inMonth: false, date: null });
     return out;
@@ -575,17 +679,27 @@
         : null
     );
     const [pm, setPm]       = React.useState('');   // '' = all payment methods
+    const [st, setSt]       = React.useState('');   // '' = all statements; else 'cp:<id>' | 'st:<id>'
     // Event selected for its detail modal (opened by clicking a cal-event-row) —
     // routed per-source by CalEventDetailModal; replaces the old direct
     // navigate-away-on-click behaviour.
     const [detailEv, setDetailEv] = React.useState(null);
 
     const pmOptions = React.useMemo(() => paymentMethodOptions(), []);
-    const events = React.useMemo(() => buildEvents(year, month, pm), [year, month, pm]);
-    const days   = React.useMemo(() => gridDays(year, month), [year, month]);
+    const stmtOptions = React.useMemo(() => statementFilterOptions(), []);
+    const events = React.useMemo(() => buildEvents(year, month, pm, st), [year, month, pm, st]);
+    // Only computed (and only grows the grid) while a statement filter is
+    // active -- gridDays() treats a null range exactly like before.
+    const stRange = React.useMemo(() => statementDateRange(st), [st]);
+    const days   = React.useMemo(() => gridDays(year, month, stRange), [year, month, stRange]);
     const todayStr = pfxDate(now.getFullYear(), now.getMonth(), now.getDate());
     const selEvts  = sel && events[sel] ? events[sel] : [];
 
+    // Income/Expense/count chips below sum straight off `events` -- while a
+    // statement filter (st) is active, buildEvents() already scoped that map
+    // to just the selected statement's own items regardless of month, so
+    // these chips automatically read as "selected statement's totals" with no
+    // extra branching needed here.
     let mInc = 0, mExp = 0, mCnt = 0;
     // Per-person "Paying For" totals for the visible month — same expense/
     // recurring pool as the Expense chip (so the two numbers can never
@@ -660,6 +774,18 @@
               </div>
             </div>
           )}
+          {stmtOptions.length > 0 && (
+            <div className="cal-filter">
+              <span className="filter-label"><Icon name="file-text" size={11} />Statement</span>
+              <div className="select-wrap">
+                <StyledSelect id="cal-statement-filter" className="sel" value={st}
+                  onChange={(e) => { setSt(e.target.value); setSel(null); }}>
+                  <option value="">All Statements</option>
+                  {stmtOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </StyledSelect>
+              </div>
+            </div>
+          )}
           <div className="cal-header">
             <button id="cal-prev-month-btn" className="cal-nav-btn" onClick={() => step(-1)} title="Previous Month"><Icon name="chevron-left" size={16} /></button>
             <div className="cal-header-center">
@@ -677,9 +803,9 @@
               return (
                 <button key={i}
                   id={'cal-day-' + (d.date || ('pad-' + i))}
-                  className={'cal-day' + (!d.inMonth ? ' out' : '') + (d.date === todayStr ? ' today' : '') + (d.date === sel ? ' selected' : '') + (dd.length ? ' has-events' : '')}
-                  onClick={() => d.inMonth && setSel(d.date === sel ? null : d.date)}
-                  disabled={!d.inMonth}>
+                  className={'cal-day' + (!d.inMonth ? ' out' : '') + (d.extended ? ' ext' : '') + (d.date === todayStr ? ' today' : '') + (d.date === sel ? ' selected' : '') + (dd.length ? ' has-events' : '')}
+                  onClick={() => d.date && setSel(d.date === sel ? null : d.date)}
+                  disabled={!d.date}>
                   <span className="cal-day-num">{d.day}</span>
                   {dd.length > 0 && <span className="cal-dots">{dd.map(t => <span key={t} className={'cal-dot cal-dot-' + t} />)}</span>}
                 </button>

@@ -5,13 +5,41 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func, text
 from app.database import get_db
-from app.models import Transaction, ExchangeRate, User
+from app.models import Transaction, ExchangeRate, CreditPayment, Statement, User
 from app.schemas import TransactionCreate, TransactionOut, TransactionUpdate
 from app.services.auth import get_current_user
 from app.services.ocr import save_upload, extract_text_from_image, parse_receipt
 from app.services.prepaid import apply_transaction as apply_prepaid, transaction_state as prepaid_transaction_state
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
+
+
+def _attach_statement_labels(db: Session, txs: List[Transaction]) -> List[Transaction]:
+    """Set a transient (non-persisted) `statement_label` on each row, derived
+    from its linked CreditPayment.name or Statement.name (see
+    services/statement_naming.py). Batched to avoid one query per row."""
+    cp_ids = {t.credit_payment_id for t in txs if t.credit_payment_id is not None}
+    st_ids = {t.statement_id for t in txs if t.statement_id is not None}
+    cp_names = {}
+    st_names = {}
+    if cp_ids:
+        cp_names = dict(
+            db.query(CreditPayment.id, CreditPayment.name)
+            .filter(CreditPayment.id.in_(cp_ids)).all()
+        )
+    if st_ids:
+        st_names = dict(
+            db.query(Statement.id, Statement.name)
+            .filter(Statement.id.in_(st_ids)).all()
+        )
+    for t in txs:
+        label = None
+        if t.credit_payment_id is not None:
+            label = cp_names.get(t.credit_payment_id)
+        elif t.statement_id is not None:
+            label = st_names.get(t.statement_id)
+        t.statement_label = label
+    return txs
 
 
 def ensure_transaction_settlement_columns(db: Session) -> None:
@@ -71,12 +99,15 @@ def _apply_rates(tx: Transaction, db: Session):
 def list_transactions(
     year: Optional[int] = None,
     month: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     type: Optional[str] = None,
     category_id: Optional[int] = None,
     category_key: Optional[str] = None,
     q_desc: Optional[str] = None,
     payer: Optional[str] = None,
     credit_payment_id: Optional[int] = None,
+    statement_id: Optional[int] = None,
     limit: int = Query(50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -87,6 +118,13 @@ def list_transactions(
         q = q.filter(extract("year", Transaction.date) == year)
     if month:
         q = q.filter(extract("month", Transaction.date) == month)
+    # Arbitrary date-range filter (Spending's editable Period range, up to 12
+    # months) -- independent of year/month above, which stay for callers that
+    # still want a single calendar month/year (Account Activity, Recurring, …).
+    if date_from:
+        q = q.filter(Transaction.date >= date_from)
+    if date_to:
+        q = q.filter(Transaction.date <= date_to)
     if type:
         q = q.filter(Transaction.type == type)
     if category_id:
@@ -102,7 +140,10 @@ def list_transactions(
         q = q.filter(Transaction.payer == payer)
     if credit_payment_id is not None:
         q = q.filter(Transaction.credit_payment_id == credit_payment_id)
-    return q.order_by(Transaction.date.desc()).offset(offset).limit(limit).all()
+    if statement_id is not None:
+        q = q.filter(Transaction.statement_id == statement_id)
+    rows = q.order_by(Transaction.date.desc()).offset(offset).limit(limit).all()
+    return _attach_statement_labels(db, rows)
 
 
 @router.post("/", response_model=TransactionOut, status_code=201)
@@ -117,7 +158,7 @@ def create_transaction(
     apply_prepaid(db, current_user.id, tx)
     db.commit()
     db.refresh(tx)
-    return tx
+    return _attach_statement_labels(db, [tx])[0]
 
 
 @router.get("/{tx_id}", response_model=TransactionOut)
@@ -125,7 +166,7 @@ def get_transaction(tx_id: int, db: Session = Depends(get_db), current_user: Use
     tx = db.query(Transaction).filter(Transaction.id == tx_id, Transaction.owner_id == current_user.id).first()
     if not tx:
         raise HTTPException(404, "İşlem bulunamadı")
-    return tx
+    return _attach_statement_labels(db, [tx])[0]
 
 
 @router.patch("/{tx_id}", response_model=TransactionOut)
@@ -149,7 +190,7 @@ def update_transaction(
     apply_prepaid(db, current_user.id, tx)
     db.commit()
     db.refresh(tx)
-    return tx
+    return _attach_statement_labels(db, [tx])[0]
 
 
 @router.delete("/{tx_id}", status_code=204)

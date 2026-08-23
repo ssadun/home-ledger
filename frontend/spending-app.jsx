@@ -3,7 +3,7 @@
   const Icon = window.Icon;
   const { CATS, TX, CURRENT_MONTH, CURRENT_YEAR } = window.LEDGER;
   const { grp } = window.LEDGER_FMT;
-  const { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, TxRow, ScanModal } = window;
+  const { FilterBar, SummaryStrip, Pagination, TxModal, DeleteConfirm, TxRow, ScanModal, trFold } = window;
   const ExportData = window.ExportData;
   const { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakColor, TweakToggle, TweakButton } = window;
   const { useResizableColumns, ColResizer } = window;
@@ -50,6 +50,16 @@
     return acct ? acct.name : (value || '');
   }
 
+  // Identity key for the "which ekstre is this row linked to" filter -- a
+  // CreditPayment spending and a Statement movement are mutually exclusive
+  // per-row (see CLAUDE.md's Statements section), so at most one branch fires.
+  // Shared with calendar-component.jsx's own stmtKey-shaped filter values.
+  function stmtKey(r) {
+    if (r.creditPaymentId != null) return 'cp:' + r.creditPaymentId;
+    if (r.statementId != null) return 'st:' + r.statementId;
+    return null;
+  }
+
   // Filter options need enough context to distinguish accounts with the same
   // name. Institutions are stored on accounts by full name, so resolve that
   // value back to the shared short name before composing the label.
@@ -75,6 +85,7 @@
     { key: 'amt', label: 'Amount' },
     { key: 'tryV', label: 'Amount (TRY)' },
     { key: 'usdV', label: 'Amount (USD)' },
+    { key: 'statementLabel', label: 'Statement', get: r => r.statementLabel || '' },
   ];
 
   // ── Table body — memoized so rows do NOT re-render during a column drag ──
@@ -177,8 +188,17 @@
         .then(data => { if (alive) { setRows(data); setLoadError(null); } })
         .catch(err => { if (alive) setLoadError(err.message || 'Failed to load'); })
         .finally(() => { if (alive) setLoading(false); });
+      // Independent of the (capped) rows load above -- these back the Statement
+      // filter's full option list, not the table itself.
+      if (window.HL_CREDIT_PAYMENTS_API) {
+        window.HL_CREDIT_PAYMENTS_API.list().then(list => { if (alive) setCpList(list); }).catch(() => {});
+      }
+      if (window.HL_STATEMENTS_API) {
+        window.HL_STATEMENTS_API.list().then(list => { if (alive) setStList(list); }).catch(() => {});
+      }
       return () => { alive = false; };
     }, []);
+
     // Deep-link support: ?month=&year=&highlight= (e.g. from Recurring/Subscriptions linked rows)
     // and ?creditPayment= for the exact spendings linked to an imported card statement.
     const URLP = React.useMemo(() => new URLSearchParams(window.location.search), []);
@@ -186,17 +206,91 @@
       const id = URLP.get('creditPayment');
       return id && /^\d+$/.test(id) ? Number(id) : null;
     }, [URLP]);
-    const [month, setMonth] = React.useState(() => { const m = URLP.has('month') ? +URLP.get('month') : NaN; return (m >= 0 && m <= 11) ? m : CURRENT_MONTH; });   // default current month (0-indexed)
-    const [year, setYear] = React.useState(() => { const y = URLP.has('year') ? +URLP.get('year') : NaN; return (y >= 2000 && y <= 2100) ? y : CURRENT_YEAR; });
-    const [type, setType] = React.useState('all');
-    const [payer, setPayer] = React.useState('all');
-    const [payingFor, setPayingFor] = React.useState('all');
+    // Every filter on this page survives a refresh, restored from the last
+    // session unless a URL param explicitly overrides it (a deep link like
+    // ?month=&year= from Recurring/Subscriptions must always win over whatever
+    // was left over from browsing Spending itself).
+    const FILTERS_KEY = 'hl-spending-filters';
+    const savedFilters = React.useMemo(() => {
+      try { return JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}'); } catch (e) { return {}; }
+    }, []);
+    const [month, setMonth] = React.useState(() => { const m = URLP.has('month') ? +URLP.get('month') : (savedFilters.month ?? NaN); return (m >= 0 && m <= 11) ? m : CURRENT_MONTH; });   // 0-indexed
+    const [year, setYear] = React.useState(() => { const y = URLP.has('year') ? +URLP.get('year') : (savedFilters.year ?? NaN); return (y >= 2000 && y <= 2100) ? y : CURRENT_YEAR; });
+    const [type, setType] = React.useState(savedFilters.type || 'all');
+    const [payer, setPayer] = React.useState(savedFilters.payer || 'all');
+    const [payingFor, setPayingFor] = React.useState(savedFilters.payingFor || 'all');
     // Account-to-account movements are available on demand, but keeping them out
     // of the initial Spending view prevents transfers from inflating everyday spend.
-    const [cat, setCat] = React.useState(DEFAULT_CATEGORY_FILTER);
-    const [source, setSource] = React.useState('all');
-    const [paymentSource, setPaymentSource] = React.useState('all');
-    const [search, setSearch] = React.useState('');
+    const [cat, setCat] = React.useState(savedFilters.cat || DEFAULT_CATEGORY_FILTER);
+    const [source, setSource] = React.useState(savedFilters.source || 'all');
+    const [paymentSource, setPaymentSource] = React.useState(savedFilters.paymentSource || 'all');
+    // Filter by which ekstre (CreditPayment/Statement) a row is linked to.
+    // Value shape mirrors calendar-component.jsx's stmtKey: 'cp:<id>' | 'st:<id>'.
+    const [stmtSource, setStmtSource] = React.useState(savedFilters.stmtSource || 'all');
+    // Full universe of Card Payments / Statements (unpaginated, unlike `rows`
+    // below which is capped at the 200 most recent transactions) -- the filter's
+    // OPTION LIST must include an old ekstre even when none of its spendings
+    // happen to be among the most recent 200, or older statements would be
+    // silently unselectable with no indication why.
+    const [cpList, setCpList] = React.useState([]);
+    const [stList, setStList] = React.useState([]);
+
+    // A selected ekstre's spendings may not be among the 200 most-recently-
+    // loaded rows above (an old statement can be arbitrarily far back) -- fetch
+    // that statement's transactions directly by id so the filter always shows
+    // its full, correct result set rather than silently missing older rows.
+    React.useEffect(() => {
+      if (stmtSource === 'all') return;
+      const [prefix, idStr] = stmtSource.split(':');
+      const id = Number(idStr);
+      if (!id) return;
+      let alive = true;
+      const opts = prefix === 'cp' ? { creditPaymentId: id } : { statementId: id };
+      window.HL_SPENDING_API.list(opts).then(data => {
+        if (!alive) return;
+        setRows(prev => {
+          const known = new Set(prev.map(r => r.id));
+          const fresh = data.filter(r => !known.has(r.id));
+          return fresh.length ? [...prev, ...fresh] : prev;
+        });
+      }).catch(() => { /* non-fatal: falls back to whatever's already loaded */ });
+      return () => { alive = false; };
+    }, [stmtSource]);
+
+    // Same 200-row-cap problem as the ekstre fetch above, but for ordinary month
+    // navigation: the initial mount load only ever grabs the 200 most-recent
+    // transactions overall, so stepping the Period selector back a few months
+    // (weekly/queue navigation, deep-linked ?month=&year=, etc.) could silently
+    // show an incomplete or empty page once that window is exceeded. Fetch the
+    // viewed month directly from the server whenever it changes and merge it
+    // in -- backend `month` is 1-indexed, frontend `month` state is 0-indexed.
+    React.useEffect(() => {
+      let alive = true;
+      window.HL_SPENDING_API.list({ year, month: month + 1 }).then(data => {
+        if (!alive) return;
+        setRows(prev => {
+          const known = new Set(prev.map(r => r.id));
+          const fresh = data.filter(r => !known.has(r.id));
+          return fresh.length ? [...prev, ...fresh] : prev;
+        });
+      }).catch(() => { /* non-fatal: falls back to whatever's already loaded */ });
+      return () => { alive = false; };
+    }, [month, year]);
+
+    const [search, setSearch] = React.useState(savedFilters.search || '');
+
+    // Persist every filter (including Period) so a refresh restores the exact
+    // view instead of snapping back to "this month, no filters". Runs after
+    // every filter declaration above so each dependency already has its real
+    // value by the time this effect's array is evaluated on a given render.
+    React.useEffect(() => {
+      try {
+        localStorage.setItem(FILTERS_KEY, JSON.stringify({
+          month, year, type, payer, payingFor, cat, source, paymentSource, stmtSource, search,
+        }));
+      } catch (e) { /* private browsing / storage full -- filters just won't survive a refresh */ }
+    }, [month, year, type, payer, payingFor, cat, source, paymentSource, stmtSource, search]);
+
     const [sort, setSort] = React.useState({ col: 'date', dir: 'desc' });
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(() => { const v = +localStorage.getItem('hl-rows-per-page'); return [10, 20, 30, 40, 50, 100].includes(v) ? v : 10; });
@@ -242,8 +336,15 @@
     const filtered = React.useMemo(() => {
       const mm = String(month + 1).padStart(2, '0');
       const prefix = `${year}-${mm}`;
+      // A statement's own window can span a calendar-month boundary (e.g. a card
+      // cutover on the 25th means its period runs from the PREVIOUS month's 26th
+      // to this month's 25th) -- the whole point of filtering by ekstre is to see
+      // every transaction it covers, so the Period filter is bypassed once a
+      // specific statement is selected. Mirrors the Calendar's own cross-month
+      // statement-filter behavior (calendar-component.jsx's buildEvents()).
+      const stmtActive = stmtSource !== 'all';
       return rows.filter(r => {
-        if (!r.date.startsWith(prefix)) return false;
+        if (!stmtActive && !r.date.startsWith(prefix)) return false;
         if (type !== 'all' && r.type !== type) return false;
         if (payer !== 'all' && r.payer !== payer) return false;
         if (payingFor !== 'all' && r.payingFor !== payingFor) return false;
@@ -255,10 +356,11 @@
           if (source === 'manual' && r.recurringId) return false;
           if (source !== 'recurring' && source !== 'manual' && String(r.recurringId) !== String(source)) return false;
         }
-        if (search.trim() && !r.desc.toLowerCase().includes(search.trim().toLowerCase())) return false;
+        if (stmtSource !== 'all' && stmtKey(r) !== stmtSource) return false;
+        if (search.trim() && !trFold(r.desc).includes(trFold(search.trim()))) return false;
         return true;
       });
-    }, [rows, month, year, type, payer, payingFor, cat, paymentSource, source, search]);
+    }, [rows, month, year, type, payer, payingFor, cat, paymentSource, source, stmtSource, search]);
 
     // ── sort ──
     const sorted = React.useMemo(() => {
@@ -283,7 +385,7 @@
     // memoized: stable identity keeps the memoized <TableBody> from re-rendering during column drags
     const pageRows = React.useMemo(() => sorted.slice(start, end), [sorted, start, end]);
 
-    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [month, year, type, payer, payingFor, cat, paymentSource, source, search, perPage]);
+    React.useEffect(() => { setPage(1); setSelected(new Set()); }, [month, year, type, payer, payingFor, cat, paymentSource, source, stmtSource, search, perPage]);
 
     function toggleSort(col) {
       if (rz.isResizing || rz.wasResizingRef.current) return;   // don't sort during/after a column drag
@@ -356,6 +458,20 @@
         .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
     }, [rows]);
 
+    // Every Card Payment / Statement (cpList/stList — the full, unpaginated
+    // universe, see the mount effect above), not just the ones represented in
+    // the 200-most-recent-transactions `rows` cache -- otherwise an older
+    // ekstre would be missing from the picker with no indication why, exactly
+    // as if it didn't exist. Keyed by identity ('cp:<id>' | 'st:<id>') to match
+    // stmtKey(r) above.
+    const stmtSourceOptions = React.useMemo(() => {
+      const items = [
+        ...cpList.map(cp => ({ value: 'cp:' + cp.id, label: cp.name })),
+        ...stList.map(st => ({ value: 'st:' + st.id, label: st.name })),
+      ];
+      return items.sort((a, b) => b.label.localeCompare(a.label, undefined, { numeric: true, sensitivity: 'base' }));
+    }, [cpList, stList]);
+
     // ── column resizing (TanStack Table) — widths persist in localStorage ──
     const rz = useResizableColumns({ columns: cols, storageKey: 'hl-spending-colwidths' });
     const onEditTx = React.useCallback((x) => setModal({ mode: 'edit', tx: x }), []);
@@ -400,6 +516,7 @@
               cat={cat} setCat={setCat}
               paymentSource={paymentSource} setPaymentSource={setPaymentSource} paymentSourceOptions={paymentSourceOptions}
               source={source} setSource={setSource}
+              stmtSource={stmtSource} setStmtSource={setStmtSource} stmtSourceOptions={stmtSourceOptions}
               search={search} setSearch={setSearch}
               statementFilter={statementFilter}
               onClearStatementFilter={() => { window.location.href = 'Spending.html?month=' + month + '&year=' + year; }}
