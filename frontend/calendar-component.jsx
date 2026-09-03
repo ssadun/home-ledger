@@ -680,6 +680,7 @@
     );
     const [pm, setPm]       = React.useState('');   // '' = all payment methods
     const [st, setSt]       = React.useState('');   // '' = all statements; else 'cp:<id>' | 'st:<id>'
+    const [pf, setPf]       = React.useState('');   // '' = all payers; else a 'Paying For' name (see cal-pf-chip click)
     // Event selected for its detail modal (opened by clicking a cal-event-row) —
     // routed per-source by CalEventDetailModal; replaces the old direct
     // navigate-away-on-click behaviour.
@@ -688,12 +689,28 @@
     const pmOptions = React.useMemo(() => paymentMethodOptions(), []);
     const stmtOptions = React.useMemo(() => statementFilterOptions(), []);
     const events = React.useMemo(() => buildEvents(year, month, pm, st), [year, month, pm, st]);
+    // Clicking a 'Paying For' chip narrows the grid/detail down to that
+    // person's own expense/recurring events -- income, account-activity and
+    // credit-payment-due events carry no payingFor (no single beneficiary)
+    // and are naturally excluded, same reasoning as the payingForData totals
+    // below. Kept as a separate layer over `events` (rather than a 3rd
+    // buildEvents() arg) since the person-total chips themselves must keep
+    // reading the FULL month regardless of which chip is active.
+    const viewEvents = React.useMemo(() => {
+      if (!pf) return events;
+      const out = {};
+      Object.entries(events).forEach(([d, arr]) => {
+        const filtered = arr.filter(ev => ev.payingFor === pf);
+        if (filtered.length) out[d] = filtered;
+      });
+      return out;
+    }, [events, pf]);
     // Only computed (and only grows the grid) while a statement filter is
     // active -- gridDays() treats a null range exactly like before.
     const stRange = React.useMemo(() => statementDateRange(st), [st]);
     const days   = React.useMemo(() => gridDays(year, month, stRange), [year, month, stRange]);
     const todayStr = pfxDate(now.getFullYear(), now.getMonth(), now.getDate());
-    const selEvts  = sel && events[sel] ? events[sel] : [];
+    const selEvts  = sel && viewEvents[sel] ? viewEvents[sel] : [];
 
     // Income/Expense/count chips below sum straight off `events` -- while a
     // statement filter (st) is active, buildEvents() already scoped that map
@@ -701,18 +718,24 @@
     // these chips automatically read as "selected statement's totals" with no
     // extra branching needed here.
     let mInc = 0, mExp = 0, mCnt = 0;
+    Object.values(viewEvents).forEach(arr => {
+      arr.forEach(ev => {
+        mCnt++;
+        if (ev.source === 'income') mInc += ev.amount;
+        else if (ev.source === 'expense' || ev.source === 'recurring') mExp += ev.amount;
+      });
+    });
     // Per-person "Paying For" totals for the visible month — same expense/
     // recurring pool as the Expense chip (so the two numbers can never
     // contradict each other) and the same payment-method filter. Account
     // Activity and Credit-Payment-due events carry no payingFor (no single
     // beneficiary), so they're naturally excluded rather than special-cased.
+    // Always read off the FULL (unfiltered-by-payer) `events` map so every
+    // chip keeps showing its own total no matter which chip is active.
     const pfMap = {};
     Object.values(events).forEach(arr => {
       arr.forEach(ev => {
-        mCnt++;
-        if (ev.source === 'income') mInc += ev.amount;
-        else if (ev.source === 'expense' || ev.source === 'recurring') {
-          mExp += ev.amount;
+        if (ev.source === 'expense' || ev.source === 'recurring') {
           const key = ev.payingFor;
           if (key && key !== '–') pfMap[key] = (pfMap[key] || 0) + ev.amount;
         }
@@ -734,7 +757,7 @@
     }
 
     function dots(dateStr) {
-      const de = events[dateStr];
+      const de = viewEvents[dateStr];
       return de ? [...new Set(de.map(e => e.source))] : [];
     }
 
@@ -829,14 +852,25 @@
           </div>
           {payingForData.length > 0 && (
             <div className="cal-pf-wrap">
-              <span className="filter-label"><Icon name="users" size={11} />Paying For ({MONTHS[month]})</span>
+              <span className="cal-pf-head">
+                <span className="filter-label"><Icon name="users" size={11} />Paying For ({MONTHS[month]})</span>
+                {pf && (
+                  <button type="button" className="cal-pf-reset" onClick={() => { setPf(''); setSel(null); }}>
+                    <Icon name="x" size={10} />Reset
+                  </button>
+                )}
+              </span>
               <div className="cal-payingfor">
                 {payingForData.map(p => (
-                  <span key={p.payingFor} className="cal-pf-chip" style={{ '--payer': pfColor(p.payingFor) }}>
+                  <button key={p.payingFor} type="button"
+                    className={'cal-pf-chip' + (pf === p.payingFor ? ' active' : '')}
+                    style={{ '--payer': pfColor(p.payingFor) }}
+                    title={pf === p.payingFor ? 'Click to clear filter' : 'Filter calendar to ' + p.payingFor}
+                    onClick={() => { setPf(pf === p.payingFor ? '' : p.payingFor); setSel(null); }}>
                     <Icon name={p.payingFor === 'Shared' ? 'users' : 'user'} size={11} />
                     {p.payingFor}
                     <b>₺{grp(p.total, 0)}</b>
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

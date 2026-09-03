@@ -45,9 +45,14 @@
    stays a fixed neutral (see calendar-component.jsx pfColor()). */
 .cal-pf-wrap{display:flex;flex-direction:column;gap:8px}
 .cal-pf-wrap .filter-label{margin:0}
+.cal-pf-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cal-pf-reset{display:inline-flex;align-items:center;gap:4px;background:none;border:none;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.2px;font-family:var(--font-sans);padding:0}
+.cal-pf-reset:hover{text-decoration:underline}
 .cal-payingfor{display:flex;gap:8px;flex-wrap:wrap}
-.cal-pf-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius);font-size:11px;font-weight:600;letter-spacing:.2px;border:1px solid;background:color-mix(in srgb, var(--payer) 10%, transparent);border-color:color-mix(in srgb, var(--payer) 25%, transparent);color:var(--payer)}
+.cal-pf-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:var(--radius);font-size:11px;font-weight:600;letter-spacing:.2px;border:1px solid;background:color-mix(in srgb, var(--payer) 10%, transparent);border-color:color-mix(in srgb, var(--payer) 25%, transparent);color:var(--payer);font-family:var(--font-sans);cursor:pointer;transition:var(--transition)}
 .cal-pf-chip b{margin-left:auto;font-variant-numeric:tabular-nums}
+.cal-pf-chip:hover{background:color-mix(in srgb, var(--payer) 18%, transparent)}
+.cal-pf-chip.active{background:var(--payer);border-color:var(--payer);color:var(--bg)}
 
 /* DOW header */
 .cal-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
