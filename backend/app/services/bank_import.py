@@ -3102,10 +3102,11 @@ def import_pension(
         .filter(Account.owner_id == owner_id, Account.type == "pension")
         .all()
     )
-    # `number` is the pension account's unique key (routers/accounts.UNIQUE_FIELD), so
-    # match on it too — a plan added by hand through the Accounts form has the contract
-    # in `number` but no `pension` blob yet, and matching only the blob would open a
-    # second account carrying the same contract number.
+    # Also match on `number` (independent of routers/accounts.IDENTITY_RULES, which
+    # keys `pension` accounts on name+institution, not number) — a plan added by hand
+    # through the Accounts form has the contract in `number` but no `pension` blob yet,
+    # and matching only the blob would open a second account carrying the same
+    # contract number.
     acc = next(
         (a for a in rows
          if (a.pension or {}).get("contract_no") == contract or (a.number or "").strip() == contract),

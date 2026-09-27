@@ -95,20 +95,21 @@ Set the resulting base64url strings as `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` di
 ### Multi-currency design
 Every `Transaction` stores `amount` (original currency) + `amount_try` + `amount_usd` computed at save time. `_apply_rates()` in `routers/transactions.py` runs on every create/update using the closest available TCMB rate on or before the transaction date.
 
-### Account identity (unique keys)
-An account kind that has a real-world identifier is **keyed on it**, so the same account can't be added twice — the usual cause being a re-imported statement the wizard didn't auto-match. Enforced in `routers/accounts.py` (`UNIQUE_FIELD`) on both POST and PATCH, returning **409** with the name of the account already holding the value.
+### Account identity (per-type identity keys)
+An account kind that has a real-world identifier is **keyed on it — required AND unique**, so the same account can't be added twice (the usual cause: a re-imported statement the wizard didn't auto-match) and can't be left without an identity either. Enforced in `routers/accounts.py` (`IDENTITY_RULES`) on both POST and PATCH: a blank identifying field is **400**, a collision is **409** with the name of the account already holding the value.
 
-| Type | Unique key |
-|---|---|
-| `bank`, `overdraft` | `iban` |
-| `credit`, `debit` | `number` (card number) |
-| `pension` | `number` (BES contract no) |
-| `wallet`, `cash`, `invest` | — none; a household can hold several |
+| Type | Identity field(s) | Shared identity space with |
+|---|---|---|
+| `bank`, `overdraft` | `iban` | each other |
+| `credit`, `debit` | `number` (card number) | each other |
+| `wallet` | `number` (account number) | — |
+| `cash` | `name` | — |
+| `invest`, `pension` | `name` + `institution` | — |
 
-- **Scoped by identifier, not by type** (`_TYPES_BY_FIELD`). An IBAN is unique in the real world whether a `bank` or an `overdraft` row claims it, and one card number cannot be both a credit and a debit card — checking per-type would let the same IBAN in twice under two different types.
-- **Compared normalized** (`_ident()`: alphanumerics only, upper-cased). The same IBAN arrives as `TR65 0006 2000 …` from Garanti and `TR810012502002025673300377` from ON, so a raw string compare would miss the duplicate it exists to catch.
-- **Unique, not required.** A blank identifier is never compared, so an account can be created before its IBAN/number is known and several may sit blank.
-- `import_pension()` matches an existing plan on `pension.contract_no` **or** `number`, so the BES import can't sidestep the key by opening a second account for the same contract.
+- **Scoped by identifier, not by type** (`IDENTITY_RULES[type]["types"]`). An IBAN is unique in the real world whether a `bank` or an `overdraft` row claims it, and one card number cannot be both a credit and a debit card — checking per-type would let the same IBAN in twice under two different types.
+- **Compared normalized.** `iban`/`number` go through `_ident()` (alphanumerics only, upper-cased) — the same IBAN arrives as `TR65 0006 2000 …` from Garanti and `TR810012502002025673300377` from ON, so a raw string compare would miss the duplicate it exists to catch. `name`/`institution` go through `_text_ident()` (whitespace-collapsed, case-folded).
+- **Required, not just unique.** `_assert_required_identity()` rejects a blank identifying field (400) before `_assert_unique_identity()` ever runs — unlike the account model's earlier revision, `wallet`/`cash`/`invest`/`pension` accounts can no longer be created with their identity left blank for later.
+- `import_pension()` separately matches an existing plan on `pension.contract_no` **or** `number` for its own upsert (a plan added by hand through the Accounts form has the contract in `number` but no `pension` blob yet) — this lookup is independent of `IDENTITY_RULES`, which enforces `name`+`institution` uniqueness for `pension` accounts instead.
 - A rejected save is rendered in the Accounts form (`#acct-form-error`, cleared on the next edit) — `accounts-data.js` passes the API's `detail` through instead of a bare status code. Before this, `handleSave`'s error went to an unrendered `loadError` and **Save silently did nothing**.
 
 ### Statements (non-credit account statement archive)
