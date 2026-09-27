@@ -685,6 +685,7 @@
     // routed per-source by CalEventDetailModal; replaces the old direct
     // navigate-away-on-click behaviour.
     const [detailEv, setDetailEv] = React.useState(null);
+    const [detailDate, setDetailDate] = React.useState(null);
 
     const pmOptions = React.useMemo(() => paymentMethodOptions(), []);
     const stmtOptions = React.useMemo(() => statementFilterOptions(), []);
@@ -744,6 +745,18 @@
     const payingForData = Object.entries(pfMap)
       .map(([payingFor, total]) => ({ payingFor, total }))
       .sort((a, b) => b.total - a.total);
+
+    // When a 'Paying For' chip is active and no specific day is picked, the
+    // detail panel lists every one of that person's events across the whole
+    // visible month (rather than the "Select A Day" placeholder) — flattened
+    // out of viewEvents (already narrowed to this payer) and date-sorted.
+    const pfEvts = React.useMemo(() => {
+      if (!pf || sel) return [];
+      const list = [];
+      Object.entries(viewEvents).forEach(([d, arr]) => arr.forEach(ev => list.push({ date: d, ev })));
+      list.sort((a, b) => a.date.localeCompare(b.date));
+      return list;
+    }, [pf, sel, viewEvents]);
 
     // Live combined balance across all accounts (independent of the shown month).
     const acctTotal = accountsTotalTRY();
@@ -894,7 +907,7 @@
                     const evColor = stateTone ? stateTone.color : CAL_TYPES[ev.source].color;
                     const evIcon = stateTone ? stateTone.icon : (ev.catIcon || CAL_TYPES[ev.source].icon);
                     return (
-                    <button key={i} type="button" className="cal-event-row" onClick={() => setDetailEv(ev)}
+                    <button key={i} type="button" className="cal-event-row" onClick={() => { setDetailEv(ev); setDetailDate(sel); }}
                       title="View details">
                       <span className="cal-ev-icon" style={{
                         color: evColor,
@@ -940,6 +953,67 @@
                 </div>
               )}
             </React.Fragment>
+          ) : pf ? (
+            <React.Fragment>
+              <div className="cal-detail-head">
+                <Icon name={pf === 'Shared' ? 'users' : 'user'} size={15} style={{ color: pfColor(pf) }} />
+                <span className="cal-detail-date" style={{ color: pfColor(pf) }}>{pf}</span>
+                <span className="cal-detail-dow">{MONTHS[month]} {year}</span>
+                <span className="cal-detail-count">{pfEvts.length} transaction{pfEvts.length !== 1 ? 's' : ''}</span>
+              </div>
+              {pfEvts.length > 0 ? (
+                <div className="cal-events-list">
+                  {pfEvts.map(({ date, ev }, i) => {
+                    const stateTone = ev.settlementState && SETTLE_STATE[ev.settlementState];
+                    const evColor = stateTone ? stateTone.color : CAL_TYPES[ev.source].color;
+                    const evIcon = stateTone ? stateTone.icon : (ev.catIcon || CAL_TYPES[ev.source].icon);
+                    return (
+                    <button key={date + '-' + i} type="button" className="cal-event-row" onClick={() => { setDetailEv(ev); setDetailDate(date); }}
+                      title="View details">
+                      <span className="cal-ev-icon" style={{
+                        color: evColor,
+                        background: 'color-mix(in srgb, ' + evColor + ' 12%, transparent)',
+                        borderColor: 'color-mix(in srgb, ' + evColor + ' 35%, transparent)' }}>
+                        <Icon name={evIcon} size={13} />
+                      </span>
+                      <div className="cal-ev-info">
+                        <span className="cal-ev-desc">{ev.desc}</span>
+                        <span className="cal-ev-meta">
+                          <span className="cal-ev-date">{fmtDate(date)}</span>
+                          <span className={'cal-ev-badge cal-badge-' + ev.source}>{CAL_TYPES[ev.source].label}</span>
+                          {stateTone && (
+                            <span className="cal-ev-state" style={{
+                              color: stateTone.color,
+                              background: 'color-mix(in srgb, ' + stateTone.color + ' 14%, transparent)' }}>
+                              {stateTone.label}
+                            </span>
+                          )}
+                          {ev.paymentMethod && (() => {
+                            const pmR = resolvePM(ev.paymentMethod);
+                            return <span className="cal-ev-payer">{pmR ? pmR.label : ev.paymentMethod}</span>;
+                          })()}
+                          {ev.accountName && <span className="cal-ev-acct"><Icon name="landmark" size={9} />{ev.accountName}</span>}
+                        </span>
+                      </div>
+                      <div className="cal-ev-amount">
+                        <span className={'cal-ev-val ' + (ev.source === 'income' || (ev.source === 'account' && ev.direction === 'incoming') ? 'income' : 'expense')}>
+                          {ev.source === 'income' || (ev.source === 'account' && ev.direction === 'incoming') ? '+' : '−'}
+                          {SYM[ev.cur] || '₺'}{grp(ev.rawAmt)}
+                        </span>
+                      </div>
+                      <span className="cal-ev-go"><Icon name="chevron-right" size={13} /></span>
+                    </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="cal-empty">
+                  <Icon name="calendar-x2" size={28} />
+                  <span className="et">No Transactions</span>
+                  <span className="es">No recorded activity for {pf} this month.</span>
+                </div>
+              )}
+            </React.Fragment>
           ) : (
             <div className="cal-empty">
               <Icon name="calendar-search" size={32} />
@@ -950,7 +1024,7 @@
           </div>
           </div>
           </div>
-          {detailEv && <CalEventDetailModal ev={detailEv} date={sel} onClose={() => setDetailEv(null)} />}
+          {detailEv && <CalEventDetailModal ev={detailEv} date={detailDate} onClose={() => { setDetailEv(null); setDetailDate(null); }} />}
       </React.Fragment>
     );
   }

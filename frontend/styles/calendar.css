@@ -110,7 +110,8 @@
 .cal-badge-expense{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
 .cal-badge-account{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
 .cal-badge-recurring{background:none;color:var(--muted);font-size:10px;font-weight:500;letter-spacing:normal;text-transform:none;padding:0;display:inline-flex;align-items:center;gap:3px}
-.cal-ev-payer,.cal-ev-acct{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:3px}
+.cal-ev-payer,.cal-ev-acct,.cal-ev-date{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:3px}
+.cal-ev-date{font-weight:600}
 .cal-ev-amount{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
 .cal-ev-val{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
 .cal-ev-val.income{color:var(--green)}
